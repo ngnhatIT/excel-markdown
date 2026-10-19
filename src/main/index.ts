@@ -17,6 +17,7 @@ import {
   safeFileName,
 } from './converter'
 import { friendlyError } from './errors'
+import { isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -109,19 +110,17 @@ function createWindow(saved?: WindowBounds): void {
     mainWindow = null
   })
 
-  // Link trong preview (hyperlink từ Excel) mở bằng trình duyệt ngoài,
-  // không điều hướng cửa sổ app.
+  // Link trong preview (hyperlink từ Excel): chỉ http/https/mailto được mở bằng
+  // trình duyệt ngoài; link tương đối / file:// / UNC bị chặn để cửa sổ app
+  // không bị điều hướng mất trạng thái và không mở được file cục bộ.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    void shell.openExternal(url)
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
     return { action: 'deny' }
   })
   mainWindow.webContents.on('will-navigate', (e, url) => {
-    const appUrl = process.env['ELECTRON_RENDERER_URL']
-    const isApp = appUrl ? url.startsWith(appUrl) : url.startsWith('file://')
-    if (!isApp) {
-      e.preventDefault()
-      void shell.openExternal(url)
-    }
+    if (shouldAllowNavigation(url, mainWindow?.webContents.getURL() ?? '')) return
+    e.preventDefault()
+    if (isSafeExternalUrl(url)) void shell.openExternal(url)
   })
 }
 
@@ -179,9 +178,13 @@ ipcMain.handle('dialog:openDirectory', async () => {
   }
 })
 
-ipcMain.handle('shell:openPath', async (_e, target: string) => {
+ipcMain.handle('shell:openPath', async (_e, target: unknown) => {
   try {
-    const errMsg = await shell.openPath(target)
+    // Chỉ mở thư mục (thư mục xuất); không bao giờ mở/chạy file.
+    if (!(await isOpenableDirectory(target))) {
+      return { ok: false, error: 'Không mở được: thư mục không tồn tại hoặc không hợp lệ.' }
+    }
+    const errMsg = await shell.openPath(target as string)
     if (errMsg) return { ok: false, error: errMsg }
     return { ok: true, data: null }
   } catch (err) {
