@@ -21,6 +21,23 @@ describe('safeSheetName', () => {
     expect(safeSheetName('history', fresh())).toBe('history_')
   })
 
+  it("dấu nháy đơn ở đầu/cuối -> _ (Excel/exceljs từ chối)", () => {
+    expect(safeSheetName("'abc'", fresh())).toBe('_abc_')
+    expect(safeSheetName("'", fresh())).toBe('_')
+    // dấu nháy ở giữa giữ nguyên
+    expect(safeSheetName("a'b", fresh())).toBe("a'b")
+  })
+
+  it("phép cắt 31 ký tự để lộ dấu nháy ở cuối -> vẫn không kết thúc bằng '", () => {
+    const out = safeSheetName('x'.repeat(30) + "'y", fresh())
+    expect(out.endsWith("'")).toBe(false)
+    expect(out).toBe('x'.repeat(30) + '_')
+  })
+
+  it('phép cắt để lại khoảng trắng ở cuối -> trim lại sau khi cắt', () => {
+    expect(safeSheetName('x'.repeat(30) + ' y', fresh())).toBe('x'.repeat(30))
+  })
+
   it('trùng không phân biệt hoa/thường -> thêm hậu tố (n)', () => {
     const used = fresh()
     expect(['Sheet', 'sheet', 'SHEET'].map((n) => safeSheetName(n, used))).toEqual([

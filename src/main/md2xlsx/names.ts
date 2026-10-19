@@ -5,6 +5,8 @@ import type { SheetModel } from './model'
 const MAX_SHEET_NAME = 31
 // Ký tự Excel cấm trong tên sheet.
 const FORBIDDEN = /[[\]:*?/\\]/g
+// Dấu nháy đơn ở đầu hoặc cuối tên.
+const EDGE_QUOTE = /^'|'$/g
 
 /** Cắt còn tối đa `max` đơn vị UTF-16, không để lại nửa cặp surrogate. */
 function cut(text: string, max: number): string {
@@ -19,7 +21,11 @@ function cut(text: string, max: number): string {
  * `used` chứa các tên đã dùng ở dạng chữ thường; hàm tự thêm tên trả về vào `used`.
  */
 export function safeSheetName(raw: string, used: Set<string>): string {
+  // Cắt xong mới trim và xử lý dấu nháy: phép cắt có thể để lại khoảng trắng hoặc `'` ở cuối.
   let base = cut(raw.replace(FORBIDDEN, '_').trim(), MAX_SHEET_NAME)
+    .trim()
+    // Excel cấm `'` ở ký tự đầu hoặc cuối tên sheet.
+    .replace(EDGE_QUOTE, '_')
   if (base === '') base = 'Sheet'
   // "History" là tên dành riêng của Excel (không phân biệt hoa/thường).
   if (base.toLowerCase() === 'history') base += '_'
