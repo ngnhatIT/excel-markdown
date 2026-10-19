@@ -88,9 +88,16 @@ Excel tự xuống dòng**, chiều cao = 16.5pt × số dòng (đo bằng Excel
   toàn角 14px — bảng 游ゴシック tính `i`/`l` quá hẹp, sẽ thiếu dòng). Chiều cao: heading
   19.5pt/dòng; code 12pt/dòng + 1.5 (Excel AutoFit: 12n khi tự xuống dòng, 12n + 1.5 khi có
   xuống dòng thật), không thấp hơn 15pt (hàng mặc định).
-- Excel chỉ xuống dòng sau khoảng trắng ASCII (khoảng trắng cuối dòng được treo); một từ
-  không vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn một dòng thì cắt theo ký tự.
-  Chữ Nhật không có khoảng trắng cũng là một từ.
+- Excel chỉ xuống dòng sau khoảng trắng ASCII và sau dấu `-` (U+002D) (khoảng trắng cuối dòng
+  được treo); một từ không vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn một dòng thì
+  cắt theo ký tự. Chữ Nhật không có khoảng trắng cũng là một từ. Dấu `-` (đo bằng Excel thật,
+  sửa sau review): xuống dòng được ngay sau **mọi** dấu `-`, bất kể hai bên là chữ, chữ số
+  (`2026-10-19`, UUID), chữ toàn角, dấu câu, khoảng trắng (` -x`), dấu `-` khác (`--`) hay đầu ô;
+  không xuống dòng trước dấu `-`; một dấu `-` ngay sau phần đã vừa dòng được treo ở cuối dòng
+  (chỉ một dấu; phần trước nó đã tràn thì không treo). Các ký tự khác — `/ ? , . ) ! % ; | _`,
+  ngoặc, `‐ – — ‑` (U+2010–U+2014), NBSP, khoảng trắng toàn角, `、。・`, giữa hai chữ toàn角 —
+  **không** là chỗ xuống dòng. Bỏ quy tắc này làm hàng thấp hơn AutoFit (vd dòng code
+  `curl -X POST https://…/search-by-name-…` ở vùng 4 cột: app 97.5 vs Excel 108).
 - Vùng rộng = tổng độ rộng các cột merge; cột giữ mặc định (không có dữ liệu, hoặc tính ra
   đúng 9 — exceljs coi 9 là mặc định và không ghi `<col>`) tính 8.43.
 - Hàng meta mà value > 1 dòng: chiều cao lấy thêm max với số dòng của ô nhãn ở cột A (hàng

@@ -107,7 +107,7 @@ describe('estimateLines', () => {
     expect(estimateLines('x', 0.1)).toBe(1)
   })
 
-  it('chỉ xuống dòng sau khoảng trắng ASCII: cụm chữ Nhật là một từ, không vừa phần còn lại thì sang dòng mới', () => {
+  it('chỉ xuống dòng sau khoảng trắng ASCII (và sau dấu -): cụm chữ Nhật là một từ, không vừa phần còn lại thì sang dòng mới', () => {
     // từ đầu dòng dài hơn một dòng: cắt theo ký tự, mỗi dòng đầy
     expect(estimateLines('あ'.repeat(10), 10)).toBe(2)
     // 'ab ' rồi cụm 8 chữ toàn角 (16 đơn vị): cụm sang dòng mới rồi mới cắt -> 1 + 2 dòng (Excel đo: như vậy)
@@ -120,6 +120,62 @@ describe('estimateLines', () => {
   it('khoảng trắng cuối dòng được treo, không tự tạo dòng mới', () => {
     expect(estimateLines('i'.repeat(13) + ' '.repeat(40), 6.2)).toBe(1)
     expect(estimateLines('i'.repeat(13) + '   ' + 'i', 6.2)).toBe(2)
+  })
+
+  describe("dấu '-' (U+002D): Excel xuống dòng sau mỗi dấu '-', một dấu '-' cuối dòng được treo", () => {
+    // Đo bằng Excel 16 (MS Gothic 10, cột 285px chứa đúng 38 chữ ASCII 7px). Kiểu 'code' với vùng rộng 40.93 cũng
+    // chứa đúng 38 chữ -> số dòng của mô hình phải BẰNG số dòng Excel AutoFit trong mọi mẫu dưới đây.
+    const W = 40.93
+    const x = (n: number) => 'x'.repeat(n)
+    const lines = (s: string) => estimateLines(s, W, 'code')
+
+    it('vùng rộng chứa đúng 38 chữ', () => {
+      expect(lines(x(38))).toBe(1)
+      expect(lines(x(39))).toBe(2)
+    })
+
+    it.each([
+      ['x16 - x39 (sau chữ)', x(16) + '-' + x(39), 3],
+      ['trước chữ số (x-1)', x(16) + '-1' + x(39), 3],
+      ['sau chữ số (1-x)', x(16) + '1-' + x(39), 3],
+      ['giữa chữ số (1-2)', x(16) + '1-2' + x(39), 3],
+      ['giữa chữ toàn角 (あ-あ)', x(16) + 'あ-あ' + x(39), 3],
+      ['trước chữ toàn角 (x-あ)', x(16) + '-あ' + x(39), 3],
+      ['sau chữ toàn角 (あ-x)', x(16) + 'あ-' + x(39), 3],
+      ['trước dấu câu (-. -/ -( -")', x(16) + '-./("' + x(39), 3],
+      ['hai dấu (--)', x(16) + '--' + x(39), 3],
+      ['sau khoảng trắng ( -): dấu - ở lại dòng trên', x(16) + ' -' + x(38), 2],
+      ['sau khoảng trắng, trước chữ số ( -1)', x(16) + ' -' + '1'.repeat(38), 2],
+      ['xuống sau dấu - cuối của --', x(16) + '--' + x(38), 2],
+      ['xuống sau dấu - cuối của ---', x(16) + '---' + x(38), 2],
+      ['- đầu ô', '-' + x(39), 3],
+      ['-- đầu ô', '--' + x(39), 3],
+      ['- đầu dòng sau khi xuống ở khoảng trắng', x(38) + ' -' + x(39), 4]
+    ])('xuống dòng sau dấu -: %s', (_, s, n) => {
+      expect(lines(s)).toBe(n)
+    })
+
+    it.each([
+      ['một dấu - ngay sau dòng đầy được treo', 'y ' + x(36) + '-' + x(38), 2],
+      ['hai dấu - : chỉ một dấu treo', 'y ' + x(36) + '--' + x(38), 3],
+      ['một dấu - sau từ dài đầy dòng', x(38) + '-' + x(38), 2],
+      ['hai dấu - sau từ dài đầy dòng', x(38) + '--' + x(38), 3],
+      ['dấu - rồi khoảng trắng: cả hai treo', x(38) + '- ' + x(38), 2],
+      ['khoảng trắng rồi dấu -: dấu - không treo', x(38) + ' -' + x(38), 3],
+      ['x37 -- x38', x(37) + '--' + x(38), 2],
+      ['phần trước dấu - đã tràn: không treo', 'y ' + x(37) + '-' + x(38), 3],
+      ['dòng đầy rồi - (treo) rồi từ ngắn', 'y ' + x(36) + '-' + x(5), 2],
+      ['dòng đầy rồi -- (dấu thứ hai treo)', 'y ' + x(35) + '--' + x(5), 2],
+      ['dòng đầy rồi ---', 'y ' + x(35) + '---' + x(5), 2],
+      ['từ dài bị cắt rồi mới đến -', x(39) + '-' + x(38), 3]
+    ])('treo: %s', (_, s, n) => {
+      expect(lines(s)).toBe(n)
+    })
+
+    it('các ký tự khác không phải chỗ xuống dòng (đo: / ? , . ) ! % ; | _ ‐ – — ‑ NBSP)', () => {
+      for (const c of ['/', '?', ',', '.', ')', '!', '%', ';', '|', '_', '\u2010', '\u2013', '\u2014', '\u2011', '\u00A0'])
+        expect(lines(x(16) + c + x(39)), c).toBe(2)
+    })
   })
 
   it('tổng độ rộng không hợp lệ không sinh Infinity/NaN', () => {

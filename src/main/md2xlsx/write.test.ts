@@ -545,6 +545,76 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     'SELECT CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER, REGISTERED_DATE FROM TBL_CUSTOMER WHERE DELETE_FLG = 0 AND STATUS_CODE IN (1, 2, 3) ORDER BY CUSTOMER_ID, REGISTERED_DATE DESC'
   const IDENT =
     '※ 顧客コード（CUST_CD）は TBL_CUSTOMER.CUST_CD と一致すること。ERR_CODE: E0001, E0002, E0003, E0004, E0005, E0006, E0007, E0008 を返す。DELETE_FLG = 1 のデータは対象外'
+  /**
+   * Mẫu có dấu '-' (review sau đợt sửa heading/code): Excel xuống dòng sau mỗi dấu '-', nên chuỗi nhiều đoạn
+   * `xxx-` cần nhiều dòng hơn một từ liền (trước khi sửa: 25 hàng bị che). Mẫu dùng cho cả đoạn văn, heading và code.
+   */
+  const seg = (n: number, k: number, ch = 'a', sep = '-') =>
+    Array.from({ length: k }, () => ch.repeat(n - 1) + sep).join('')
+  const HYPHEN_TEXTS = [
+    seg(10, 40),
+    seg(14, 30),
+    seg(18, 25),
+    seg(22, 20),
+    seg(26, 18),
+    seg(30, 16),
+    seg(40, 12),
+    seg(18, 25, 'W'),
+    seg(18, 25, 'i'),
+    ...['/', '?', ',', '.', ')', '!', '%', ';', '|'].map((sep) => seg(16, 25, 'x', sep)),
+    "id IN ('3f2504e0-4f89-11d3-9a0c-0305e82c3301','6ba7b810-9dad-11d1-80b4-00c04fd430c8','6ba7b811-9dad-11d1-80b4-00c04fd430c8','6ba7b812-9dad-11d1-80b4-00c04fd430c8')",
+    'curl -X POST https://api.example.com/v1/customers/search-by-name-and-phone-number?include-deleted=false&page-size=100&sort-order=desc&fields=customer-id,customer-name,phone-number,email-address',
+    '.customer-search-result-table-header-cell-highlighted-primary-background-color-variant-dark-mode-enabled-responsive-layout-wrapper { display: none; }',
+    '検索-' + '顧客情報-一覧表示-'.repeat(20),
+    'ABC-' + 'カタカナ-ひらがな-'.repeat(20),
+    '2026-10-19 '.repeat(20).trimEnd(),
+    '03-1234-5678, '.repeat(15).trimEnd(),
+    'xxxxxxxx--'.repeat(30),
+    '-option -flag --long-option=value '.repeat(8).trimEnd(),
+    'aaaaaaaaaaaaaaa -bbbbbbbbbbbbbbb - '.repeat(8).trimEnd(),
+    '-' + 'a'.repeat(60) + '-' + 'b'.repeat(60),
+    '\u2010\u2013\u2014\u2011'.repeat(30)
+  ]
+  /**
+   * Excel AutoFit (pt) của cả chuỗi: [đoạn văn golden, narrow, heading golden, narrow, code golden, narrow].
+   * 409.5 = giới hạn AutoFit (Excel cần ít nhất 409.5): app tách thành nhiều hàng, tổng chiều cao phải >= 409.5.
+   */
+  // prettier-ignore
+  const HYPHEN_EXCEL: number[][] = [
+    [82.5, 231, 117, 390, 60, 168],
+    [82.5, 247.5, 117, 409.5, 60, 180],
+    [82.5, 409.5, 136.5, 409.5, 60, 300],
+    [82.5, 330, 136.5, 390, 60, 240],
+    [99, 297, 175.5, 409.5, 72, 216],
+    [99, 264, 156, 409.5, 72, 192],
+    [99, 396, 234, 409.5, 72, 288],
+    [148.5, 409.5, 253.5, 409.5, 60, 300],
+    [49.5, 115.5, 78, 253.5, 60, 300],
+    [66, 181.5, 117, 331.5, 60, 156],
+    [66, 198, 117, 331.5, 60, 156],
+    [66, 181.5, 117, 312, 60, 156],
+    [66, 181.5, 117, 312, 60, 156],
+    [66, 181.5, 117, 331.5, 60, 156],
+    [66, 181.5, 117, 331.5, 60, 156],
+    [66, 198, 117, 351, 60, 156],
+    [66, 181.5, 117, 331.5, 60, 156],
+    [66, 181.5, 117, 331.5, 60, 156],
+    [33, 82.5, 58.5, 175.5, 24, 84],
+    [49.5, 132, 58.5, 195, 36, 108],
+    [33, 82.5, 39, 136.5, 24, 60],
+    [66, 231, 97.5, 273, 60, 168],
+    [66, 231, 97.5, 273, 48, 168],
+    [49.5, 115.5, 58.5, 175.5, 36, 96],
+    [49.5, 115.5, 58.5, 156, 36, 96],
+    [49.5, 165, 97.5, 292.5, 48, 120],
+    [49.5, 132, 78, 214.5, 36, 120],
+    [66, 264, 78, 312, 48, 192],
+    [33, 99, 39, 136.5, 24, 60],
+    [33, 99, 58.5, 136.5, 24, 60]
+  ]
+  /** Mẫu '-' của một kiểu: cột k (0 đoạn văn, 2 heading, 4 code) của HYPHEN_EXCEL. */
+  const hyphen = (k: number) =>
+    HYPHEN_TEXTS.map((text, i) => ({ text, golden: HYPHEN_EXCEL[i][k], narrow: HYPHEN_EXCEL[i][k + 1] }))
   const PARAGRAPHS: { text: string; golden: number; narrow: number }[] = [
     { text: SQL, golden: 49.5, narrow: 148.5 },
     { text: IDENT, golden: 33, narrow: 99 },
@@ -586,7 +656,8 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
       golden: 16.5,
       narrow: 49.5
     },
-    { text: '\u{1F600}'.repeat(60), golden: 33, narrow: 82.5 }
+    { text: '\u{1F600}'.repeat(60), golden: 33, narrow: 82.5 },
+    ...hyphen(0)
   ]
   const META: { text: string; golden: number; narrow: number }[] = [
     {
@@ -614,7 +685,8 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { text: '■ Section ' + 'ABCDEFGHIJ'.repeat(12), golden: 58.5, narrow: 136.5 },
     { text: '1.2.3 ' + 'mmmmmmmmmm wwwwwwwwww '.repeat(6).trimEnd(), golden: 58.5, narrow: 234 },
     { text: '見出し \u2705 完了 \u274C 未完了 \u2B50 重要 '.repeat(4).trimEnd(), golden: 39, narrow: 117 },
-    { text: 'iiiiiiiiii llllllllll '.repeat(10).trimEnd(), golden: 39, narrow: 97.5 }
+    { text: 'iiiiiiiiii llllllllll '.repeat(10).trimEnd(), golden: 39, narrow: 97.5 },
+    ...hyphen(2)
   ]
   const CODE: { text: string; golden: number; narrow: number }[] = [
     { text: SQL_300, golden: 48, narrow: 132 },
@@ -622,7 +694,8 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { text: '    // ' + 'コメント：顧客情報を検索して一覧に表示する。'.repeat(4), golden: 36, narrow: 84 },
     { text: 'const longIdentifierName_' + 'x'.repeat(150) + ' = 1', golden: 36, narrow: 84 },
     { text: 'l'.repeat(80) + ' ' + 'i'.repeat(80) + ' ' + '.'.repeat(80), golden: 36, narrow: 108 },
-    { text: '\u2705'.repeat(60), golden: 24, narrow: 60 }
+    { text: '\u2705'.repeat(60), golden: 24, narrow: 60 },
+    ...hyphen(4)
   ]
   const samples = (): Block[] => [
     ...PARAGRAPHS.map(({ text }): Block => ({ kind: 'paragraph', text })),
@@ -635,15 +708,40 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     'kihon-sekkei.xlsx.md'
   ).sheets[0]
 
-  /** Chiều cao hiển thị của hàng có ô chính (cột `col`) chứa `text`; hàng không đặt chiều cao thì Excel tự giãn = 1 dòng. */
-  const heightOf = (ws: ExcelJS.Worksheet, col: number, text: string): number => {
-    for (let r = 1; r <= ws.rowCount; r++) {
+  type Kind = 'text' | 'heading' | 'code'
+  /** Loại hàng theo font của ô: heading 12pt, code MS Gothic, còn lại đoạn văn / ghi chú / value meta. */
+  const kindOf = (cell: ExcelJS.Cell): Kind =>
+    cell.font?.size === 12 ? 'heading' : cell.font?.name === 'MS Gothic' ? 'code' : 'text'
+  /**
+   * Các hàng loại `kind` chứa `text` ở cột `col`: một ô chính, hoặc các mảnh liền nhau khi chữ quá cao bị tách
+   * (nối bằng chuỗi rỗng, hoặc xuống dòng nếu tách giữa các dòng thật).
+   */
+  const rowsOf = (ws: ExcelJS.Worksheet, col: number, text: string, kind: Kind = 'text'): number[] => {
+    const valueAt = (r: number): string | null => {
       const cell = ws.getCell(r, col)
-      // ô phụ của vùng merge trả về giá trị của ô chính: chỉ xét ô chính
-      if (cell.master.address === cell.address && cell.value === text) return ws.getRow(r).height ?? LINE
+      // ô phụ của vùng merge trả về giá trị của ô chính: chỉ xét ô chính; cùng chữ có thể là đoạn văn/heading/code
+      if (cell.master.address !== cell.address || typeof cell.value !== 'string' || kindOf(cell) !== kind) return null
+      return cell.value
+    }
+    for (let r = 1; r <= ws.rowCount; r++) {
+      for (const sep of ['', '\n']) {
+        let acc = valueAt(r)
+        if (acc === null || !text.startsWith(acc)) break
+        const rows = [r]
+        while (acc !== text) {
+          const next = valueAt(r + rows.length)
+          if (next === null || !text.startsWith(acc + sep + next)) break
+          acc += sep + next
+          rows.push(r + rows.length)
+        }
+        if (acc === text) return rows
+      }
     }
     throw new Error('không thấy ô: ' + text.slice(0, 30))
   }
+  /** Tổng chiều cao hiển thị các hàng chứa `text`; hàng không đặt chiều cao thì Excel tự giãn = 1 dòng. */
+  const heightOf = (ws: ExcelJS.Worksheet, col: number, text: string, kind: Kind = 'text'): number =>
+    rowsOf(ws, col, text, kind).reduce((sum, r) => sum + (ws.getRow(r).height ?? LINE), 0)
 
   it.each([
     ['golden', () => [...golden.blocks, ...samples()]],
@@ -653,8 +751,8 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     const got = [
       ...PARAGRAPHS.map((s) => ({ text: s.text.slice(0, 30), excel: s[sheet], app: heightOf(ws, 1, s.text) })),
       ...META.map((s) => ({ text: 'meta ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 2, s.text) })),
-      ...HEADINGS.map((s) => ({ text: 'heading ' + s.text.slice(0, 22), excel: s[sheet], app: heightOf(ws, 1, s.text) })),
-      ...CODE.map((s) => ({ text: 'code ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 1, s.text) }))
+      ...HEADINGS.map((s) => ({ text: 'heading ' + s.text.slice(0, 22), excel: s[sheet], app: heightOf(ws, 1, s.text, 'heading') })),
+      ...CODE.map((s) => ({ text: 'code ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 1, s.text, 'code') }))
     ]
     expect(got.filter((g) => g.app < g.excel)).toEqual([])
   })
@@ -664,12 +762,13 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     ['narrow', () => samples(), 4]
   ] as const)('%s: heading và dòng code dài merge A..span, tự xuống dòng (không tràn ra ngoài vùng in)', async (_, blocks, span) => {
     const ws = (await reload([{ name: 'S', blocks: blocks() }])).worksheets[0]
-    for (const { text } of [...HEADINGS, ...CODE]) {
-      let r = 1
-      while (!(ws.getCell(r, 1).value === text && ws.getCell(r, 1).master.address === `A${r}`)) r++
-      expect(ws.getCell(r, span).master.address, text.slice(0, 20)).toBe(`A${r}`)
-      expect(ws.getCell(r, span + 1).isMerged, text.slice(0, 20)).toBe(false)
-      expect(ws.getCell(r, 1).alignment, text.slice(0, 20)).toMatchObject({ wrapText: true, vertical: 'top' })
+    const all = [...HEADINGS.map((s) => [s.text, 'heading'] as const), ...CODE.map((s) => [s.text, 'code'] as const)]
+    for (const [text, kind] of all) {
+      for (const r of rowsOf(ws, 1, text, kind)) {
+        expect(ws.getCell(r, span).master.address, text.slice(0, 20)).toBe(`A${r}`)
+        expect(ws.getCell(r, span + 1).isMerged, text.slice(0, 20)).toBe(false)
+        expect(ws.getCell(r, 1).alignment, text.slice(0, 20)).toMatchObject({ wrapText: true, vertical: 'top' })
+      }
     }
   })
 })

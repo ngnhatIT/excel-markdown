@@ -38,10 +38,16 @@ export function displayWidth(s: string): number {
 //   78 chữ toàn角 (13), 144 chữ '0' (7), 338 chữ 'i' (3), 84 chữ 'W' (12) trên một dòng — khoảng 6.73 px glyph cho
 //   mỗi đơn vị độ rộng cột. Ở đây lấy 6.5 px/đơn vị (chữ toàn角 = đúng 2 đơn vị như quy tắc độ rộng cột) để ước
 //   lượng luôn dư một chút.
-// - Excel chỉ xuống dòng sau khoảng trắng ASCII (khoảng trắng cuối dòng được "treo", không cần vừa); một "từ" không
-//   vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn cả một dòng thì cắt theo ký tự. Chữ Nhật không có
-//   khoảng trắng cũng là một từ (vd `mixed カタカナ…`: cả cụm カタカナ sang dòng mới). Mô hình này khớp đúng số dòng
-//   AutoFit của 100/102 mẫu đo (2 mẫu còn lại lệch do bề rộng, đã được hệ số 6.5 bù).
+// - Excel chỉ xuống dòng sau khoảng trắng ASCII và sau dấu '-' (U+002D); khoảng trắng cuối dòng được "treo", không
+//   cần vừa; một "từ" không vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn cả một dòng thì cắt theo ký tự.
+//   Chữ Nhật không có khoảng trắng cũng là một từ (vd `mixed カタカナ…`: cả cụm カタカナ sang dòng mới). Mô hình này
+//   khớp đúng số dòng AutoFit của 100/102 mẫu đo (2 mẫu còn lại lệch do bề rộng, đã được hệ số 6.5 bù).
+// - Dấu '-' (đo bằng MS Gothic 10 và 游ゴシック 10, cột chứa đúng 38 / 45 chữ): xuống dòng được ngay sau MỌI dấu '-',
+//   bất kể ký tự hai bên (chữ, chữ số `-1`, chữ toàn角, dấu câu, khoảng trắng ` -`, dấu '-' khác `--`, đầu ô); không
+//   xuống dòng trước dấu '-'. Một dấu '-' ngay sau phần đã vừa dòng được treo ở cuối dòng (như khoảng trắng nhưng chỉ
+//   một dấu: `x38--x38` ra 3 dòng, `x38-x38` ra 2 dòng); phần trước nó đã tràn (vd `x38 -`) thì không treo. Các ký
+//   tự khác KHÔNG phải chỗ xuống dòng: / ? , . ) ! % ; | _ ( [ { … ‐ – — ‑ (U+2010–U+2014), NBSP, U+3000, 、。・ và
+//   giữa chữ toàn角.
 
 /** Số px glyph (cỡ 13px) ứng với một đơn vị độ rộng cột. */
 const GLYPH_PX_PER_UNIT = 6.5
@@ -155,16 +161,18 @@ function glyphWidth(cp: number, m: GlyphMetrics): number {
   return px / GLYPH_PX_PER_UNIT
 }
 
-/** Khoảng trắng ASCII: chỗ xuống dòng duy nhất của Excel (khoảng trắng toàn角 U+3000 không phải). */
+/** Khoảng trắng ASCII: chỗ xuống dòng của Excel (khoảng trắng toàn角 U+3000 không phải). */
 const SPACE = 0x20
+/** Dấu '-' ASCII: Excel xuống dòng được ngay sau nó (‐ – — U+2010–U+2014 thì không). */
+const HYPHEN = 0x2d
 
 /**
  * Mô phỏng Excel tự xuống dòng một dòng thật trong vùng rộng `width` (đơn vị độ rộng cột), bắt đầu từ chỉ số
  * `from` (UTF-16). Trả về chỉ số bắt đầu của từng dòng hiển thị (phần tử đầu là `from`); dừng sớm khi đã có
- * `limit` dòng. Xuống dòng tham lam ngay trước ký tự đầu tiên sau một dãy khoảng trắng; khoảng trắng không bao giờ
- * làm tràn dòng; từ không vừa phần còn lại thì sang dòng mới; từ dài hơn cả một dòng thì cắt theo ký tự (không
- * cắt giữa cặp surrogate). Chạy lại từ một chỉ số đầu dòng cho ra đúng các dòng như khi chạy liền từ đầu
- * (splitByLines dựa vào điều này).
+ * `limit` dòng. Xuống dòng tham lam ngay trước ký tự đầu tiên sau một dãy khoảng trắng, hoặc ngay sau một dấu '-';
+ * khoảng trắng không bao giờ làm tràn dòng; một dấu '-' ngay sau phần đã vừa dòng được treo; từ không vừa phần còn
+ * lại thì sang dòng mới; từ dài hơn cả một dòng thì cắt theo ký tự (không cắt giữa cặp surrogate). Chạy lại từ một
+ * chỉ số đầu dòng cho ra đúng các dòng như khi chạy liền từ đầu (splitByLines dựa vào điều này).
  */
 function wrapStarts(line: string, from: number, width: number, limit: number, m: GlyphMetrics): number[] {
   const starts = [from]
@@ -185,12 +193,13 @@ function wrapStarts(line: string, from: number, width: number, limit: number, m:
       i += size
       continue
     }
-    if (i > lineStart && prev === SPACE) {
+    if (i > lineStart && (prev === SPACE || prev === HYPHEN)) {
       lastBreak = i
       xAtBreak = x
     }
-    // Ký tự đầu dòng luôn được đặt (vùng hẹp hơn một ký tự vẫn không treo).
-    while (i > lineStart && x + w > width) {
+    // Ký tự đầu dòng luôn được đặt (vùng hẹp hơn một ký tự vẫn không treo). Dấu '-' tràn dòng mà phần trước nó vừa
+    // dòng thì treo (Excel đo: `x38-x38` 2 dòng, `x38--x38` 3 dòng, `x38 -x38` 3 dòng ở vùng 38 chữ).
+    while (i > lineStart && x + w > width && !(cp === HYPHEN && x <= width)) {
       if (lastBreak > lineStart) {
         // Cả từ đang dở sang dòng mới
         lineStart = lastBreak
