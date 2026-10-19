@@ -527,15 +527,15 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { text: 'mixed ' + 'カタカナ'.repeat(10) + ' and ABCDEFGHIJKLMNOPQRSTUVWXYZ ' + 'ひらがな'.repeat(12), golden: 49.5, narrow: 148.5 },
     { text: '※ CUST_CD は TBL_CUSTOMER.CUST_CD と一致すること。'.repeat(6), golden: 66, narrow: 214.5 },
     // Emoji và ký tự rộng hơn 1em (đo lại sau review: trước khi sửa app đặt 16.5 / 49.5 / 82.5 / 33 -> chữ bị che)
-    { text: '✅'.repeat(40), golden: 33, narrow: 66 },
-    { text: '✅ 検索 ❌ 削除 ⭐ 重要 ✨ 新規 ❓ 要確認 '.repeat(4).trimEnd(), golden: 33, narrow: 82.5 },
-    { text: '進捗: ' + '✅'.repeat(20) + ' 完了 ' + '❌'.repeat(10) + ' 未完了 ' + '⭐'.repeat(5), golden: 33, narrow: 82.5 },
-    { text: '⚠️ 注意: ' + '⚠️'.repeat(30), golden: 49.5, narrow: 82.5 },
-    { text: '⏰⌛⚡⛔⬛⭕➕☔'.repeat(8), golden: 33, narrow: 99 },
-    { text: '﷽'.repeat(20), golden: 49.5, narrow: 165 },
-    { text: '⟶ → ⌨ ⏱ ⸻ '.repeat(10).trimEnd(), golden: 33, narrow: 82.5 },
+    { text: '\u2705'.repeat(40), golden: 33, narrow: 66 },
+    { text: '\u2705 検索 \u274C 削除 \u2B50 重要 \u2728 新規 \u2753 要確認 '.repeat(4).trimEnd(), golden: 33, narrow: 82.5 },
+    { text: '進捗: ' + '\u2705'.repeat(20) + ' 完了 ' + '\u274C'.repeat(10) + ' 未完了 ' + '\u2B50'.repeat(5), golden: 33, narrow: 82.5 },
+    { text: '\u26A0\uFE0F 注意: ' + '\u26A0\uFE0F'.repeat(30), golden: 49.5, narrow: 82.5 },
+    { text: '\u23F0\u231B\u26A1\u26D4\u2B1B\u2B55\u2795\u2614'.repeat(8), golden: 33, narrow: 99 },
+    { text: '\uFDFD'.repeat(20), golden: 49.5, narrow: 165 },
+    { text: '\u27F6 \u2192 \u2328 \u23F1 \u2E3B '.repeat(10).trimEnd(), golden: 33, narrow: 82.5 },
     {
-      text: '\u{1F468}‍\u{1F469}‍\u{1F467} \u{1F44D}\u{1F3FD} \u{1F1EF}\u{1F1F5} 1️⃣ '.repeat(8).trimEnd(),
+      text: '\u{1F468}\u200D\u{1F469}\u200D\u{1F467} \u{1F44D}\u{1F3FD} \u{1F1EF}\u{1F1F5} 1\uFE0F\u20E3 '.repeat(8).trimEnd(),
       golden: 16.5,
       narrow: 49.5
     },
@@ -553,11 +553,11 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { text: IDENT, golden: 33, narrow: 132 },
     { text: 'TBL_CUSTOMER / TBL_ORDER / TBL_ORDER_DETAIL / TBL_PRODUCT / TBL_STOCK', golden: 16.5, narrow: 82.5 },
     {
-      text: '✅ 対応済み ❌ 未対応 ⭐ 優先 ✨ 新機能 ❓ 要確認 ✅ 対応済み ❌ 未対応 ⭐ 優先 ✨ 新機能 ❓ 要確認 ✅ 対応済み ❌ 未対応',
+      text: '\u2705 対応済み \u274C 未対応 \u2B50 優先 \u2728 新機能 \u2753 要確認 \u2705 対応済み \u274C 未対応 \u2B50 優先 \u2728 新機能 \u2753 要確認 \u2705 対応済み \u274C 未対応',
       golden: 33,
       narrow: 82.5
     },
-    { text: '⚠️'.repeat(30), golden: 33, narrow: 82.5 }
+    { text: '\u26A0\uFE0F'.repeat(30), golden: 33, narrow: 82.5 }
   ]
   const samples = (): Block[] => [
     ...PARAGRAPHS.map(({ text }): Block => ({ kind: 'paragraph', text })),

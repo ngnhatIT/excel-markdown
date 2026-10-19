@@ -57,19 +57,19 @@ describe('estimateLines', () => {
   it('emoji (Emoji_Presentation) và ký tự đo được rộng hơn 1em tính theo bề rộng đo bằng Excel thật', () => {
     // Excel 16, cột 150 (1055px): 78 chữ あ mỗi dòng nhưng chỉ 56 chữ ✅/⏰/⭕ (~18px), 67 chữ ⟶ (~15px),
     // 42 chữ ⸻ (~24px), 13 chữ U+FDFD (~78px) -> nhiều hơn số đó phải ra >= 2 dòng
-    expect(estimateLines('✅'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
-    expect(estimateLines('⏰'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
-    expect(estimateLines('⭕'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
-    expect(estimateLines('⟶'.repeat(68), 150)).toBeGreaterThanOrEqual(2)
-    expect(estimateLines('⸻'.repeat(43), 150)).toBeGreaterThanOrEqual(2)
-    expect(estimateLines('﷽'.repeat(14), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u2705'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u23F0'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u2B55'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u27F6'.repeat(68), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u2E3B'.repeat(43), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\uFDFD'.repeat(14), 150)).toBeGreaterThanOrEqual(2)
     // ⚪ có trong 游ゴシック (đo: 78 chữ/dòng như あ) nhưng là Emoji_Presentation: tính như emoji (dư, không thiếu)
-    expect(estimateLines('⚪'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u26AA'.repeat(57), 150)).toBeGreaterThanOrEqual(2)
   })
 
   it('ký tự ngoài ASCII không đo được rộng hơn 1em vẫn tính đúng 1em (không làm hàng cao thừa)', () => {
     // ※ … → ① ○ đều 78 chữ/dòng trong Excel như あ
-    for (const ch of ['※', '…', '→', '①', '○', 'あ']) expect(estimateLines(ch.repeat(75), 150)).toBe(1)
+    for (const ch of ['\u203B', '\u2026', '\u2192', '\u2460', '\u25CB', 'あ']) expect(estimateLines(ch.repeat(75), 150)).toBe(1)
   })
 
   it('tự xuống dòng theo từ: từ Latin không bị cắt khi còn vừa một dòng mới', () => {
