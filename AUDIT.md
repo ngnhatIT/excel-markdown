@@ -52,6 +52,9 @@ render mới gắn ghi chú vào meta nó bổ nghĩa — tốt hơn hành vi c�
 ## 4. Đánh giá bảo mật (Electron)
 
 - `contextIsolation: true`, `nodeIntegration: false`, preload chỉ expose API tối thiểu. ĐẠT.
+- (2.1.0) CSP cho renderer bản build: `default-src 'self'`, không inline script, không
+  tải mạng; E2E kiểm không vi phạm + đối chứng chặn ảnh từ mạng. Parse file Excel (dữ
+  liệu không tin cậy) chạy trong utilityProcess riêng, tách khỏi main.
 - Không tải nội dung remote nào; preview render Markdown từ file local của chính user
   (nguy cơ XSS tự tấn công ≈ 0, chấp nhận, không thêm DOMPurify để tránh phình dependency).
 - Mọi IPC handler trong main đều try/catch, trả về `{ ok, data/error }`. ĐẠT.

@@ -20,7 +20,7 @@ Xây dựng bằng **Electron + TypeScript + React 18**.
 - Tùy chọn nhận diện bảng 2 cột (mặc định tắt)
 - Escape ký tự Markdown/HTML trong ô (mặc định bật): `<null>`, `*必須*`, `# x`...
   hiển thị nguyên văn khi render
-- Convert hàng loạt ra thư mục tùy chọn, thanh tiến độ từng file, báo cáo từng file,
+- Convert hàng loạt ra thư mục tùy chọn, thanh tiến độ từng file, nút Hủy, báo cáo từng file,
   nút mở thư mục / copy đường dẫn
 - Tìm kiếm/lọc sheet, phím tắt, zoom preview, nhớ vị trí cửa sổ
 - Nhớ thư mục xuất và tùy chọn giữa các lần mở app
@@ -74,20 +74,25 @@ File cài đặt nằm ở `release/`. Icon `resources/icon.ico` đã build sẵ
 
 ```
 src/
-main/
-index.ts # Electron main + IPC
-converter.ts # engine xlsx -> markdown
-preload/
-index.ts # bridge an toàn cho renderer
-types.ts # type dùng chung
-renderer/
-src/
-App.tsx # UI chính
-styles.css # theme + style app
-utils.ts # copy, toast, uid...
-components/
-icons.tsx # SVG icons
+  main/
+    index.ts            # Electron main + IPC, ghi file .md (không nạp SheetJS)
+    converterWorker.ts  # client tới worker đọc Excel, Hủy
+    worker.ts           # utilityProcess: đọc Excel (workerHandler + workbookCache)
+    converter.ts        # engine xlsx -> markdown
+    output.ts           # escape Markdown, tên file, ghép file
+    guards.ts, errors.ts
+  preload/
+    index.ts            # bridge an toàn cho renderer (window.api)
+  types.ts              # type dùng chung
+  renderer/src/
+    App.tsx             # state chính + ghép component
+    components/         # Header, FileList, PreviewPane, ResultsPanel, OptionsPanel, Footer...
+    hooks/              # useFiles, usePreview, useShortcuts
+    api.ts, sanitize.ts, utils.ts, styles.css
+test/fixtures, test/golden  # file Excel mẫu + output đã duyệt
+scripts/                    # sinh file mẫu, e2e.mjs
 ```
+Chi tiết: ARCHITECTURE.md.
 
 ## Phím tắt
 
@@ -138,6 +143,7 @@ npm run dev        # chạy dev
 npm run typecheck  # kiểm tra TypeScript
 npm run test       # chạy test (vitest), gồm golden test với file mẫu
 npm run test:update  # cập nhật golden khi đổi engine có chủ ý (review diff test/golden)
+npm run e2e        # build + chạy app Electron thật, kiểm 37 luồng UI (cần màn hình)
 npm run build      # build renderer + main
 npm run dist       # đóng gói Windows (chạy trên Windows)
 ```

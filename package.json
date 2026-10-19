@@ -60,6 +60,6 @@
     "test:update": "vitest run -u",
     "e2e": "electron-vite build && node scripts/e2e.mjs"
   },
-  "version": "2.0.0",
+  "version": "2.1.0",
   "license": "MIT"
 }

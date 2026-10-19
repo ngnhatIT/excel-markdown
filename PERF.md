@@ -39,3 +39,13 @@ tô màu lạc ở CZ5000 làm `!ref` = A1:CZ5000. Engine cũ quét toàn bộ `
 | 1 ô, `!ref` A1:AZ300000 (15.6M ô) | 11 842 ms, heap 402 MB | ~0 ms, heap 15 MB |
 
 Sau khi sửa, thời gian tỉ lệ với số ô có nội dung, không với `!ref`.
+
+## Worker + cache (2.1.0, 2026-10-19, Windows, Electron 44)
+
+| Đo | Trước | Sau |
+|---|---|---|
+| Độ trễ IPC tới main khi đang convert 3 file × 60k dòng (E2E) | 1693 ms | ~5 ms |
+| Bấm Hủy → convert dừng (E2E) | — (không hủy được) | ~110 ms |
+| Preview đổi sheet, file 10 sheet × 5000 dòng (3.7 MB) | ~760 ms mỗi lần | 780 ms lần đầu, ~27 ms các lần sau |
+
+Parse 1 file 60k dòng × 10 cột: ~1.5 s (SheetJS, đồng bộ, nay chạy trong utilityProcess).

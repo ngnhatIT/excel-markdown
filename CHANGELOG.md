@@ -4,6 +4,19 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## 2.1.0 — 2026-10-19
+- Hiệu năng: đọc Excel trong tiến trình riêng (Electron utilityProcess). Cửa sổ không
+  còn treo khi convert file lớn (E2E 3 file 60k dòng: IPC chậm nhất 1693 ms → ~5 ms);
+  file quá lớn có làm worker crash cũng không sập app.
+- Tính năng: nút **Hủy** khi đang convert (dừng sau ~0.1 s; file đã ghi giữ nguyên,
+  file chưa xong báo "Đã hủy").
+- Hiệu năng: cache workbook đã parse (theo đường dẫn + mtime/size). Đổi sheet khi xem
+  trước file 10 sheet × 5000 dòng: ~760 ms → ~27 ms.
+- Bảo mật: Content-Security-Policy cho giao diện (không inline script, không tải mạng).
+- Code: tách `App.tsx` (1190 dòng) thành components + hooks; main process không nạp
+  SheetJS.
+- Test: E2E `npm run e2e` (37 kiểm tra trên app Electron thật); 186 unit test.
+
 ## 2.0.0 — 2026-10-19
 Major vì **đổi format output mặc định** (escape) — xem quy tắc bump ở đầu file.
 - Engine: escape ký tự Markdown/HTML trong ô (tùy chọn "Escape ký tự Markdown/HTML
