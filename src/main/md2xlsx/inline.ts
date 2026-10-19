@@ -68,12 +68,14 @@ function tokenText(t: Token): string {
 export function inlineCell(tokens: Token[] | undefined): XCell {
   if (!tokens || tokens.length === 0) return { text: '' }
 
-  // Bỏ token chỉ gồm khoảng trắng; còn đúng một `link` viết tường minh `[chữ](url)` mới thành hyperlink.
-  // URL trần / `<url>` do GFM tự nhận (raw không bắt đầu bằng `[`) chỉ giữ chữ.
+  // Bỏ token chỉ gồm khoảng trắng; còn đúng một `link` viết tường minh (`[chữ](url)` hoặc `<url>`) mới thành hyperlink.
+  // URL trần do GFM tự nhận (raw không bắt đầu bằng `[` hay `<`) chỉ giữ chữ.
+  // `\<url>` do escaper sinh ra tách thành `escape` + `link` nên đã không lọt vào nhánh này.
   const significant = tokens.filter((t) => t.raw.trim() !== '')
   if (significant.length === 1) {
     const only = significant[0]
-    if (only.type === 'link' && only.raw.startsWith('[') && LINK_SCHEME_RE.test(only.href)) {
+    const explicit = only.raw.startsWith('[') || only.raw.startsWith('<')
+    if (only.type === 'link' && explicit && LINK_SCHEME_RE.test(only.href)) {
       return { text: textOf(only.tokens), link: only.href }
     }
   }

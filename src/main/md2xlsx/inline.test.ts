@@ -47,9 +47,19 @@ describe('inlineCell', () => {
     expect(cellOf("[参照](#'テーブル定義'!A1)")).toEqual({ text: '参照' })
   })
 
-  it('URL trần / <url> GFM tự nhận không thành hyperlink', () => {
+  it('URL trần do GFM tự nhận không thành hyperlink', () => {
     expect(cellOf('https://x.example')).toEqual({ text: 'https://x.example' })
-    expect(cellOf('<https://x.example>')).toEqual({ text: 'https://x.example' })
+    expect(cellOf('a@x.example')).toEqual({ text: 'a@x.example' })
+  })
+
+  it('autolink <url> là cú pháp link tường minh -> hyperlink', () => {
+    expect(cellOf('<https://x.example>')).toEqual({ text: 'https://x.example', link: 'https://x.example' })
+    expect(cellOf('<mailto:a@x.example>')).toEqual({ text: 'mailto:a@x.example', link: 'mailto:a@x.example' })
+    expect(cellOf('<ftp://x.example>')).toEqual({ text: 'ftp://x.example' })
+  })
+
+  it('<url> đã bị escaper thêm `\\` đứng đầu (chiều Excel -> Markdown) vẫn là chữ thuần', () => {
+    expect(cellOf('\\<https://x.example>')).toEqual({ text: '<https://x.example>' })
   })
 
   it('ảnh -> chữ alt', () => {
