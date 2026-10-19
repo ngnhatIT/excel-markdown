@@ -82,8 +82,9 @@ Quy tắc chuyển (chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-d
   label + ô value merge ngang; `###` thành dòng section; ghi chú và đoạn văn merge ngang, tự
   xuống dòng; heading và từng dòng code (MS Gothic) cũng merge ngang + tự xuống dòng nên dòng
   dài không bị cắt khi in. Chiều cao dòng được app tính (Excel không tự giãn ô merge; đo thực
-  tế 16.5pt/dòng, heading 19.5pt/dòng, code 12pt/dòng; emoji và ký tự rộng tính theo bề rộng
-  đo bằng Excel), đoạn / heading / dòng code quá cao tách thành nhiều hàng merge liền nhau.
+  tế 16.5pt/dòng, heading 19.5pt/dòng, code max(15, 12 × số dòng + 1.5)pt; emoji và ký tự
+  rộng tính theo bề rộng đo bằng Excel; xuống dòng sau khoảng trắng và sau dấu `-` như Excel),
+  đoạn / heading / dòng code quá cao tách thành nhiều hàng merge liền nhau.
 - **Ô**: lấy chữ hiển thị (bỏ escape `\*`, `<br>` thành xuống dòng, bỏ `**`, `*`, `` ` ``);
   cả ô là đúng một link `http`/`https`/`mailto` thì thành hyperlink, còn lại chữ thuần.
 - **Số**: `10`, `1.0` (giữ `0.0`), `1,234,567.89`, `12.50%` thành số đúng định dạng hiển thị;

@@ -33,12 +33,14 @@ Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/gol
   (✅ ❌ ⭐ ⌛…, Excel hiển thị ~18–19px) tính 20px, ký tự khác rộng hơn 1em (⟶ ⸻ U+FDFD, chữ
   Ấn/Đông Nam Á…) theo bảng đo bằng Excel thật, nên hàng có emoji không còn bị che chữ.
 - Heading và dòng code dài: merge từ cột A tới cột cuối như đoạn văn, tự xuống dòng, chiều cao
-  do app tính (heading 游ゴシック 12 đậm 19.5pt/dòng; code MS Gothic đơn cách 12pt/dòng) nên
+  do app tính (heading 游ゴシック 12 đậm 19.5pt/dòng; code MS Gothic đơn cách max(15, 12 × dòng + 1.5)pt) nên
   không tràn ra ngoài vùng in và bị cắt khi in; mỗi dòng code vẫn một hàng, dòng quá cao tách
-  thành nhiều hàng.
+  thành nhiều hàng. Xuống dòng mô phỏng đúng Excel: sau khoảng trắng **và sau dấu `-`** (một dấu `-`
+  cuối dòng được treo) — chuỗi `a-b-c…`, UUID, URL, ngày `2026-10-19` không còn bị che dòng cuối.
 - Kiểm tra: `scripts/xlsx-snapshot.ps1` mở file bằng Excel thật (COM), báo `REPAIRED` nếu Excel
   đòi sửa file và chụp PNG từng sheet; test golden + round-trip cho chiều mới; E2E mở rộng
-  (61 kiểm tra), 431 unit test.
+  (62 kiểm tra), 463 unit test; `scripts/measure-glyphs` đo lại bảng bề rộng glyph bằng Excel thật
+  và sinh `glyphTable.ts`.
 - Giới hạn round-trip đã biết (spec §11): `md → xlsx → md` chỉ ổn định với Markdown do app tạo;
   label meta ngoài `META_LABELS` của engine Excel → Markdown (vd `**作成者**:`) và bảng 2 cột có
   thể ra khác sau một vòng. Chỉ ghi chữ thuần (không giữ đậm/nghiêng giữa câu); link nội bộ `#…`
