@@ -58,8 +58,9 @@ Cách dùng:
 
 1. Bật công tắc **Markdown → Excel** ở Header.
 2. Kéo thả file `.md` vào cửa sổ, hoặc `Ctrl+O` / nút "Thêm file Markdown". Cột trái liệt kê
-   file kèm số sheet sẽ tạo: ↑/↓ đổi thứ tự (thứ tự sheet trong Excel = thứ tự danh sách),
-   nút xóa bỏ file. Giữa là preview Markdown của file đang chọn và danh sách tên sheet.
+   file kèm số sheet sẽ tạo, dưới mỗi file là tên các sheet sẽ tạo: ↑/↓ đổi thứ tự (thứ tự
+   sheet trong Excel = thứ tự danh sách), nút xóa bỏ file. Giữa là preview Markdown của file
+   đang chọn.
 3. Ô "Tên file Excel" ở cột phải. Mặc định: phần tên chung trước `__` của các file; không có
    thì `# tiêu đề` của file đầu; không có thì tên file đầu.
 4. Chọn thư mục xuất, bấm **Tạo file Excel** (`Ctrl+Enter`). **Mọi file trong danh sách gộp
@@ -91,8 +92,8 @@ Giới hạn đã biết:
   label meta ngoài `META_LABELS` của engine Excel → Markdown (vd `**作成者**:`) và bảng 2 cột
   có thể ra khác sau một vòng; vì vậy không sửa engine Excel → Markdown để ổn định hơn (xem
   spec §11).
-- Markdown viết tay dùng `---` làm đường kẻ trang trí sẽ bị tách sheet (xem trước danh sách
-  sheet ở cột giữa).
+- Markdown viết tay dùng `---` làm đường kẻ trang trí sẽ bị tách sheet (xem trước tên sheet
+  dưới từng file ở cột trái).
 - Link nội bộ `#…` và scheme khác `http`/`https`/`mailto` ghi thành chữ thuần.
 - Nội dung ô dài hơn 32 767 ký tự bị cắt (ký tự cuối là `…`).
 
@@ -172,7 +173,8 @@ Mặc định không tick (tránh convert thừa), bạn tick tay nếu cần.
 
 **Markdown → Excel: sao file Excel ra nhiều sheet hơn mong đợi?**
 Mỗi dòng `---` ở ngoài cùng và mỗi file trong danh sách bắt đầu một sheet mới. Bỏ `---`
-trang trí khỏi Markdown, hoặc xem danh sách sheet ở cột giữa trước khi bấm Tạo file Excel.
+trang trí khỏi Markdown, hoặc xem tên sheet dưới từng file ở cột trái trước khi bấm Tạo file
+Excel.
 
 **Markdown → Excel: ô số có bị mất số 0 / đổi `1.0` thành `1` không?**
 Không. `0001` giữ dạng text (không hiện tam giác xanh), `1.0` giữ định dạng `0.0`,
