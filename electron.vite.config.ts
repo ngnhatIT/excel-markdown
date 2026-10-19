@@ -1,5 +1,29 @@
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import type { Plugin } from 'vite'
+
+/** CSP cho renderer: chỉ tài nguyên đóng gói trong app, không script inline, không mạng.
+ * Chỉ chèn khi build: dev server của Vite cần inline script (React refresh) và websocket HMR. */
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self'",
+  "img-src 'self' data:",
+  "font-src 'self'",
+  "connect-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ')
+
+function cspPlugin(): Plugin {
+  return {
+    name: 'x2m-csp',
+    apply: 'build',
+    transformIndexHtml: (html) =>
+      html.replace('<head>', `<head>\n    <meta http-equiv="Content-Security-Policy" content="${CSP}" />`),
+  }
+}
 
 export default defineConfig({
   main: {
@@ -9,6 +33,6 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    plugins: [react()]
+    plugins: [react(), cspPlugin()]
   }
 })
