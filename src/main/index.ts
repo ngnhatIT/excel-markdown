@@ -268,8 +268,8 @@ ipcMain.handle(
           const sheets = convertWorkbook(spec.path, spec.sheets, payload.options)
           const written: string[] = []
           if (payload.outputMode === 'per-workbook') {
-            const md = joinWorkbookMarkdown(base, sheets)
-            if (md.trim() !== '# ' + base) {
+            const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false)
+            if (sheets.some((s) => s.markdown.trim() !== '')) {
               const fileName = dedupeFileName(safeFileName(base) + '.md', usedNames)
               await writeFile(join(payload.outDir, fileName), md, 'utf-8')
               written.push(fileName)

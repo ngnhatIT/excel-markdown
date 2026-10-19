@@ -1048,6 +1048,18 @@ export default function App(): React.ReactElement {
                 />
                 Nhận diện bảng 2 cột
               </label>
+              <label className="x2m-check">
+                <input
+                  type="checkbox"
+                  className="chk"
+                  checked={options.escapeMarkdown}
+                  onChange={(e) => setOption('escapeMarkdown', e.target.checked)}
+                />
+                <span>
+                  Escape ký tự Markdown/HTML trong ô
+                  <span className="dim">Tắt nếu ô Excel cố ý chứa cú pháp Markdown</span>
+                </span>
+              </label>
             </div>
             <div className="x2m-opt-group">
               <div className="x2m-opt-label">Ô nhiều dòng</div>

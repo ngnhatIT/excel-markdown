@@ -20,6 +20,7 @@ const OPTS: ConvertOptions = {
   includeSheetTitle: true,
   multiline: 'br',
   detectTwoColTables: false,
+  escapeMarkdown: true,
 }
 
 /** Tạo worksheet từ mảng 2D, kèm merge ranges (zero-based, dạng SheetJS). */

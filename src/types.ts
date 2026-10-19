@@ -11,6 +11,9 @@ export interface ConvertOptions {
   multiline: 'br' | 'space'
   /** Nhận diện bảng 2 cột (mặc định tắt để giữ hành vi cũ trên tài liệu 基本設計) */
   detectTwoColTables: boolean
+  /** Escape ký tự Markdown/HTML trong ô (`<null>`, `*x*`, `# x`...) để bản render
+   * hiển thị đúng nội dung ô. Tắt khi ô Excel cố ý chứa cú pháp Markdown. */
+  escapeMarkdown: boolean
 }
 
 export const DEFAULT_OPTIONS: ConvertOptions = {
@@ -19,6 +22,7 @@ export const DEFAULT_OPTIONS: ConvertOptions = {
   skipEmptySheets: true,
   multiline: 'br',
   detectTwoColTables: false,
+  escapeMarkdown: true,
 }
 
 export type OutputMode = 'per-sheet' | 'per-workbook'

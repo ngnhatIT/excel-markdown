@@ -33,16 +33,47 @@ const SUB_BULLET = '  - '
 
 type WorkSheet = XLSX.WorkSheet
 
-function getCell(ws: WorkSheet, r: number, c: number): string {
+const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch)
+
+/** Escape ký tự Markdown/HTML *inline* để bản render hiển thị đúng nội dung ô.
+ * Chỉ escape chỗ thật sự bị hiểu nhầm, giữ file .md dễ đọc khi mở thô:
+ * `<null>`/`<input>` (thẻ HTML bị ẩn), `*x*`/`__x__` (in nghiêng/đậm), `` `x` ``,
+ * `&nbsp;` (entity), `1~10, 20~30` (gạch ngang), `[a](b)` (link).
+ * `snake_case`, `a < b`, `<画面名>`, `1~10` giữ nguyên. Không xử lý `|` (escCell lo). */
+export function escapeMarkdownInline(s: string): string {
+  let out = s.replace(/\\(?=[!-/:-@[-`{-~])/g, '\\\\')
+  out = out.replace(/[*`]/g, '\\$&')
+  out = out.replace(/_/g, (m, i: number, str: string) =>
+    isWordChar(str[i - 1]) && isWordChar(str[i + 1]) ? m : '\\_'
+  )
+  out = out.replace(/<(?=[A-Za-z/!?])/g, '\\<')
+  out = out.replace(/&(?=#?[A-Za-z0-9]+;)/g, '\\&')
+  if ((out.match(/~/g) || []).length >= 2) out = out.replace(/~/g, '\\~')
+  return out.replace(/\](?=[([:])/g, '\\]')
+}
+
+/** Escape cú pháp *đầu block* cho text đứng đầu dòng (đoạn văn, quote, sub-bullet):
+ * `# x` (heading), `> x` (quote), `- x`/`+ x` (list), `---` (đường kẻ), `1. x`/`1) x` (list số).
+ * `***`/`___` đã được escape inline. */
+function escapeBlockStart(s: string): string {
+  if (/^(#{1,6}|[-+])(\s|$)/.test(s) || /^-{3,}[\s-]*$/.test(s) || s.startsWith('>')) return '\\' + s
+  return s.replace(/^(\d{1,9})([.)])(?=\s|$)/, '$1\\$2')
+}
+
+function getCell(ws: WorkSheet, r: number, c: number, esc: boolean): string {
   const cell = ws[XLSX.utils.encode_cell({ r, c })]
   if (!cell) return ''
   try {
     const text = XLSX.utils.format_cell(cell).trim()
     const target = cell.l?.Target?.trim()
     if (target && text && text !== target) {
-      return '[' + text + '](' + target + ')'
+      if (!esc) return '[' + text + '](' + target + ')'
+      const label = escapeMarkdownInline(text).replace(/(?<!\\)[[\]]/g, '\\$&')
+      // encodeURIComponent không encode ( ) nên tự map; ngoặc/khoảng trắng làm gãy cú pháp link
+      const href = target.replace(/[ ()<>]/g, (ch: string) => '%' + ch.charCodeAt(0).toString(16).toUpperCase())
+      return '[' + label + '](' + href + ')'
     }
-    return text
+    return esc ? escapeMarkdownInline(text) : text
   } catch {
     return ''
   }
@@ -92,14 +123,14 @@ function effectiveRange(ws: WorkSheet): XLSX.Range | null {
 
 /** Dòng banner tiêu đề (基本設計 + merge 2D) phải được phát hiện trước khi lan merge dọc,
  * nếu không giá trị banner sẽ rò rỉ xuống các dòng dưới. */
-function sheetToGrid(ws: WorkSheet): string[][] {
+function sheetToGrid(ws: WorkSheet, esc: boolean): string[][] {
   const ref = effectiveRange(ws)
   if (!ref) return []
   const merges = ws['!merges'] || []
   const grid: string[][] = []
   for (let r = ref.s.r; r <= ref.e.r; r++) {
     const row: string[] = []
-    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c))
+    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c, esc))
     grid.push(row)
   }
   let bannerIdx = -1
@@ -176,9 +207,14 @@ function renderTable(header: string[], rows: string[][], opts: ConvertOptions): 
 
 /** Convert một worksheet thành Markdown, hiểu định dạng tài liệu 基本設計. */
 export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertOptions): string {
-  const grid = sheetToGrid(ws)
+  // Option có thể thiếu khi store cũ / caller cũ: mặc định escape.
+  const esc = opts.escapeMarkdown !== false
+  /** Text do người dùng nhập đứng đầu dòng (đoạn văn, quote, sub-bullet). */
+  const blk = (s: string): string => (esc ? escapeBlockStart(s) : s)
+  const title = esc ? escapeMarkdownInline(sheetName) : sheetName
+  const grid = sheetToGrid(ws, esc)
   const out: string[] = []
-  if (opts.includeSheetTitle) out.push('## ' + sheetName, '')
+  if (opts.includeSheetTitle) out.push('## ' + title, '')
 
   let i = 0
   while (i < grid.length && nonEmptyCount(grid[i]) === 0) i++
@@ -190,7 +226,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
     grid[i].forEach((v, idx) => {
       if (idx > 0 && v !== '') labels.push({ idx, v })
     })
-    const docTitle = labels.length > 0 && labels[0].v !== sheetName ? labels[0].v : ''
+    const docTitle = labels.length > 0 && labels[0].v !== title ? labels[0].v : ''
     out.push('> ' + DOC_KIND + (docTitle ? '：' + escCell(docTitle, opts.multiline) : ''), '')
     // Khối 版数/作成日/作成者: các dòng tiếp theo chỉ có giá trị tại đúng các cột label
     const versionLabels = labels.slice(1)
@@ -289,7 +325,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       } else if (lastMetaLabel && !tableHeader && !isSectionTitle(fe) && v) {
         // Dòng 1 ô ngay sau meta (vd: 画面遷移 xuống dòng) -> sub-bullet nối tiếp.
         if (out.length > 0 && out[out.length - 1] === '') out.pop()
-        out.push(SUB_BULLET + v)
+        out.push(SUB_BULLET + blk(v))
       } else if (META_LABELS.has(fe)) {
         // Ô đơn lẻ trùng tên meta label -> bullet không giá trị
         flushTable()
@@ -307,7 +343,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
         const nnr = grid[i + 2]
         const nfe = nr?.find((x) => x !== '') ?? ''
         const aboveTable = !!nr && isTableHeaderRow(nr, nnr, nfe, nonEmptyCount(nr))
-        out.push((aboveTable ? '### ' : '> ') + v, '')
+        out.push(aboveTable ? '### ' + v : '> ' + blk(v), '')
       }
       continue
     }
@@ -315,12 +351,14 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       flushTable()
       for (const p of parseMetaPairs(r)) {
         let val = p.values.join(' ')
-        if (/^\d+$/.test(p.values[0] ?? '') && p.values.length > 1) {
+        // "N. text" do engine tự đánh số -> không escape đầu block
+        const numbered = /^\d+$/.test(p.values[0] ?? '') && p.values.length > 1
+        if (numbered) {
           val = p.values[0] + '. ' + p.values.slice(1).join(' ')
         }
         val = escCell(val, opts.multiline)
         if (p.label === lastMetaLabel && val) {
-          out.push(SUB_BULLET + val)
+          out.push(SUB_BULLET + (numbered ? val : blk(val)))
         } else {
           out.push('- **' + p.label + '**' + (val ? ': ' + val : ''))
           lastMetaLabel = p.label
@@ -335,13 +373,14 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       if (!looksHeader2) {
         const vals = r.filter((v) => v !== '')
         let cval = vals.join(' ')
-        if (/^\d+$/.test(vals[0] ?? '') && vals.length > 1) {
+        const numbered = /^\d+$/.test(vals[0] ?? '') && vals.length > 1
+        if (numbered) {
           cval = vals[0] + '. ' + vals.slice(1).join(' ')
         }
         cval = escCell(cval, opts.multiline)
         if (cval) {
           if (out.length > 0 && out[out.length - 1] === '') out.pop()
-          out.push(SUB_BULLET + cval)
+          out.push(SUB_BULLET + (numbered ? cval : blk(cval)))
         }
         continue
       }
@@ -369,13 +408,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       continue
     }
     lastMetaLabel = null
-    out.push(
-      escCell(
-        r.filter((v) => v !== '').join(' '),
-        opts.multiline
-      ),
-      ''
-    )
+    out.push(blk(escCell(r.filter((v) => v !== '').join(' '), opts.multiline)), '')
   }
   flushTable()
   while (out.length > 0 && out[out.length - 1] === '') out.pop()
@@ -425,9 +458,9 @@ export function convertWorkbook(
 
 /** Gộp markdown các sheet cho per-workbook mode: bỏ sheet rỗng để không
  * tạo separator `---` thừa giữa các khoảng trống. */
-export function joinWorkbookMarkdown(base: string, sheets: SheetResult[]): string {
+export function joinWorkbookMarkdown(base: string, sheets: SheetResult[], escape = true): string {
   const parts = sheets.map((s) => s.markdown.trim()).filter((m) => m !== '')
-  return '# ' + base + '\n\n' + parts.join('\n\n---\n\n') + '\n'
+  return '# ' + (escape ? escapeMarkdownInline(base) : base) + '\n\n' + parts.join('\n\n---\n\n') + '\n'
 }
 
 /** Tên file an toàn trên Windows: thay ký tự cấm, cắt ngắn, bỏ dấu chấm /
