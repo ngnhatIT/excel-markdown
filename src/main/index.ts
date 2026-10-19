@@ -9,13 +9,15 @@ import type {
   OutputMode,
 } from '../types'
 import {
-  convertSheet,
-  convertWorkbook,
+  convertSheetInWorkbook,
+  convertSheetsInWorkbook,
   dedupeFileName,
   joinWorkbookMarkdown,
-  listSheets,
+  listSheetsInWorkbook,
+  readWorkbook,
   safeFileName,
 } from './converter'
+import { createWorkbookCache } from './workbookCache'
 import { friendlyError } from './errors'
 import { isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
 
@@ -126,6 +128,9 @@ function createWindow(saved?: WindowBounds): void {
 
 /* ---------------------------------- IPC ----------------------------------- */
 
+/** Workbook đã parse của vài file gần nhất (liệt kê sheet -> preview -> convert dùng chung). */
+const workbooks = createWorkbookCache(3, readWorkbook)
+
 ipcMain.handle('store:get', async (_e, key: string) => {
   try {
     const store = await readStore()
@@ -202,7 +207,7 @@ ipcMain.handle('app:getVersion', async () => {
 
 ipcMain.handle('excel:listSheets', async (_e, filePath: string, skipDelSheets: boolean) => {
   try {
-    const sheets = listSheets(filePath, skipDelSheets)
+    const sheets = listSheetsInWorkbook(workbooks.get(filePath), skipDelSheets)
     return { ok: true, data: sheets }
   } catch (err) {
     void logError('excel:listSheets', err)
@@ -214,7 +219,7 @@ ipcMain.handle(
   'excel:preview',
   async (_e, filePath: string, sheetName: string, options: ConvertOptions) => {
     try {
-      const md = convertSheet(filePath, sheetName, options)
+      const md = convertSheetInWorkbook(workbooks.get(filePath), sheetName, options)
       return { ok: true, data: md }
     } catch (err) {
       void logError('excel:preview', err)
@@ -265,7 +270,7 @@ ipcMain.handle(
           continue
         }
         try {
-          const sheets = convertWorkbook(spec.path, spec.sheets, payload.options)
+          const sheets = convertSheetsInWorkbook(workbooks.get(spec.path), spec.sheets, payload.options)
           const written: string[] = []
           if (payload.outputMode === 'per-workbook') {
             const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false)

@@ -427,12 +427,18 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   return out.join('\n')
 }
 
-/** Liệt kê sheet của file Excel kèm số dòng và cờ ẩn. Ném lỗi nếu file không đọc được. */
-export function listSheets(
-  filePath: string,
+export type WorkBook = XLSX.WorkBook
+
+/** Đọc + parse file Excel (một lần cho cả liệt kê sheet, preview và convert). */
+export function readWorkbook(filePath: string): WorkBook {
+  return XLSX.readFile(filePath, { cellDates: false })
+}
+
+/** Liệt kê sheet của workbook kèm số dòng (theo nội dung thật) và cờ ẩn. */
+export function listSheetsInWorkbook(
+  wb: WorkBook,
   skipDelSheets: boolean
 ): { name: string; rows: number; hidden: boolean }[] {
-  const wb = XLSX.readFile(filePath, { cellDates: false, sheetRows: 0 })
   return wb.SheetNames.filter((sn) => !(skipDelSheets && /^DEL_/i.test(sn))).map((sn) => {
     const ref = effectiveRange(wb.Sheets[sn])
     const rows = ref ? ref.e.r - ref.s.r + 1 : 0
@@ -441,22 +447,35 @@ export function listSheets(
   })
 }
 
-/** Convert một sheet theo tên. Ném lỗi nếu không tìm thấy sheet. */
-export function convertSheet(filePath: string, sheetName: string, opts: ConvertOptions): string {
-  const wb = XLSX.readFile(filePath, { cellDates: false })
+/** Liệt kê sheet của file Excel. Ném lỗi nếu file không đọc được. */
+export function listSheets(filePath: string, skipDelSheets: boolean): ReturnType<typeof listSheetsInWorkbook> {
+  return listSheetsInWorkbook(readWorkbook(filePath), skipDelSheets)
+}
+
+/** Convert một sheet của workbook theo tên. Ném lỗi nếu không tìm thấy sheet. */
+export function convertSheetInWorkbook(wb: WorkBook, sheetName: string, opts: ConvertOptions): string {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error('Không tìm thấy sheet: ' + sheetName)
   return sheetToMarkdown(ws, sheetName, opts)
 }
 
+/** Convert một sheet theo tên. Ném lỗi nếu không tìm thấy sheet. */
+export function convertSheet(filePath: string, sheetName: string, opts: ConvertOptions): string {
+  return convertSheetInWorkbook(readWorkbook(filePath), sheetName, opts)
+}
+
+/** Convert nhiều sheet của một file Excel (xem convertSheetsInWorkbook). */
+export function convertWorkbook(filePath: string, sheetNames: string[], opts: ConvertOptions): SheetResult[] {
+  return convertSheetsInWorkbook(readWorkbook(filePath), sheetNames, opts)
+}
+
 /** Convert nhiều sheet của một workbook. Bỏ qua sheet không tồn tại;
  * bỏ sheet rỗng nếu opts.skipEmptySheets. */
-export function convertWorkbook(
-  filePath: string,
+export function convertSheetsInWorkbook(
+  wb: WorkBook,
   sheetNames: string[],
   opts: ConvertOptions
 ): SheetResult[] {
-  const wb = XLSX.readFile(filePath, { cellDates: false })
   const results: SheetResult[] = []
   for (const sn of sheetNames) {
     const ws = wb.Sheets[sn]
