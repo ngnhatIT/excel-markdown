@@ -2,6 +2,8 @@
 # Dùng sau khi app tạo file ở chế độ Markdown -> Excel: nếu Excel đòi sửa file thì in REPAIRED
 # (không mở được file thì in FAILED) và thoát mã 1; ngược lại ghi OutDir\sheet1.png,
 # sheet2.png... và in `OK <số sheet>`.
+# Lưu ý: script dùng clipboard (CopyPicture/Paste) và hiện cửa sổ Excel khi chạy: đừng
+# copy/paste ở chương trình khác cho tới khi script xong.
 # Chạy (cần Microsoft Excel):
 #   powershell -ExecutionPolicy Bypass -File scripts/xlsx-snapshot.ps1 -In <đường dẫn .xlsx> -OutDir <thư mục>
 # Lưu file này dạng UTF-8 CÓ BOM: PowerShell 5.1 đọc file không BOM theo ANSI và làm hỏng chữ Nhật.

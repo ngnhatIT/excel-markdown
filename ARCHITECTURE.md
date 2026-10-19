@@ -41,7 +41,7 @@ Excel → Markdown (SheetJS đọc) và Markdown → Excel (marked parse + excel
   JSON, log lỗi, nhớ bounds cửa sổ. **Không nạp SheetJS, không nạp exceljs.**
   - IPC Markdown → Excel: `dialog:openMarkdownFiles` (hộp thoại chọn `.md`/`.markdown`),
     `md:inspect` (đọc nhanh một file `.md`: tiêu đề, tên sheet sẽ tạo, nội dung preview; chạy
-    ở worker preview, IPC chỉ nhận đuôi `.md`), `md:convert` (gộp danh sách file thành một
+    ở worker preview, IPC chỉ nhận đường dẫn tuyệt đối đuôi `.md`/`.markdown`), `md:convert` (gộp danh sách file thành một
     `.xlsx` trong thư mục xuất; chạy ở worker convert).
     `md:convert` kiểm file/đường dẫn, dùng chung cờ `convertRunning` với Excel → Markdown
     (mỗi lúc chỉ một lần convert), **hỏi ghi đè** bằng hộp thoại `Ghi đè` / `Hủy` khi file
@@ -95,9 +95,9 @@ Thiết kế và quyết định: `docs/superpowers/specs/2026-10-19-md-to-excel
 |---|---|
 | `model.ts` | Mô hình trung gian: `SheetModel` { tên, `Block[]` } với block banner / table / meta / heading / note / paragraph / code; `XCell` (chữ + link tuỳ chọn). |
 | `inline.ts` | Token inline của `marked` → chữ hiển thị của ô (chiều ngược của `escapeMarkdownInline`); cả ô là một link http/https/mailto thì giữ link. |
-| `cellValue.ts` | Quy tắc giá trị ô: `10` số, `1.0`/`1.10` số + format `0.0`/`0.00`, `1,234.5` → `#,##0.00`, `12.50%` → số/100 + `0.00%`; `0001`, số > 11 chữ số, ngày, `#N/A`... giữ text. |
+| `cellValue.ts` | Quy tắc giá trị ô: `10` số, `1.0`/`1.10` số + format `0.0`/`0.00`, `1,234` → `#,##0`, `1,234.50` → `#,##0.00` (số chữ số thập phân theo chữ), `12.50%` → số/100 + `0.00%`; `0001`, số > 11 chữ số, ngày, `#N/A`... giữ text. |
 | `parse.ts` | `parseMarkdownFile(md, fileName)` → `{ title, sheets }`: tách sheet (ranh giới file và `---` ngoài cùng, `##` đầu phần là tên sheet), nhận banner 基本設計, bảng, meta `**label**:`/`**label**：`, section, ghi chú, đoạn văn, list, code. Không crash với Markdown bất kỳ. |
-| `names.ts` | `assignSheetNames`: tên sheet hợp lệ (bỏ `[]:*?/\` và ký tự cấm XML, ≤ 31 ký tự, không trùng → ` (2)`, tránh `History`). |
+| `names.ts` | `assignSheetNames`: tên sheet hợp lệ (ký tự cấm `[]:*?/\` và `'` ở đầu/cuối thành `_`; ký tự điều khiển cấm của XML bị bỏ; ≤ 31 ký tự; không trùng → ` (2)`; `History` → `History_`). |
 | `layout.ts` | Độ rộng hiển thị (CJK = 2), ước lượng số dòng của ô merge, `splitByLines` tách đoạn quá cao thành nhiều hàng. |
 | `write.ts` | `buildWorkbook(sheets)` ghi bố cục (font 游ゴシック 10, màu, viền, merge, wrap, A4 ngang vừa 1 trang rộng; chiều cao dòng = **16.5pt × số dòng**, đo bằng Excel thật; hàng ≤ 409.5pt nên đoạn dài tách thành nhiều hàng merge liền nhau). `saveWorkbook` chèn `ignoredErrors` (không tam giác xanh) vào XML từng sheet bằng JSZip, ghi `.partial` rồi đổi tên. |
 | `mdHandler.ts` | `handleMdRequest`: `mdInspect` / `mdToXlsx`. Một file lỗi → dừng, chưa ghi gì. |

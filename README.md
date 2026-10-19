@@ -71,8 +71,9 @@ Quy tắc chuyển (chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-d
 
 - **Tách sheet**: ranh giới file và dòng `---` ở ngoài cùng. Nếu block đầu của một phần là
   `##` thì đó là tên sheet; `##` về sau chỉ là dòng section. `# tiêu đề` đầu file chỉ dùng đặt
-  tên file mặc định, không ghi vào sheet. Tên sheet được làm sạch (bỏ `[]:*?/\`, tối đa 31
-  ký tự, không trùng).
+  tên file mặc định, không ghi vào sheet. Tên sheet được làm sạch: ký tự cấm `[]:*?/\` thành
+  `_`, tối đa 31 ký tự, không trùng (thêm ` (2)`…), `History` (tên Excel dành riêng) thành
+  `History_`.
 - **Bố cục**: font 游ゴシック 10, ẩn gridline, in A4 ngang vừa 1 trang theo chiều rộng. Banner
   `> 基本設計：…`; bảng có header nền `#DDE5F0` + viền mảnh; `- **label**: value` thành ô
   label + ô value merge ngang; `###` thành dòng section; ghi chú và đoạn văn merge ngang, tự
@@ -88,7 +89,8 @@ Giới hạn đã biết:
 - Chỉ ghi chữ thuần (không giữ đậm/nghiêng giữa câu); không tái tạo 方眼紙, màu, merge gốc.
 - Round-trip `md → xlsx → md` chỉ đảm bảo ổn định với Markdown do app tạo, và có ngoại lệ:
   label meta ngoài `META_LABELS` của engine Excel → Markdown (vd `**作成者**:`) và bảng 2 cột
-  có thể ra khác sau một vòng. Output Excel → Markdown không đổi vì lý do này.
+  có thể ra khác sau một vòng; vì vậy không sửa engine Excel → Markdown để ổn định hơn (xem
+  spec §11).
 - Markdown viết tay dùng `---` làm đường kẻ trang trí sẽ bị tách sheet (xem trước danh sách
   sheet ở cột giữa).
 - Link nội bộ `#…` và scheme khác `http`/`https`/`mailto` ghi thành chữ thuần.
@@ -234,5 +236,8 @@ powershell -ExecutionPolicy Bypass -File scripts/xlsx-snapshot.ps1 -In <đườn
 Script mở file chỉ đọc trong một tiến trình Excel riêng (không đụng cửa sổ Excel khác của
 bạn), in `OK <số sheet>` và ghi `sheet1.png`, `sheet2.png`... vào `-OutDir` để xem bằng mắt
 (banner, bảng, merge, chữ có bị che không). Nếu Excel phải sửa file, script in `REPAIRED`
-(không mở được file thì in `FAILED`) và thoát mã 1. Lưu `xlsx-snapshot.ps1` dạng UTF-8 **có BOM** (PowerShell 5.1 đọc file không BOM
-theo ANSI và làm hỏng chữ Nhật).
+(không mở được file thì in `FAILED`) và thoát mã 1.
+
+Lưu ý: script dùng clipboard (CopyPicture/Paste) và hiện cửa sổ Excel trong lúc chạy, nên
+đừng copy/paste ở chương trình khác cho tới khi script xong. Lưu `xlsx-snapshot.ps1` dạng
+UTF-8 **có BOM** (PowerShell 5.1 đọc file không BOM theo ANSI và làm hỏng chữ Nhật).
