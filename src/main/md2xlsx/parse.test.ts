@@ -245,7 +245,26 @@ describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
       { kind: 'paragraph', text: 'b' }
     ])
     expect(g('<div>x</div>')).toEqual([{ kind: 'paragraph', text: '<div>x</div>' }])
-    expect(g('<br>\n<br>')).toEqual([{ kind: 'paragraph', text: '<br>\n<br>' }])
+  })
+
+  it('HTML: <br> trong khối HTML thành xuống dòng (mọi kiểu viết hoa/thường); khối chỉ còn khoảng trắng bị bỏ', () => {
+    // khối HTML type 7 kéo dài tới dòng trống nên chữ ngay sau <br> nằm chung khối
+    expect(g('<br>\n次の段落')).toEqual([{ kind: 'paragraph', text: '次の段落' }])
+    expect(g('a\n\n<br>\n<br>\n\nb')).toEqual([
+      { kind: 'paragraph', text: 'a' },
+      { kind: 'paragraph', text: 'b' }
+    ])
+    expect(g('<BR/>\n<Br />\n<br>')).toEqual([])
+    expect(g('<br><br>')).toEqual([])
+    expect(g('<br>\n行1<br>行2<BR />行3')).toEqual([{ kind: 'paragraph', text: '行1\n行2\n行3' }])
+    // HTML khác giữ nguyên chữ, chỉ <br> đổi
+    expect(g('<div>a<br>b</div>')).toEqual([{ kind: 'paragraph', text: '<div>a\nb</div>' }])
+    expect(g('<br>\n<!-- c -->')).toEqual([])
+    // trong ghi chú cũng vậy
+    expect(g('x\n\n> <br>\n> 注記')).toEqual([
+      { kind: 'paragraph', text: 'x' },
+      { kind: 'note', text: '注記' }
+    ])
   })
 
   it('HTML trong blockquote: cùng quy tắc bỏ <br>/comment', () => {

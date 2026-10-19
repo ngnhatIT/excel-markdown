@@ -17,7 +17,8 @@ Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/gol
   ô là chữ hiển thị (bỏ escape, `<br>` thành xuống dòng); số giữ đúng hiển thị (`0001` text,
   `1.0` → `0.0`, `12.50%` → `0.00%`) và không có tam giác xanh (`ignoredErrors`).
 - Markdown viết tay: list đánh số luôn giữ số `N. ` (kể cả `1. **初期表示**: …`, không thành
-  ô meta); list con đánh số trong value meta và trong ghi chú `>` cũng giữ số.
+  ô meta); list con đánh số trong value meta và trong ghi chú `>` cũng giữ số. `<br>` trong khối
+  HTML (vd `<br>` rồi xuống dòng `次の段落`) thành xuống dòng, không còn lọt chữ `<br>` vào ô.
 - Dependency: **exceljs 4.4.0 chỉ dùng để GHI** file do app tạo (không bao giờ đọc file ngoài),
   thêm `jszip`; `npm audit` báo 2 moderate (`uuid`), chấp nhận vì chỉ ghi. Main process không
   nạp exceljs: worker nạp bằng `import()` động khi có yêu cầu `mdToXlsx`.

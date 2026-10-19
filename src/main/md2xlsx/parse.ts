@@ -15,8 +15,10 @@ const BULLET = '・'
 // Sau `**label**` phải là `:` (do Excel -> Markdown sinh ra) hoặc `：` toàn角 (gõ tay); chỉ bỏ
 // khoảng trắng thường sau dấu, không bỏ khoảng trắng toàn角 để giữ thụt lề của giá trị.
 const META_COLON = /^[:：][ \t]*/
-// Khối HTML chỉ là `<br>` (type-7 HTML block, không lọt vào inlineCell) hoặc đúng một comment: không có chữ để hiển thị.
-const BR_ONLY = /^<br\s*\/?>$/i
+// Thẻ `<br>` trong khối HTML (type-7 HTML block không lọt vào inlineCell), kèm xuống dòng nguồn ngay sau nó
+// (trong HTML xuống dòng nguồn chỉ là khoảng trắng): `<br>\n次` -> `\n次`.
+const BR_TAG = /<br\s*\/?>[ \t]*(?:\r?\n)?/gi
+// Khối HTML đúng một comment: không có chữ để hiển thị.
 const COMMENT_ONLY = /^<!--(?:(?!-->)[\s\S])*-->$/
 
 /** Chữ hiển thị của token có inline con (paragraph, text, heading); không có thì dùng raw. */
@@ -24,10 +26,17 @@ function inlineText(t: Token): string {
   return t.tokens ? inlineCell(t.tokens).text : String(t.raw ?? '').trim()
 }
 
-/** Khối HTML không có chữ hiển thị (`<br>` riêng một dòng, comment) -> bỏ; HTML khác giữ nguyên chữ (§6). */
-function isBlankHtml(t: Token): boolean {
-  const raw = String(t.raw ?? '').trim()
-  return BR_ONLY.test(raw) || COMMENT_ONLY.test(raw)
+/**
+ * Chữ của một khối HTML: `<br>`/`<br/>`/`<br />` (mọi kiểu hoa/thường) thành xuống dòng, bỏ dòng trống ở đầu/cuối;
+ * HTML khác giữ nguyên chữ (§6). Khối không còn chữ (chỉ `<br>`, khoảng trắng, hoặc một comment) -> `null` (bỏ).
+ */
+function htmlText(t: Token): string | null {
+  const text = String(t.raw ?? '')
+    .trim()
+    .replace(BR_TAG, '\n')
+    .replace(/^(?:[ \t]*\n)+/, '')
+    .replace(/(?:\n[ \t]*)+$/, '')
+  return text.trim() === '' || COMMENT_ONLY.test(text) ? null : text
 }
 
 /** Các dòng chữ thuần của một token khối, dùng khi gộp vào ô meta hoặc ghi chú. */
@@ -45,8 +54,10 @@ function blockLines(t: Token): string[] {
       return (t.tokens ?? []).flatMap(blockLines)
     case 'list':
       return listLines(t)
-    case 'html':
-      return isBlankHtml(t) ? [] : [String(t.raw ?? '').trim()]
+    case 'html': {
+      const text = htmlText(t)
+      return text === null ? [] : text.split('\n')
+    }
     // table, def... -> chữ thuần
     default:
       return [String(t.raw ?? '').trim()]
@@ -159,15 +170,20 @@ function tokenBlocks(t: Token, first: boolean, out: Block[]): void {
       listBlocks(t, out)
       return
     case 'paragraph':
-    case 'text':
-      out.push({ kind: 'paragraph', text: inlineText(t) })
+    case 'text': {
+      // Đoạn chỉ có `<br>` inline (vd `<br><br>`) không còn chữ: bỏ như khối HTML chỉ có `<br>`.
+      const text = inlineText(t)
+      if (text.trim() !== '') out.push({ kind: 'paragraph', text })
       return
+    }
     case 'code':
       out.push({ kind: 'code', lines: String(t.text ?? '').split('\n') })
       return
-    case 'html':
-      if (!isBlankHtml(t)) out.push({ kind: 'paragraph', text: String(t.raw ?? '').trim() })
+    case 'html': {
+      const text = htmlText(t)
+      if (text !== null) out.push({ kind: 'paragraph', text })
       return
+    }
     // mọi token khác (def...) -> chữ thuần
     default:
       out.push({ kind: 'paragraph', text: String(t.raw ?? '').trim() })

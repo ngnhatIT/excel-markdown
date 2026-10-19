@@ -279,9 +279,14 @@ describe('Markdown bất kỳ (spec §11): không crash, mọi chữ được gi
       '全角 50 文字\nカナ可',
       '12.50%',
       'SELECT CUSTOMER_ID, CUSTOMER_NAME',
-      '  FROM TBL_CUSTOMER'
+      '  FROM TBL_CUSTOMER',
+      // `<br>` trong khối HTML là xuống dòng, không lọt vào ô
+      '次の段落'
     ]
     expect(expected.filter((t) => !back[0].has(t))).toEqual([])
+    // không còn cú pháp Markdown/HTML lọt vào ô (spec §4)
+    const leaked = back.flatMap((s) => [...s].filter((t) => /<br\s*\/?>|\*\*|<!--/i.test(t)))
+    expect(leaked).toEqual([])
     expect(['初版', '検索条件を追加', '小見出し', '最後の段落です。'].filter((t) => !back[1].has(t))).toEqual([])
   })
 })

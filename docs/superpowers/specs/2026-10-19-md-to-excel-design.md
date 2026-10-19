@@ -165,8 +165,10 @@ list, vd `3.` `4.`); item của list **không đánh số** dạng `**label**:` 
 chữ (vd `1. **初期表示**: 画面を表示する` → `1. 初期表示: 画面を表示する`, ký hiệu `**` bỏ như
 chữ inline khác); list con nằm trong value meta hoặc trong ghi chú `>`: list đánh số giữ
 tiền tố `N. ` (`- **処理**:` + `1. 検索` / `2. 表示` → value `1. 検索⏎2. 表示`), bullet không
-số chỉ giữ chữ (sửa sau review cuối, Ruling 18); `<br>` đứng
-riêng một dòng và comment HTML `<!-- … -->` → bỏ (không có chữ), HTML khác → chữ nguyên văn;
+số chỉ giữ chữ (sửa sau review cuối, Ruling 18); trong khối HTML, `<br>` / `<br/>` /
+`<br />` (mọi kiểu hoa/thường) → xuống dòng (`<br>⏎次の段落` → `次の段落`, bỏ dòng trống ở
+đầu/cuối); khối không còn chữ (`<br>` đứng riêng một dòng, `<br>⏎<br>`, đoạn chỉ có `<br><br>`)
+và comment HTML `<!-- … -->` → bỏ, HTML khác → chữ nguyên văn;
 code block → từng dòng ở cột A, font monospace; ảnh → chữ alt; còn lại → chữ
 thuần. Không được crash với bất kỳ Markdown nào.
 
