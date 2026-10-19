@@ -235,6 +235,107 @@ try {
   await ev(`document.querySelector('.x2m-file button[aria-label="Xóa khỏi danh sách"]').click(), 1`)
   check('xóa file: còn 3 file', (await waitFor(`document.querySelector('.x2m-pane-title').textContent.includes('(3)')`, 2000)) >= 0)
 
+  // ------------------------- Chế độ Markdown → Excel -------------------------
+  const dropFiles = async (files) => {
+    for (const type of ['dragEnter', 'dragOver', 'drop']) {
+      await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files, dragOperationsMask: 1 } })
+    }
+  }
+  const listOut = () => {
+    try {
+      return readdirSync(outDir)
+    } catch {
+      return []
+    }
+  }
+  const hasToast = (t) => `[...document.querySelectorAll('.x2m-toast')].some(x => x.textContent.includes(${JSON.stringify(t)}))`
+  const modeBtn = (t) => `[...document.querySelectorAll('.x2m-mode-btn')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
+  const mdItems = `[...document.querySelectorAll('.x2m-md-file')]`
+  const mdNames = `${mdItems}.map(e => e.querySelector('.x2m-file-name-text')?.textContent ?? '')`
+  const nameInput = `document.querySelector('input[aria-label="Tên file Excel"]')`
+
+  // Hai phần của golden thành hai file .md "do app tạo" (mỗi file 1 sheet)
+  const mdDir = join(tmp, 'md')
+  mkdirSync(mdDir, { recursive: true })
+  const mdTable = join(mdDir, 'kihon-sekkei__テーブル定義.md')
+  const mdScreen = join(mdDir, 'kihon-sekkei__画面項目定義.md')
+  writeFileSync(mdTable, parts[1] + '\n')
+  writeFileSync(mdScreen, parts[0] + '\n')
+
+  await ev(`(${modeBtn('Markdown → Excel')})?.click(), 1`)
+  check('chế độ Markdown → Excel: nút được chọn (active)', (await waitFor(`!!(${modeBtn('Markdown → Excel')})?.classList.contains('active')`, 2000)) >= 0)
+  check('md: vùng trống "Kéo thả file Markdown vào đây"', await ev(`document.body.innerText.includes('Kéo thả file Markdown vào đây')`))
+
+  await dropFiles([mdTable, mdScreen])
+  check(
+    'md: thả 2 file -> 2 file, mỗi file 1 sheet',
+    (await waitFor(`${mdItems}.length === 2 && ${mdItems}.every(e => e.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet')`)) >= 0,
+    await ev(`${mdItems}.map(e => e.innerText)`).catch(() => null)
+  )
+  check('md: preview hiện file đang chọn (TBL_CUSTOMER)', (await waitFor(`(document.querySelector('.md-body')?.innerText ?? '').includes('TBL_CUSTOMER')`, 5000)) >= 0)
+  check('md: tên file Excel mặc định kihon-sekkei', (await waitFor(`${nameInput}?.value === 'kihon-sekkei'`, 2000)) >= 0, await ev(`${nameInput}?.value ?? null`).catch(() => null))
+
+  await ev(`${mdItems}[1]?.querySelector('button[aria-label="Đưa lên"]')?.click(), 1`)
+  check(
+    'md: Đưa lên -> 画面項目定義 trước テーブル定義',
+    (await waitFor(`(() => { const n = ${mdNames}; return n.length === 2 && n[0].includes('画面項目定義') && n[1].includes('テーブル定義') })()`, 2000)) >= 0,
+    await ev(mdNames).catch(() => null)
+  )
+
+  await dropFiles([fixture])
+  check('md: thả file Excel -> toast gợi ý chế độ Excel → Markdown', (await waitFor(hasToast('chế độ Excel → Markdown'), 3000)) >= 0)
+  check('md: thả file Excel không thêm vào danh sách (vẫn 2 file)', await ev(`${mdItems}.length === 2`))
+
+  await pressCtrlEnter()
+  check('md: Ctrl+Enter -> toast Đã tạo kihon-sekkei.xlsx', (await waitFor(hasToast('Đã tạo kihon-sekkei.xlsx'), 30000)) >= 0)
+  let wbOut = null
+  try {
+    wbOut = XLSX.readFile(join(outDir, 'kihon-sekkei.xlsx'), { cellNF: true })
+  } catch {
+    /* chưa tạo file */
+  }
+  check('md: thứ tự sheet theo danh sách', JSON.stringify(wbOut?.SheetNames) === JSON.stringify(['画面項目定義', 'テーブル定義']), wbOut?.SheetNames)
+  const ws1 = wbOut ? wbOut.Sheets[wbOut.SheetNames[0]] : null
+  const cells1 = ws1 ? Object.keys(ws1).filter((k) => !k.startsWith('!')).map((k) => ws1[k]) : []
+  check('md: sheet 1 có ô <null> nguyên văn', cells1.some((c) => c.v === '<null>'))
+  check('md: sheet 1 có ô số 1 định dạng 0.0', cells1.some((c) => c.v === 1 && c.z === '0.0'))
+  check('md: không để lại file .partial', listOut().every((f) => !f.endsWith('.partial')), listOut())
+  const resText = `(document.querySelector('.x2m-results')?.innerText ?? '')`
+  check(
+    'md: panel kết quả có kihon-sekkei.xlsx, 2 sheet',
+    (await waitFor(`${resText}.includes('kihon-sekkei.xlsx') && ${resText}.includes('2 sheet')`, 2000)) >= 0,
+    await ev(resText).catch(() => null)
+  )
+
+  // Hủy: một file .md lớn (60 000 dòng × 10 cột), danh sách chỉ gồm file này
+  const bigMdPath = join(mdDir, 'big.md')
+  const mdRows = ['| ' + ['No', ...Array.from({ length: 9 }, (_, i) => '列' + i)].join(' | ') + ' |', '|' + '---|'.repeat(10)]
+  for (let r = 1; r <= 60000; r++) mdRows.push('| ' + [String(r), ...Array.from({ length: 9 }, (_, c) => `値${r}_${c}`)].join(' | ') + ' |')
+  writeFileSync(bigMdPath, mdRows.join('\n') + '\n')
+  for (let i = 0; i < 2; i++) {
+    await ev(`document.querySelector('.x2m-md-file button[aria-label="Xóa khỏi danh sách"]')?.click(), 1`)
+    await waitFor(`${mdItems}.length === ${1 - i}`, 2000)
+  }
+  await dropFiles([bigMdPath])
+  const bigReadyMs = await waitFor(`${mdItems}.length === 1 && ${mdItems}[0].querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet'`, 30000)
+  await ev(`(() => { const i = ${nameInput}; if (!i) return 0; i.focus(); i.select(); return 1 })()`)
+  await send('Input.insertText', { text: 'big' })
+  await waitFor(`${nameInput}?.value === 'big'`, 2000)
+  await pressCtrlEnter()
+  const mdCancelBtnMs = await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Hủy')`, 5000)
+  const tMdCancel = Date.now()
+  await ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hủy')?.click(), 1`)
+  const mdCancelMs = await waitFor(hasToast('Đã hủy tạo file Excel'), 5000)
+  check(
+    `md Hủy: toast Đã hủy nhanh (${mdCancelMs >= 0 ? Date.now() - tMdCancel : '-'} ms)`,
+    mdCancelMs >= 0 && mdCancelMs < 2000,
+    { bigReadyMs, mdCancelBtnMs, mdCancelMs }
+  )
+  check('md Hủy: không có big.xlsx lẫn big.xlsx.partial', !listOut().includes('big.xlsx') && !listOut().includes('big.xlsx.partial'), listOut())
+
+  await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
+  check('về Excel → Markdown: danh sách Excel còn nguyên', (await waitFor(`(document.querySelector('.x2m-pane-title')?.textContent ?? '').includes('File Excel (3)')`, 2000)) >= 0)
+
   // Cuối cùng: không vi phạm CSP, không exception
   const csp = await ev('window.__csp.slice()')
   check('không vi phạm CSP', Array.isArray(csp) && csp.length === 0, csp)

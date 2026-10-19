@@ -23,6 +23,22 @@ export async function copyText(text: string): Promise<boolean> {
   }
 }
 
+/** Tên file không thư mục (tách theo cả `\` và `/`; renderer không có node:path). */
+export function baseName(p: string): string {
+  return p.split(/[\\/]/).pop() ?? p
+}
+
+/** Đổi chỗ phần tử `index` với phần tử kề theo `dir`. Luôn trả mảng mới;
+ * `index` hoặc vị trí đích ngoài biên -> bản sao không đổi. */
+export function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
+  const next = list.slice()
+  const to = index + dir
+  if (index < 0 || index >= list.length || to < 0 || to >= list.length) return next
+  next[index] = list[to]
+  next[to] = list[index]
+  return next
+}
+
 export function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }

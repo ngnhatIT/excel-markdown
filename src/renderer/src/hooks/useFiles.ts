@@ -2,15 +2,11 @@ import { useCallback, useRef, useState } from 'react'
 import type { FileItem, SheetInfo } from '../../../types'
 import type { SheetListItem } from '../api'
 import { errMsg } from '../api'
-import { toast, uid } from '../utils'
+import { baseName, toast, uid } from '../utils'
 
-const EXCEL_EXT = /\.(xlsx|xlsm|xls|xltx|xltm)$/i
+export const EXCEL_EXT = /\.(xlsx|xlsm|xls|xltx|xltm)$/i
 /** Số file tối đa được nhớ lựa chọn sheet. */
 const MAX_REMEMBERED = 50
-
-function baseName(p: string): string {
-  return p.split(/[\\/]/).pop() ?? p
-}
 
 const withChecks = (sheets: SheetListItem[], remembered?: string[]): SheetInfo[] =>
   sheets.map((s) => ({

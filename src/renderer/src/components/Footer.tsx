@@ -11,8 +11,11 @@ interface Props {
   converting: boolean
   progress: ConvertProgress | null
   onCancel: () => void
-  fileCount: number
-  checkedCount: number
+  /** Dòng trạng thái theo chế độ (vd `2 file, 3 sheet được chọn`) */
+  status: string
+  /** Chữ nút convert theo chế độ (vd `Convert 3 sheet sang Markdown`) */
+  convertLabel: string
+  canConvert: boolean
   appVersion: string
   lastConvertAt: string
   onConvert: () => void
@@ -20,7 +23,7 @@ interface Props {
 
 /** Thanh dưới: thư mục xuất, tiến độ, nút Hủy và nút Convert. */
 export function Footer(p: Props): React.ReactElement {
-  const { outDir, progress, converting, checkedCount } = p
+  const { outDir, progress, converting } = p
   return (
     <footer className="x2m-footer">
       <div className="x2m-outdir" title={outDir || 'Chưa chọn thư mục lưu'}>
@@ -75,21 +78,16 @@ export function Footer(p: Props): React.ReactElement {
           </button>
         )}
         <span className="dim">
-          {p.fileCount} file, {checkedCount} sheet được chọn
+          {p.status}
           {p.appVersion ? ` · v${p.appVersion}` : ''}
           {p.lastConvertAt ? ` · convert lúc ${p.lastConvertAt}` : ''}
         </span>
-        <button
-          className="btn btn-primary"
-          onClick={p.onConvert}
-          disabled={converting || p.fileCount === 0 || checkedCount === 0}
-          title="Ctrl+Enter"
-        >
+        <button className="btn btn-primary" onClick={p.onConvert} disabled={converting || !p.canConvert} title="Ctrl+Enter">
           {converting ? (
             <>Đang convert...</>
           ) : (
             <>
-              <IconCheck size={16} /> Convert {checkedCount > 0 ? `${checkedCount} sheet ` : ''}sang Markdown
+              <IconCheck size={16} /> {p.convertLabel}
             </>
           )}
         </button>

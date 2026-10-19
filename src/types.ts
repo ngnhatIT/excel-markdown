@@ -77,6 +77,22 @@ export interface MdInspectResult {
   markdown: string
 }
 
+/** Một file trong danh sách chế độ Markdown → Excel (thứ tự danh sách = thứ tự sheet). */
+export interface MdFileItem {
+  id: string
+  path: string
+  name: string
+  /** Đang đọc nhanh file (inspectMarkdown) */
+  loading: boolean
+  error?: string
+  /** `# tiêu đề` đầu file; null nếu không có */
+  title: string | null
+  /** Tên sheet sẽ tạo từ file này */
+  sheets: string[]
+  /** Nội dung nguyên văn để preview */
+  markdown: string
+}
+
 /** Kết quả Markdown → Excel. `declined`: người dùng chọn không ghi đè file đã có. */
 export type MdConvertResult =
   | { status: 'done'; outPath: string; sheets: string[] }

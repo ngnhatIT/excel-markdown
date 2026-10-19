@@ -10,10 +10,21 @@ interface Props {
   onClose: () => void
   onOpenDir: () => void
   onCopyDir: () => void
+  /** Đơn vị đếm `filesWritten` của từng dòng (mặc định `file.md`) */
+  unitLabel?: string
 }
 
 /** Kết quả lần convert gần nhất, từng file Excel. */
-export function ResultsPanel({ results, outDir, converting, onRetry, onClose, onOpenDir, onCopyDir }: Props): React.ReactElement {
+export function ResultsPanel({
+  results,
+  outDir,
+  converting,
+  onRetry,
+  onClose,
+  onOpenDir,
+  onCopyDir,
+  unitLabel = 'file.md',
+}: Props): React.ReactElement {
   return (
     <div className="x2m-results" role="status" aria-live="polite">
       <div className="x2m-results-head">
@@ -36,7 +47,9 @@ export function ResultsPanel({ results, outDir, converting, onRetry, onClose, on
             {r.ok ? <IconCheck size={15} /> : <IconX size={15} />}
             <span className="x2m-result-name">{r.fileName}</span>
             {r.ok ? (
-              <span className="dim">{r.filesWritten.length} file.md</span>
+              <span className="dim" title={r.filesWritten.join('\n')}>
+                {r.filesWritten.length} {unitLabel}
+              </span>
             ) : (
               <span className="x2m-result-error">{r.error}</span>
             )}
