@@ -66,7 +66,26 @@ const ASCII_BOLD_GLYPH_PX = [
   7, 8, 8, 7, 8, 8, 5, 8, 8, 4, 4, 7, 4, 12, 8, 8, // ` a-o
   8, 8, 5, 7, 5, 8, 7, 11, 7, 7, 6, 5, 5, 5, 9 // p-z { | } ~
 ]
-/** Chữ toàn角 (CJK, kana, ký hiệu…) và mọi ký tự ngoài ASCII không có trong bảng: 1em. */
+/**
+ * Heading: 游ゴシック 12 đậm (cỡ 16px), đo cùng cách (cột 1055px, vùng chữ ~1012px): vd i 5, a 9, W 15, khoảng
+ * trắng 5; chữ toàn角 16, katakana nửa角 8.
+ */
+// prettier-ignore
+const ASCII_HEADING_GLYPH_PX = [
+  5, 6, 7, 10, 10, 13, 12, 4, 6, 6, 8, 12, 4, 7, 4, 8, //  ! " # $ % & ' ( ) * + , - . /
+  9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 5, 5, 12, 12, 12, 9, // 0-9 : ; < = > ?
+  14, 11, 11, 11, 12, 10, 10, 12, 12, 5, 7, 11, 10, 15, 13, 12, // @ A-O
+  11, 12, 11, 11, 11, 12, 11, 15, 11, 11, 10, 6, 10, 6, 8, 8, // P-Z [ \ ] ^ _
+  8, 9, 10, 9, 10, 9, 6, 9, 10, 5, 5, 9, 5, 15, 10, 9, // ` a-o
+  10, 10, 6, 9, 6, 10, 9, 13, 9, 9, 8, 6, 6, 6, 11 // p-z { | } ~
+]
+/**
+ * Code: MS Gothic 10 là font đơn cách: mọi ký tự ASCII (cả khoảng trắng, i, l, W) đều 7px, chữ toàn角 14px (đo: 144
+ * chữ ASCII bất kỳ / 72 chữ あ mỗi dòng ở cột 1055px). Bảng 游ゴシック sẽ tính `i`/`l` quá hẹp -> thiếu dòng.
+ */
+const ASCII_CODE_GLYPH_PX: readonly number[] = new Array(0x7f - 0x20).fill(7)
+
+/** Chữ toàn角 (CJK, kana, ký hiệu…) và mọi ký tự ngoài ASCII không có trong bảng: 1em (游ゴシック 10 = 13px). */
 const WIDE_GLYPH_PX = 13
 /** Katakana nửa角 (U+FF61–U+FF9F): 0.5em, đo được như chữ số. */
 const HALF_GLYPH_PX = 7
@@ -98,15 +117,41 @@ function buildBmpGlyphPx(): Uint8Array {
   return table
 }
 
-/** Bề rộng (đơn vị độ rộng cột) của một code point khi Excel hiển thị bằng 游ゴシック 10 (bảng ASCII thường/đậm). */
-function glyphWidth(cp: number, ascii: readonly number[]): number {
+/**
+ * Kiểu chữ của ô khi ước lượng (mỗi kiểu có bề rộng glyph đo riêng bằng Excel thật):
+ * `body` 游ゴシック 10 (đoạn văn, ghi chú, value meta), `bold` 游ゴシック 10 đậm (nhãn meta),
+ * `heading` 游ゴシック 12 đậm, `code` MS Gothic 10.
+ */
+export type TextStyle = 'body' | 'bold' | 'heading' | 'code'
+
+interface GlyphMetrics {
+  /** Bề rộng (px) của ASCII 0x20–0x7E. */
+  ascii: readonly number[]
+  /** Chữ toàn角 (1em, px); ký tự ngoài ASCII trong bảng đo / emoji được nhân theo tỉ lệ `em / 13`. */
+  em: number
+  /** Katakana nửa角 (px). */
+  half: number
+}
+
+const METRICS: Record<TextStyle, GlyphMetrics> = {
+  body: { ascii: ASCII_GLYPH_PX, em: WIDE_GLYPH_PX, half: HALF_GLYPH_PX },
+  bold: { ascii: ASCII_BOLD_GLYPH_PX, em: WIDE_GLYPH_PX, half: HALF_GLYPH_PX },
+  heading: { ascii: ASCII_HEADING_GLYPH_PX, em: 16, half: 8 },
+  code: { ascii: ASCII_CODE_GLYPH_PX, em: 14, half: 7 }
+}
+
+/** Bề rộng (đơn vị độ rộng cột) của một code point khi Excel hiển thị bằng kiểu chữ `m`. */
+function glyphWidth(cp: number, m: GlyphMetrics): number {
   let px: number
-  if (cp >= 0x20 && cp <= 0x7e) px = ascii[cp - 0x20]
-  else if (cp >= 0xff61 && cp <= 0xff9f) px = HALF_GLYPH_PX
-  else if (cp > 0xffff) px = ASTRAL_GLYPH_PX
-  // Latin-1, Hy Lạp, Kirin, ký hiệu…: nhiều chữ là toàn角 trong 游ゴシック (× ± ° §) -> tính 1em cho chắc;
-  // ký tự đo được rộng hơn (emoji, ⟶, ⸻, U+FDFD…) theo bảng đo.
-  else px = (bmpGlyphPx ??= buildBmpGlyphPx())[cp] || WIDE_GLYPH_PX
+  if (cp >= 0x20 && cp <= 0x7e) px = m.ascii[cp - 0x20]
+  else if (cp >= 0xff61 && cp <= 0xff9f) px = m.half
+  else if (cp > 0xffff) px = (ASTRAL_GLYPH_PX * m.em) / WIDE_GLYPH_PX
+  else {
+    // Latin-1, Hy Lạp, Kirin, ký hiệu…: nhiều chữ là toàn角 trong 游ゴシック (× ± ° §) -> tính 1em cho chắc;
+    // ký tự đo được rộng hơn (emoji, ⟶, ⸻, U+FDFD…) theo bảng đo (px ở 1em = 13px, đổi theo cỡ chữ).
+    const wide = (bmpGlyphPx ??= buildBmpGlyphPx())[cp]
+    px = wide ? (wide * m.em) / WIDE_GLYPH_PX : m.em
+  }
   return px / GLYPH_PX_PER_UNIT
 }
 
@@ -121,13 +166,7 @@ const SPACE = 0x20
  * cắt giữa cặp surrogate). Chạy lại từ một chỉ số đầu dòng cho ra đúng các dòng như khi chạy liền từ đầu
  * (splitByLines dựa vào điều này).
  */
-function wrapStarts(
-  line: string,
-  from: number,
-  width: number,
-  limit = Infinity,
-  ascii: readonly number[] = ASCII_GLYPH_PX
-): number[] {
+function wrapStarts(line: string, from: number, width: number, limit: number, m: GlyphMetrics): number[] {
   const starts = [from]
   let lineStart = from
   let x = 0
@@ -138,7 +177,7 @@ function wrapStarts(
   for (let i = from; i < line.length; ) {
     const cp = line.codePointAt(i)!
     const size = cp > 0xffff ? 2 : 1
-    const w = glyphWidth(cp, ascii)
+    const w = glyphWidth(cp, m)
     if (cp === SPACE) {
       // Khoảng trắng "treo" ở cuối dòng: cộng độ rộng nhưng không xuống dòng vì nó.
       x += w
@@ -179,13 +218,13 @@ function safeWidth(totalWidth: number): number {
 
 /**
  * Số dòng hiển thị khi chữ tự xuống dòng trong vùng rộng `totalWidth` (tổng độ rộng các cột merge):
- * Σ theo từng dòng thật của số dòng khi mô phỏng xuống dòng (dòng trống vẫn là 1 dòng). `bold`: chữ in đậm.
+ * Σ theo từng dòng thật của số dòng khi mô phỏng xuống dòng (dòng trống vẫn là 1 dòng), theo kiểu chữ `style`.
  */
-export function estimateLines(text: string, totalWidth: number, bold = false): number {
+export function estimateLines(text: string, totalWidth: number, style: TextStyle = 'body'): number {
   const width = safeWidth(totalWidth)
-  const ascii = bold ? ASCII_BOLD_GLYPH_PX : ASCII_GLYPH_PX
+  const m = METRICS[style]
   let lines = 0
-  for (const line of splitLines(text)) lines += wrapStarts(line, 0, width, Infinity, ascii).length
+  for (const line of splitLines(text)) lines += wrapStarts(line, 0, width, Infinity, m).length
   return lines
 }
 
@@ -198,10 +237,17 @@ export function estimateLines(text: string, totalWidth: number, bold = false): n
  * - Một dòng thật tự nó đã vượt giới hạn bị cắt tại chỗ xuống dòng của mô phỏng, mỗi mảnh `maxLines` dòng
  *   hiển thị là một khối riêng (mảnh quá `maxChars` thì bớt dòng, một dòng hiển thị quá `maxChars` thì cắt theo
  *   ký tự, không cắt giữa cặp surrogate). Nối các mảnh của cùng một dòng bằng chuỗi rỗng ra lại dòng gốc.
- * - Luôn trả về ít nhất một khối.
+ * - Luôn trả về ít nhất một khối. `style`: kiểu chữ (như estimateLines).
  */
-export function splitByLines(text: string, totalWidth: number, maxLines: number, maxChars = Infinity): string[] {
+export function splitByLines(
+  text: string,
+  totalWidth: number,
+  maxLines: number,
+  maxChars = Infinity,
+  style: TextStyle = 'body'
+): string[] {
   const width = safeWidth(totalWidth)
+  const m = METRICS[style]
   const perBlock = Math.max(1, Math.floor(maxLines))
   const blocks: string[] = []
   let cur: string[] = []
@@ -216,10 +262,10 @@ export function splitByLines(text: string, totalWidth: number, maxLines: number,
   }
 
   for (const line of splitLines(text)) {
-    const lines = wrapStarts(line, 0, width, perBlock + 1).length
+    const lines = wrapStarts(line, 0, width, perBlock + 1, m).length
     if (lines > perBlock || line.length > maxChars) {
       flush()
-      cutLongLine(line, width, perBlock, maxChars, blocks)
+      cutLongLine(line, width, perBlock, maxChars, m, blocks)
       continue
     }
     if (cur.length > 0 && (curLines + lines > maxLines || curChars + 1 + line.length > maxChars)) flush()
@@ -232,11 +278,18 @@ export function splitByLines(text: string, totalWidth: number, maxLines: number,
 }
 
 /** Cắt một dòng thật quá dài thành các mảnh (xem splitByLines) và thêm vào `out`. */
-function cutLongLine(line: string, width: number, maxLines: number, maxChars: number, out: string[]): void {
+function cutLongLine(
+  line: string,
+  width: number,
+  maxLines: number,
+  maxChars: number,
+  m: GlyphMetrics,
+  out: string[]
+): void {
   let pos = 0
   while (pos < line.length) {
     // Đầu của tối đa maxLines + 1 dòng hiển thị tính từ pos; mảnh = maxLines dòng đầu.
-    const starts = wrapStarts(line, pos, width, maxLines + 1)
+    const starts = wrapStarts(line, pos, width, maxLines + 1, m)
     let k = Math.min(maxLines, starts.length)
     const endOf = (n: number) => (n < starts.length ? starts[n] : line.length)
     while (k > 1 && endOf(k) - pos > maxChars) k--

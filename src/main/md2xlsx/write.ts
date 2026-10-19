@@ -23,12 +23,25 @@ const COLOR_LINK = 'FF0563C1'
 
 /** Chiều cao một dòng chữ (pt): đo bằng Excel thật, 游ゴシック 10 tự giãn đúng 16.5pt mỗi dòng. */
 export const LINE_HEIGHT = 16.5
+/** Heading 游ゴシック 12 đậm: Excel AutoFit đúng 19.5pt mỗi dòng (đo 1–21 dòng, 21 dòng = 409.5pt). */
+const HEADING_LINE_HEIGHT = 19.5
+/**
+ * Code MS Gothic 10: Excel AutoFit 12pt mỗi dòng, cộng 1.5pt khi ô có xuống dòng thật (đo: n dòng tự xuống = 12n,
+ * n dòng thật = 12n + 1.5, n = 2–30), và không thấp hơn 15pt (chiều cao mặc định của hàng, font Normal Calibri 11).
+ */
+const CODE_LINE_HEIGHT = 12
+const CODE_EXTRA_HEIGHT = 1.5
+const CODE_MIN_HEIGHT = 15
 /** Chiều cao hàng banner (pt). */
 const BANNER_HEIGHT = 24
 /** Excel không chấp nhận hàng cao hơn 409.5pt. */
 export const MAX_ROW_HEIGHT = 409.5
 /** Số dòng chữ tối đa trong một hàng (24 dòng = 396pt). */
 const MAX_LINES_PER_ROW = Math.floor(MAX_ROW_HEIGHT / LINE_HEIGHT)
+/** Heading: tối đa 21 dòng (409.5pt) mỗi hàng. */
+const MAX_HEADING_LINES_PER_ROW = Math.floor(MAX_ROW_HEIGHT / HEADING_LINE_HEIGHT)
+/** Code: tối đa 34 dòng (12 × 34 + 1.5 = 409.5pt) mỗi hàng. */
+const MAX_CODE_LINES_PER_ROW = Math.floor((MAX_ROW_HEIGHT - CODE_EXTRA_HEIGHT) / CODE_LINE_HEIGHT)
 /** Bề rộng tối thiểu (số cột) của vùng merge, kể cả khi sheet không có bảng nào rộng như vậy. */
 const MIN_SPAN = 4
 /** Độ rộng cột tối thiểu / tối đa / phần cộng thêm quanh chữ. */
@@ -209,18 +222,31 @@ function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: numbe
     // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng. Value 1 dòng thì để Excel tự
     // giãn hàng (theo ô nhãn); đã đặt chiều cao thì phải đủ cho cả ô nhãn tự xuống dòng ở cột A.
     const lines = estimateLines(item.value.text, valueWidth)
-    if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth, true)))
+    if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth, 'bold')))
   })
   return block.items.length
 }
 
+/**
+ * Heading: merge A..span (cùng bề rộng như đoạn văn), tự xuống dòng, chiều cao do app tính (19.5pt/dòng), nên
+ * heading dài không tràn ra ngoài vùng in. Gạch dưới (viền dưới) trải cả vùng merge: ô phụ lấy style của ô chính khi
+ * merge. Cao hơn 409.5pt thì tách thành các hàng merge liền nhau như đoạn văn; chỉ hàng cuối có gạch dưới.
+ */
 function writeHeading(ctx: Ctx, block: Extract<Block, { kind: 'heading' }>, row: number): number {
-  const cell = ctx.ws.getCell(row, 1)
-  if (block.text !== '') cell.value = cellText(block.text)
-  cell.font = font({ bold: true, size: 12, color: { argb: COLOR_HEADING } })
-  cell.border = { bottom: { style: 'medium', color: { argb: COLOR_HEADING } } }
-  cell.alignment = { vertical: 'top' }
-  return 1
+  const { ws, span } = ctx
+  const width = sumWidths(ctx, 1, span)
+  const pieces = splitByLines(block.text, width, MAX_HEADING_LINES_PER_ROW, MAX_CELL_CHARS, 'heading')
+  pieces.forEach((piece, i) => {
+    const r = row + i
+    const cell = ws.getCell(r, 1)
+    if (piece !== '') cell.value = cellText(piece)
+    cell.font = font({ bold: true, size: 12, color: { argb: COLOR_HEADING } })
+    if (i === pieces.length - 1) cell.border = { bottom: { style: 'medium', color: { argb: COLOR_HEADING } } }
+    cell.alignment = wrapTop()
+    ws.mergeCells(r, 1, r, span)
+    ws.getRow(r).height = Math.min(MAX_ROW_HEIGHT, HEADING_LINE_HEIGHT * estimateLines(piece, width, 'heading'))
+  })
+  return pieces.length
 }
 
 /**
@@ -244,14 +270,28 @@ function writeText(ctx: Ctx, text: string, muted: boolean, row: number): number 
   return pieces.length
 }
 
+/**
+ * Code: mỗi dòng code một hàng (không gộp các dòng), merge A..span, tự xuống dòng, chiều cao theo bề rộng đơn cách
+ * của MS Gothic. Một dòng cao hơn 409.5pt thì tách thành các hàng merge liền nhau (nối lại bằng chuỗi rỗng ra dòng
+ * gốc), như đoạn văn.
+ */
 function writeCode(ctx: Ctx, block: Extract<Block, { kind: 'code' }>, row: number): number {
-  block.lines.forEach((line, i) => {
-    const cell = ctx.ws.getCell(row + i, 1)
-    if (line !== '') cell.value = cellText(line)
-    cell.font = font({ name: CODE_FONT_NAME })
-    cell.alignment = { vertical: 'top' }
-  })
-  return block.lines.length
+  const { ws, span } = ctx
+  const width = sumWidths(ctx, 1, span)
+  let r = row
+  for (const line of block.lines) {
+    for (const piece of splitByLines(line, width, MAX_CODE_LINES_PER_ROW, MAX_CELL_CHARS, 'code')) {
+      const cell = ws.getCell(r, 1)
+      if (piece !== '') cell.value = cellText(piece)
+      cell.font = font({ name: CODE_FONT_NAME })
+      cell.alignment = wrapTop()
+      ws.mergeCells(r, 1, r, span)
+      const lines = estimateLines(piece, width, 'code')
+      ws.getRow(r).height = Math.min(MAX_ROW_HEIGHT, Math.max(CODE_MIN_HEIGHT, CODE_LINE_HEIGHT * lines + CODE_EXTRA_HEIGHT))
+      r++
+    }
+  }
+  return r - row
 }
 
 function writeBlock(ctx: Ctx, block: Block, row: number): number {

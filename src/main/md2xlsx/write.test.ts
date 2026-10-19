@@ -106,21 +106,29 @@ describe('buildWorkbook: bố cục', () => {
     expect(ws.getRow(6).height).toBeUndefined()
   })
 
-  it('heading hàng 9 (không có hàng trống sau), paragraph hàng 10 merge A:H', () => {
+  it('heading hàng 9 (không có hàng trống sau) merge A:H, gạch dưới cả vùng merge; paragraph hàng 10 merge A:H', () => {
     expect(ws.getCell('A9').font).toMatchObject({ bold: true, size: 12, color: { argb: 'FF1F3864' } })
-    expect(ws.getCell('A9').border.bottom?.style).toBe('medium')
+    expect(ws.getCell('A9').border.bottom).toMatchObject({ style: 'medium', color: { argb: 'FF1F3864' } })
+    expect(ws.getCell('H9').master.address).toBe('A9')
+    expect(ws.getCell('H9').border.bottom).toMatchObject({ style: 'medium', color: { argb: 'FF1F3864' } })
+    expect(ws.getCell('A9').alignment).toMatchObject({ wrapText: true, vertical: 'top' })
+    // 游ゴシック 12 đậm: Excel tự giãn 19.5pt mỗi dòng
+    expect(ws.getRow(9).height).toBe(19.5)
     expect(ws.getCell('H10').master.address).toBe('A10')
     expect(ws.getCell('A10').alignment.wrapText).toBe(true)
     expect(ws.getCell('A10').border.top).toBeUndefined()
     expect(ws.getRow(10).height).toBe(LINE * estimateLines('x'.repeat(300), sumWidths(ws, 1, 8)))
   })
 
-  it('note: chữ xám, 2 dòng cao 30; code: MS Gothic, một dòng một hàng', () => {
+  it('note: chữ xám, 2 dòng cao 30; code: MS Gothic, một dòng một hàng, merge A:H, tự xuống dòng', () => {
     expect(ws.getCell('A12').font.color?.argb).toBe('FF595959')
     expect(ws.getRow(12).height).toBe(33)
     expect(ws.getCell('A14').font.name).toBe('MS Gothic')
     expect(ws.getCell('A14').value).toBe('c1')
-    expect(ws.getCell('A14').isMerged).toBe(false)
+    expect(ws.getCell('H14').master.address).toBe('A14')
+    expect(ws.getCell('A14').alignment).toMatchObject({ wrapText: true, vertical: 'top' })
+    // MS Gothic 10 một dòng: Excel AutoFit 15pt (chiều cao tối thiểu của hàng)
+    expect(ws.getRow(14).height).toBe(15)
   })
 
   it('độ rộng cột: min 6, +2, max 60; cột A tính cả nhãn meta', () => {
@@ -475,6 +483,45 @@ describe('buildWorkbook: đoạn văn/ghi chú quá cao được tách qua nhi�
     expect(ws.getCell('A3').value).toBe('H')
   })
 
+  it('dòng code cao hơn 409.5pt -> nhiều hàng merge liền nhau (mỗi hàng ≤ 409.5pt, nối lại ra dòng gốc); dòng sau ở hàng kế', async () => {
+    const long = 'x'.repeat(6000)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'code', lines: ['a', long, 'b'] }, { kind: 'heading', text: 'H' }] }]))
+      .worksheets[0]
+    const rows = consecutive(ws, 1)
+    expect(rows[0].text).toBe('a')
+    expect(rows[rows.length - 1].text).toBe('b')
+    const pieces = rows.slice(1, -1)
+    expect(pieces.length).toBeGreaterThan(1)
+    expect(pieces.map((p) => p.text).join('')).toBe(long)
+    const total = sumWidths(ws, 1, 4)
+    for (const { row, text } of rows) {
+      expect(ws.getRow(row).height as number).toBeLessThanOrEqual(MAX_ROW_HEIGHT)
+      // MS Gothic 10: Excel AutoFit 15pt cho 1 dòng, n dòng (n >= 2) không quá 12n + 1.5
+      expect(ws.getRow(row).height).toBe(Math.max(15, 12 * estimateLines(text, total, 'code') + 1.5))
+      expect(ws.getCell(row, 4).master.address).toBe(`A${row}`)
+      expect(ws.getCell(row, 1).font.name).toBe('MS Gothic')
+    }
+    // mảnh đầy dùng gần hết một hàng (không cắt quá vụn)
+    expect(ws.getRow(pieces[0].row).height as number).toBeGreaterThan(MAX_ROW_HEIGHT - 24)
+    expect(ws.getCell(rows.length + 2, 1).value).toBe('H')
+  })
+
+  it('heading cao hơn 409.5pt -> nhiều hàng merge liền nhau, chỉ hàng cuối có gạch dưới', async () => {
+    const text = '見出し'.repeat(700)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'heading', text }, { kind: 'paragraph', text: 'p' }] }])).worksheets[0]
+    const rows = consecutive(ws, 1)
+    const pieces = rows.slice(0, -1)
+    expect(rows[rows.length - 1].text).toBe('p')
+    expect(pieces.length).toBeGreaterThan(1)
+    expect(pieces.map((p) => p.text).join('')).toBe(text)
+    pieces.forEach(({ row }, i) => {
+      expect(ws.getRow(row).height as number).toBeLessThanOrEqual(MAX_ROW_HEIGHT)
+      expect(ws.getCell(row, 1).font).toMatchObject({ bold: true, size: 12 })
+      expect(ws.getCell(row, 4).master.address).toBe(`A${row}`)
+      expect(ws.getCell(row, 1).border?.bottom?.style).toBe(i === pieces.length - 1 ? 'medium' : undefined)
+    })
+  })
+
   it('ô value của meta vẫn là một ô, cao tối đa MAX_ROW_HEIGHT (không tách)', async () => {
     const text = Array.from({ length: 40 }, (_, i) => `v${i}`).join('\n')
     const ws = (
@@ -559,9 +606,29 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     },
     { text: '\u26A0\uFE0F'.repeat(30), golden: 33, narrow: 82.5 }
   ]
+  /** Heading (游ゴシック 12 đậm) và dòng code (MS Gothic 10) dài: merge A..span, tự xuống dòng (cùng cách đo). */
+  const SQL_300 =
+    "SELECT CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER, EMAIL_ADDRESS, POSTAL_CODE, ADDRESS_LINE1, ADDRESS_LINE2, REGISTERED_AT, UPDATED_AT FROM TBL_CUSTOMER WHERE DELETE_FLG = 0 AND STATUS_CODE IN (1, 2, 3) AND REGISTERED_AT >= '2026-01-01' ORDER BY CUSTOMER_ID, REGISTERED_AT DESC LIMIT 100 OFFSET 0; -- 1"
+  const HEADINGS: { text: string; golden: number; narrow: number }[] = [
+    { text: '【' + '画面項目定義の詳細説明とレイアウト仕様について'.repeat(3) + '】', golden: 39, narrow: 117 },
+    { text: '■ Section ' + 'ABCDEFGHIJ'.repeat(12), golden: 58.5, narrow: 136.5 },
+    { text: '1.2.3 ' + 'mmmmmmmmmm wwwwwwwwww '.repeat(6).trimEnd(), golden: 58.5, narrow: 234 },
+    { text: '見出し \u2705 完了 \u274C 未完了 \u2B50 重要 '.repeat(4).trimEnd(), golden: 39, narrow: 117 },
+    { text: 'iiiiiiiiii llllllllll '.repeat(10).trimEnd(), golden: 39, narrow: 97.5 }
+  ]
+  const CODE: { text: string; golden: number; narrow: number }[] = [
+    { text: SQL_300, golden: 48, narrow: 132 },
+    { text: 'i'.repeat(200), golden: 36, narrow: 84 },
+    { text: '    // ' + 'コメント：顧客情報を検索して一覧に表示する。'.repeat(4), golden: 36, narrow: 84 },
+    { text: 'const longIdentifierName_' + 'x'.repeat(150) + ' = 1', golden: 36, narrow: 84 },
+    { text: 'l'.repeat(80) + ' ' + 'i'.repeat(80) + ' ' + '.'.repeat(80), golden: 36, narrow: 108 },
+    { text: '\u2705'.repeat(60), golden: 24, narrow: 60 }
+  ]
   const samples = (): Block[] => [
     ...PARAGRAPHS.map(({ text }): Block => ({ kind: 'paragraph', text })),
-    { kind: 'meta', items: META.map(({ text }, i) => ({ label: `M${i + 1}`, value: { text } })) }
+    { kind: 'meta', items: META.map(({ text }, i) => ({ label: `M${i + 1}`, value: { text } })) },
+    ...HEADINGS.map(({ text }): Block => ({ kind: 'heading', text })),
+    { kind: 'code', lines: CODE.map(({ text }) => text) }
   ]
   const golden = parseMarkdownFile(
     readFileSync(fileURLToPath(new URL('../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)), 'utf8'),
@@ -585,9 +652,25 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     const ws = (await reload([{ name: 'S', blocks: blocks() }])).worksheets[0]
     const got = [
       ...PARAGRAPHS.map((s) => ({ text: s.text.slice(0, 30), excel: s[sheet], app: heightOf(ws, 1, s.text) })),
-      ...META.map((s) => ({ text: 'meta ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 2, s.text) }))
+      ...META.map((s) => ({ text: 'meta ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 2, s.text) })),
+      ...HEADINGS.map((s) => ({ text: 'heading ' + s.text.slice(0, 22), excel: s[sheet], app: heightOf(ws, 1, s.text) })),
+      ...CODE.map((s) => ({ text: 'code ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 1, s.text) }))
     ]
     expect(got.filter((g) => g.app < g.excel)).toEqual([])
+  })
+
+  it.each([
+    ['golden', () => [...golden.blocks, ...samples()], 8],
+    ['narrow', () => samples(), 4]
+  ] as const)('%s: heading và dòng code dài merge A..span, tự xuống dòng (không tràn ra ngoài vùng in)', async (_, blocks, span) => {
+    const ws = (await reload([{ name: 'S', blocks: blocks() }])).worksheets[0]
+    for (const { text } of [...HEADINGS, ...CODE]) {
+      let r = 1
+      while (!(ws.getCell(r, 1).value === text && ws.getCell(r, 1).master.address === `A${r}`)) r++
+      expect(ws.getCell(r, span).master.address, text.slice(0, 20)).toBe(`A${r}`)
+      expect(ws.getCell(r, span + 1).isMerged, text.slice(0, 20)).toBe(false)
+      expect(ws.getCell(r, 1).alignment, text.slice(0, 20)).toMatchObject({ wrapText: true, vertical: 'top' })
+    }
   })
 })
 

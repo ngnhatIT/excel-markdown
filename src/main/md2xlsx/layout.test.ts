@@ -72,6 +72,28 @@ describe('estimateLines', () => {
     for (const ch of ['\u203B', '\u2026', '\u2192', '\u2460', '\u25CB', 'あ']) expect(estimateLines(ch.repeat(75), 150)).toBe(1)
   })
 
+  it("kiểu chữ 'code' (MS Gothic 10, đơn cách): mọi chữ ASCII 7px, toàn角 14px; chữ hẹp không được tính hẹp", () => {
+    // Excel, cột 150: 144 chữ bất kỳ (i, W, khoảng trắng…) và 72 chữ あ mỗi dòng
+    expect(estimateLines('i'.repeat(145), 150, 'code')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('l'.repeat(145), 150, 'code')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('あ'.repeat(73), 150, 'code')).toBeGreaterThanOrEqual(2)
+    // cùng chuỗi ở 游ゴシック (i 3px) vừa một dòng
+    expect(estimateLines('i'.repeat(145), 150)).toBe(1)
+    // ước lượng không thừa quá: 130 chữ (Excel: 1 dòng) -> 1 dòng; 140 chữ -> tối đa 2
+    expect(estimateLines('i'.repeat(130), 150, 'code')).toBe(1)
+  })
+
+  it("kiểu chữ 'heading' (游ゴシック 12 đậm): bề rộng glyph lớn hơn cỡ 10 (đo bằng Excel)", () => {
+    // Excel, cột 150: 63 chữ あ, 67 chữ W, 202 chữ i mỗi dòng
+    expect(estimateLines('あ'.repeat(64), 150, 'heading')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('W'.repeat(68), 150, 'heading')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('i'.repeat(203), 150, 'heading')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('\u2705'.repeat(45), 150, 'heading')).toBeGreaterThanOrEqual(2)
+    expect(estimateLines('あ'.repeat(60), 150, 'heading')).toBe(1)
+    // cỡ 10 thường vẫn như cũ
+    expect(estimateLines('あ'.repeat(64), 150)).toBe(1)
+  })
+
   it('tự xuống dòng theo từ: từ Latin không bị cắt khi còn vừa một dòng mới', () => {
     // mỗi từ 13 chữ 'i' ≈ 6 đơn vị: hai từ + khoảng trắng không vừa vùng rộng 10 -> mỗi từ một dòng
     const word = 'i'.repeat(13)
