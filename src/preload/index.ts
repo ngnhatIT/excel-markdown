@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   ApiResult,
   ConvertFileSpec,
@@ -33,6 +33,15 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('shell:openPath', target) as Promise<ApiResult<null>>).then(() => undefined),
   getVersion: (): Promise<string> =>
     unwrap(ipcRenderer.invoke('app:getVersion') as Promise<ApiResult<string>>),
+  /** Đường dẫn thật của File kéo-thả. Electron 32+ đã bỏ `File.path`;
+   * trả '' nếu không phải file trên đĩa. */
+  getPathForFile: (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return ''
+    }
+  },
   onOpenFiles: (cb: (paths: string[]) => void): (() => void) => {
     const listener = (_e: unknown, v: string[]): void => cb(v)
     ipcRenderer.on('open-files', listener)

@@ -28,6 +28,7 @@ interface WindowApi {
   openDirectory(): Promise<string | null>
   openPath(target: string): Promise<void>
   getVersion(): Promise<string>
+  getPathForFile(file: File): string
   onOpenFiles(cb: (paths: string[]) => void): () => void
   onProgress(cb: (p: { done: number; total: number }) => void): () => void
   listSheets(
@@ -660,7 +661,7 @@ export default function App(): React.ReactElement {
         e.preventDefault()
         setDragOver(false)
         const paths = Array.from(e.dataTransfer.files)
-          .map((f) => (f as unknown as { path?: string }).path ?? '')
+          .map((f) => window.api.getPathForFile(f))
           .filter(Boolean)
         void addPaths(paths)
       }}
