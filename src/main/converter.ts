@@ -2,8 +2,13 @@
  * Hiểu các định dạng tài liệu 基本設計 (Backlog): banner 基本設計, meta 機能ID/画面ID/
  * テーブルID..., section 【...】/■..., bảng No/№/項番, ô merge, ô nhiều dòng, công thức.
  */
+import * as fs from 'node:fs'
 import * as XLSX from 'xlsx'
 import type { ConvertOptions } from '../types'
+
+// SheetJS >= 0.20: bản ESM (vitest dùng) không tự nạp `fs`, readFile/writeFile sẽ lỗi
+// "Cannot access file". Bản CJS (main process build) không cần nhưng gọi cũng vô hại.
+XLSX.set_fs(fs)
 
 export interface SheetResult {
   sheet: string
