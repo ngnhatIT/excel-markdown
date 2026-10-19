@@ -1,5 +1,6 @@
 # Golden output so khớp từng byte: luôn LF, kể cả trên Windows (core.autocrlf=true).
 test/golden/** text eol=lf
+test/golden-md2xlsx/** text eol=lf
 *.xlsx binary
 *.xlsm binary
 *.xls binary
