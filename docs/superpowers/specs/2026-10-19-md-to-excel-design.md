@@ -140,8 +140,11 @@ vào XML từng sheet — quyết định của tôi.
 ## 8. Markdown không do app tạo
 
 Hỗ trợ ở mức "hợp lý" (quyết định của tôi): heading mọi cấp → dòng section (cấp 1–2 như
-`###`); bảng GFM → bảng; list thường (không có `**label**:`) → mỗi item một dòng ở cột A,
-tiền tố `・`; code block → từng dòng ở cột A, font monospace; ảnh → chữ alt; còn lại → chữ
+`###`); bảng GFM → bảng; list thường (không có `**label**:`) → mỗi item một dòng ở cột A:
+list không đánh số → tiền tố `・`, list đánh số → số hiển thị `N. ` (theo số bắt đầu của
+list, vd `3.` `4.`); `**label**:` hoặc `**label**：` (dấu `：` toàn角) → meta; `<br>` đứng
+riêng một dòng và comment HTML `<!-- … -->` → bỏ (không có chữ), HTML khác → chữ nguyên văn;
+code block → từng dòng ở cột A, font monospace; ảnh → chữ alt; còn lại → chữ
 thuần. Không được crash với bất kỳ Markdown nào.
 
 ## 9. Giao diện (quyết định của tôi)

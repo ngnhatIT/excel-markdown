@@ -12,13 +12,22 @@ const BOM = /^﻿/
 const BANNER_PREFIX = '基本設計'
 const BANNER_SEPARATOR = '：'
 const BULLET = '・'
-// Sau `**label**` phải là `:` (do Excel -> Markdown sinh ra); chỉ bỏ khoảng trắng thường,
-// không bỏ khoảng trắng toàn角 để giữ thụt lề của giá trị.
-const META_COLON = /^:[ \t]*/
+// Sau `**label**` phải là `:` (do Excel -> Markdown sinh ra) hoặc `：` toàn角 (gõ tay); chỉ bỏ
+// khoảng trắng thường sau dấu, không bỏ khoảng trắng toàn角 để giữ thụt lề của giá trị.
+const META_COLON = /^[:：][ \t]*/
+// Khối HTML chỉ là `<br>` (type-7 HTML block, không lọt vào inlineCell) hoặc đúng một comment: không có chữ để hiển thị.
+const BR_ONLY = /^<br\s*\/?>$/i
+const COMMENT_ONLY = /^<!--(?:(?!-->)[\s\S])*-->$/
 
 /** Chữ hiển thị của token có inline con (paragraph, text, heading); không có thì dùng raw. */
 function inlineText(t: Token): string {
   return t.tokens ? inlineCell(t.tokens).text : String(t.raw ?? '').trim()
+}
+
+/** Khối HTML không có chữ hiển thị (`<br>` riêng một dòng, comment) -> bỏ; HTML khác giữ nguyên chữ (§6). */
+function isBlankHtml(t: Token): boolean {
+  const raw = String(t.raw ?? '').trim()
+  return BR_ONLY.test(raw) || COMMENT_ONLY.test(raw)
 }
 
 /** Các dòng chữ thuần của một token khối, dùng khi gộp vào ô meta hoặc ghi chú. */
@@ -36,7 +45,9 @@ function blockLines(t: Token): string[] {
       return (t.tokens ?? []).flatMap(blockLines)
     case 'list':
       return (t.items ?? []).flatMap((item: Token) => (item.tokens ?? []).flatMap(blockLines))
-    // html, table, def... -> chữ thuần
+    case 'html':
+      return isBlankHtml(t) ? [] : [String(t.raw ?? '').trim()]
+    // table, def... -> chữ thuần
     default:
       return [String(t.raw ?? '').trim()]
   }
@@ -54,8 +65,8 @@ function metaItem(item: Token): MetaItem | null {
   const rest = inline.slice(1)
   const first = rest[0]
   if (first) {
-    // Chỉ token `text` mới có thể mở đầu bằng `:`; token khác (vd link ngay sau **x**) -> không phải meta
-    if (first.type !== 'text' || !String(first.text).startsWith(':')) return null
+    // Chỉ token `text` mới có thể mở đầu bằng `:`/`：`; token khác (vd link ngay sau **x**) -> không phải meta
+    if (first.type !== 'text' || !META_COLON.test(String(first.text))) return null
     const stripped = String(first.text).replace(META_COLON, '')
     rest.splice(0, 1, ...(stripped === '' ? [] : [{ ...first, raw: stripped, text: stripped }]))
   }
@@ -80,7 +91,10 @@ function bannerOf(text: string): Block {
 function listBlocks(list: Token, out: Block[]): void {
   // Item meta liên tiếp trong cùng một list gộp thành một block
   let meta: MetaItem[] | null = null
-  for (const item of list.items ?? []) {
+  // List đánh số: item thường mang số hiển thị (start + vị trí); list không đánh số: `・`
+  const start = typeof list.start === 'number' ? list.start : 1
+  const items: Token[] = list.items ?? []
+  for (const [i, item] of items.entries()) {
     const m = metaItem(item)
     if (m) {
       if (!meta) {
@@ -94,7 +108,8 @@ function listBlocks(list: Token, out: Block[]): void {
     const tokens: Token[] = item.tokens ?? []
     const head = tokens[0]
     const hasText = head !== undefined && (head.type === 'text' || head.type === 'paragraph')
-    out.push({ kind: 'paragraph', text: BULLET + (hasText ? inlineText(head) : '') })
+    const prefix = list.ordered ? `${start + i}. ` : BULLET
+    out.push({ kind: 'paragraph', text: prefix + (hasText ? inlineText(head) : '') })
     // Phần còn lại của item (list con, đoạn nối tiếp, code...) thành block riêng ngay sau
     tokens.slice(hasText ? 1 : 0).forEach((t) => tokenBlocks(t, false, out))
   }
@@ -130,7 +145,10 @@ function tokenBlocks(t: Token, first: boolean, out: Block[]): void {
     case 'code':
       out.push({ kind: 'code', lines: String(t.text ?? '').split('\n') })
       return
-    // html và mọi token khác (def...) -> chữ thuần
+    case 'html':
+      if (!isBlankHtml(t)) out.push({ kind: 'paragraph', text: String(t.raw ?? '').trim() })
+      return
+    // mọi token khác (def...) -> chữ thuần
     default:
       out.push({ kind: 'paragraph', text: String(t.raw ?? '').trim() })
   }

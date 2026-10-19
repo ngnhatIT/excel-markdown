@@ -175,14 +175,77 @@ describe('parseMarkdownFile: banner và ghi chú (§5)', () => {
 })
 
 describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
-  it('list thường: mỗi item một dòng, tiền tố ・', () => {
+  it('list không đánh số: mỗi item một dòng, tiền tố ・', () => {
     expect(g('- 項目1\n- 項目2')).toEqual([
       { kind: 'paragraph', text: '・項目1' },
       { kind: 'paragraph', text: '・項目2' }
     ])
-    expect(g('1. a\n2. b')).toEqual([
-      { kind: 'paragraph', text: '・a' },
-      { kind: 'paragraph', text: '・b' }
+  })
+
+  it('list đánh số: tiền tố là số hiển thị `N. ` (theo số bắt đầu của list)', () => {
+    expect(g('1. x\n2. y')).toEqual([
+      { kind: 'paragraph', text: '1. x' },
+      { kind: 'paragraph', text: '2. y' }
+    ])
+    expect(g('3. a\n4. b')).toEqual([
+      { kind: 'paragraph', text: '3. a' },
+      { kind: 'paragraph', text: '4. b' }
+    ])
+    expect(g('0. z\n1. w')).toEqual([
+      { kind: 'paragraph', text: '0. z' },
+      { kind: 'paragraph', text: '1. w' }
+    ])
+  })
+
+  it('list đánh số: item meta không thêm số; item con có số riêng', () => {
+    expect(g('1. **A**: v\n2. x\n   1. y')).toEqual([
+      { kind: 'meta', items: [{ label: 'A', value: { text: 'v' } }] },
+      { kind: 'paragraph', text: '2. x' },
+      { kind: 'paragraph', text: '1. y' }
+    ])
+  })
+
+  it('HTML: <br> riêng một dòng và comment bị bỏ, HTML khác giữ chữ', () => {
+    expect(g('a\n\n<br>\n\nb')).toEqual([
+      { kind: 'paragraph', text: 'a' },
+      { kind: 'paragraph', text: 'b' }
+    ])
+    expect(g('a\n\n<BR />\n\n<br/>\n\nb')).toEqual([
+      { kind: 'paragraph', text: 'a' },
+      { kind: 'paragraph', text: 'b' }
+    ])
+    expect(g('a\n\n<!-- c -->\n\nb')).toEqual([
+      { kind: 'paragraph', text: 'a' },
+      { kind: 'paragraph', text: 'b' }
+    ])
+    expect(g('a\n\n<!-- nhiều\ndòng -->\n\nb')).toEqual([
+      { kind: 'paragraph', text: 'a' },
+      { kind: 'paragraph', text: 'b' }
+    ])
+    expect(g('<div>x</div>')).toEqual([{ kind: 'paragraph', text: '<div>x</div>' }])
+    expect(g('<br>\n<br>')).toEqual([{ kind: 'paragraph', text: '<br>\n<br>' }])
+  })
+
+  it('HTML trong blockquote: cùng quy tắc bỏ <br>/comment', () => {
+    expect(g('x\n\n> a\n>\n> <br>\n>\n> <!-- c -->\n>\n> b')).toEqual([
+      { kind: 'paragraph', text: 'x' },
+      { kind: 'note', text: 'a\nb' }
+    ])
+    expect(g('x\n\n> <div>y</div>')).toEqual([
+      { kind: 'paragraph', text: 'x' },
+      { kind: 'note', text: '<div>y</div>' }
+    ])
+  })
+
+  it('meta: ：toàn角 ngay sau **label** cũng là dấu phân cách', () => {
+    expect(g('- **作成者**：山田\n- **確認者**： 鈴木')).toEqual([
+      {
+        kind: 'meta',
+        items: [
+          { label: '作成者', value: { text: '山田' } },
+          { label: '確認者', value: { text: '鈴木' } }
+        ]
+      }
     ])
   })
 
@@ -218,7 +281,7 @@ describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
     ])
   })
 
-  it('meta: ** đầu item nhưng phần sau không bắt đầu bằng : thì là item thường', () => {
+  it('meta: ** đầu item nhưng phần sau không bắt đầu bằng : hoặc ： thì là item thường', () => {
     expect(g('- **A** v\n- **B:** w')).toEqual([
       { kind: 'paragraph', text: '・A v' },
       { kind: 'paragraph', text: '・B: w' }
