@@ -42,6 +42,7 @@ interface WindowApi {
     options: ConvertOptions
     outputMode: OutputMode
   }): Promise<ConvertResultItem[]>
+  cancelConvert(): Promise<void>
 }
 
 declare global {
@@ -563,8 +564,11 @@ export default function App(): React.ReactElement {
       const res = await window.api.convert({ files: specs, outDir: dir, options, outputMode })
       setResults(res)
       const okCount = res.filter((r) => r.ok).length
+      const cancelledCount = res.filter((r) => r.cancelled).length
       const mdCount = res.reduce((n, r) => n + r.filesWritten.length, 0)
-      if (okCount === res.length) {
+      if (cancelledCount > 0) {
+        toast(`Đã hủy: ${okCount} file Excel đã convert xong, ${cancelledCount} file bị hủy`, 'err')
+      } else if (okCount === res.length) {
         toast(
           mdCount === 0
             ? 'Không tạo file nào (các sheet đều rỗng hoặc bị bỏ qua)'
@@ -583,6 +587,10 @@ export default function App(): React.ReactElement {
       window.setTimeout(() => setProgress(null), 1500)
     }
   }, [files, outDir, options, outputMode, persist, rememberDir])
+
+  const cancelConvert = useCallback(() => {
+    window.api.cancelConvert().catch((err) => toast(err instanceof Error ? err.message : String(err), 'err'))
+  }, [])
 
   const copyOutDir = useCallback(async () => {
     if (!outDir) return
@@ -1145,6 +1153,11 @@ export default function App(): React.ReactElement {
                 {progress.done}/{progress.total}
               </span>
             </div>
+          )}
+          {converting && (
+            <button className="btn btn-sm" onClick={cancelConvert} title="Dừng convert (file đã ghi được giữ nguyên)">
+              Hủy
+            </button>
           )}
           <span className="dim">
             {files.length} file, {checkedCount} sheet được chọn

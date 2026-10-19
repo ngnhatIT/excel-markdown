@@ -153,6 +153,50 @@ try {
     check(`nội dung ${f} khớp golden`, parts.includes(md))
   }
 
+  // File lớn: main không bị treo khi convert (parse chạy trong worker) + nút Hủy
+  const XLSX = require('xlsx')
+  const aoa = [['No', ...Array.from({ length: 9 }, (_, i) => '列' + i)]]
+  for (let r = 1; r < 60000; r++) aoa.push([String(r), ...Array.from({ length: 9 }, (_, c) => `値${r}_${c}`)])
+  const bigWb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(bigWb, XLSX.utils.aoa_to_sheet(aoa), 'Big')
+  const bigFiles = [1, 2, 3].map((n) => join(tmp, `big-${n}.xlsx`))
+  for (const p of bigFiles) XLSX.writeFile(bigWb, p, { compression: true })
+  for (const type of ['dragEnter', 'dragOver', 'drop']) {
+    await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files: bigFiles, dragOperationsMask: 1 } })
+  }
+  const convertBtn = `[...document.querySelectorAll('button')].find(b => b.textContent.includes('sang Markdown') || b.textContent.includes('Đang convert'))`
+  check('3 file lớn được liệt kê sheet', (await waitFor(`(${convertBtn})?.textContent.includes('Convert 6 sheet')`, 60000)) >= 0)
+  const bigMd = () => readdirSync(outDir).filter((f) => f.startsWith('big-'))
+  const pressCtrlEnter = async () => {
+    await ev(`document.activeElement && document.activeElement.blur(), 1`)
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
+  }
+
+  await pressCtrlEnter()
+  check('nút Hủy hiện khi đang convert', (await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Hủy')`, 3000)) >= 0)
+  // Đo độ trễ IPC tới main trong lúc worker đang parse file lớn
+  let maxLatency = 0
+  for (let i = 0; i < 10; i++) {
+    const t = Date.now()
+    await ev('window.api.getVersion()')
+    maxLatency = Math.max(maxLatency, Date.now() - t)
+    await sleep(80)
+  }
+  check(`main vẫn phản hồi khi đang convert (IPC chậm nhất ${maxLatency} ms < 250 ms)`, maxLatency < 250)
+  const tCancel = Date.now()
+  await ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hủy').click(), 1`)
+  const cancelMs = await waitFor(`document.body.innerText.includes('Đã hủy:')`, 5000)
+  check(`Hủy dừng convert nhanh (${cancelMs >= 0 ? Date.now() - tCancel : '-'} ms)`, cancelMs >= 0 && cancelMs < 2000)
+  check('Hủy: file lớn chưa xong không được ghi', bigMd().length < 3, bigMd())
+  check('nút convert dùng lại được sau Hủy', (await waitFor(`!(${convertBtn}).disabled`, 5000)) >= 0)
+
+  // Convert lại: worker convert tự khởi động lại sau khi bị kill
+  await pressCtrlEnter()
+  await waitFor(`(${convertBtn}).textContent.includes('Đang convert')`, 3000)
+  check('convert lại sau Hủy chạy xong', (await waitFor(`!(${convertBtn}).textContent.includes('Đang convert')`, 90000)) >= 0)
+  check('convert lại: đủ 3 file lớn', bigMd().length === 3, bigMd())
+
   // Cuối cùng: không vi phạm CSP, không exception
   const csp = await ev('window.__csp.slice()')
   check('không vi phạm CSP', Array.isArray(csp) && csp.length === 0, csp)

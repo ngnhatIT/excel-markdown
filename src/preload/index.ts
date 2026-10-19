@@ -70,4 +70,6 @@ contextBridge.exposeInMainWorld('api', {
     outputMode: OutputMode
   }): Promise<ConvertResultItem[]> =>
     unwrap(ipcRenderer.invoke('excel:convert', payload) as Promise<ApiResult<ConvertResultItem[]>>),
+  cancelConvert: (): Promise<void> =>
+    unwrap(ipcRenderer.invoke('excel:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

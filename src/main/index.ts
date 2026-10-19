@@ -8,16 +8,8 @@ import type {
   ConvertResultItem,
   OutputMode,
 } from '../types'
-import {
-  convertSheetInWorkbook,
-  convertSheetsInWorkbook,
-  dedupeFileName,
-  joinWorkbookMarkdown,
-  listSheetsInWorkbook,
-  readWorkbook,
-  safeFileName,
-} from './converter'
-import { createWorkbookCache } from './workbookCache'
+import { dedupeFileName, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
+import { CancelledError, ConverterWorker } from './converterWorker'
 import { friendlyError } from './errors'
 import { isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
 
@@ -128,8 +120,15 @@ function createWindow(saved?: WindowBounds): void {
 
 /* ---------------------------------- IPC ----------------------------------- */
 
-/** Workbook đã parse của vài file gần nhất (liệt kê sheet -> preview -> convert dùng chung). */
-const workbooks = createWorkbookCache(3, readWorkbook)
+/* Đọc Excel chạy trong utilityProcess (out/main/worker.js), main không nạp SheetJS.
+ * Hai worker: preview không phải chờ convert hàng loạt, và Hủy convert chỉ kill worker
+ * convert. Worker preview cache 3 workbook (đổi sheet không parse lại); worker convert
+ * đọc mỗi file một lần nên chỉ giữ 1. */
+const workerEntry = join(__dirname, 'worker.js')
+const previewWorker = new ConverterWorker(workerEntry, ['--cache=3'], 'x2m-preview')
+const convertWorker = new ConverterWorker(workerEntry, ['--cache=1'], 'x2m-convert')
+let convertRunning = false
+let convertCancelRequested = false
 
 ipcMain.handle('store:get', async (_e, key: string) => {
   try {
@@ -207,7 +206,7 @@ ipcMain.handle('app:getVersion', async () => {
 
 ipcMain.handle('excel:listSheets', async (_e, filePath: string, skipDelSheets: boolean) => {
   try {
-    const sheets = listSheetsInWorkbook(workbooks.get(filePath), skipDelSheets)
+    const sheets = await previewWorker.request({ type: 'listSheets', path: filePath, skipDelSheets })
     return { ok: true, data: sheets }
   } catch (err) {
     void logError('excel:listSheets', err)
@@ -219,7 +218,7 @@ ipcMain.handle(
   'excel:preview',
   async (_e, filePath: string, sheetName: string, options: ConvertOptions) => {
     try {
-      const md = convertSheetInWorkbook(workbooks.get(filePath), sheetName, options)
+      const md = await previewWorker.request<string>({ type: 'preview', path: filePath, sheet: sheetName, options })
       return { ok: true, data: md }
     } catch (err) {
       void logError('excel:preview', err)
@@ -239,6 +238,9 @@ ipcMain.handle(
       outputMode: OutputMode
     }
   ) => {
+    if (convertRunning) return { ok: false, error: 'Đang convert, vui lòng chờ hoặc bấm Hủy.' }
+    convertRunning = true
+    convertCancelRequested = false
     const results: ConvertResultItem[] = []
     try {
       await mkdir(payload.outDir, { recursive: true })
@@ -258,6 +260,10 @@ ipcMain.handle(
       }
       for (const spec of payload.files) {
         const base = basename(spec.path, extname(spec.path))
+        if (convertCancelRequested) {
+          results.push({ fileName: base, ok: false, cancelled: true, filesWritten: [], error: 'Đã hủy' })
+          continue
+        }
         try {
           await access(spec.path, constants.R_OK)
         } catch {
@@ -270,7 +276,12 @@ ipcMain.handle(
           continue
         }
         try {
-          const sheets = convertSheetsInWorkbook(workbooks.get(spec.path), spec.sheets, payload.options)
+          const sheets = await convertWorker.request<SheetResult[]>({
+            type: 'convert',
+            path: spec.path,
+            sheets: spec.sheets,
+            options: payload.options,
+          })
           const written: string[] = []
           if (payload.outputMode === 'per-workbook') {
             const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false)
@@ -289,6 +300,10 @@ ipcMain.handle(
           results.push({ fileName: base, ok: true, filesWritten: written })
           reportProgress()
         } catch (err) {
+          if (err instanceof CancelledError) {
+            results.push({ fileName: base, ok: false, cancelled: true, filesWritten: [], error: 'Đã hủy' })
+            continue
+          }
           void logError('excel:convert', err)
           results.push({
             fileName: base,
@@ -302,9 +317,22 @@ ipcMain.handle(
       return { ok: true, data: results }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    } finally {
+      convertRunning = false
+      convertCancelRequested = false
     }
   }
 )
+
+/** Hủy convert đang chạy: các file chưa xong được trả về với `cancelled: true`;
+ * file đã ghi giữ nguyên. */
+ipcMain.handle('excel:cancel', async () => {
+  if (convertRunning) {
+    convertCancelRequested = true
+    convertWorker.cancel()
+  }
+  return { ok: true, data: null }
+})
 
 /* ---------------------------------- App ----------------------------------- */
 
@@ -349,6 +377,7 @@ if (!gotLock) {
   void app.whenReady().then(async () => {
     const store = await readStore()
     createWindow(store['windowBounds'] as WindowBounds | undefined)
+    previewWorker.warmUp()
     const firstPaths = extractExcelPaths(process.argv.slice(1))
     if (firstPaths.length > 0 && mainWindow) {
       mainWindow.webContents.once('did-finish-load', () => {

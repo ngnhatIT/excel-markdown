@@ -52,6 +52,8 @@ export interface ConvertFileSpec {
 export interface ConvertResultItem {
   fileName: string
   ok: boolean
+  /** File chưa convert vì người dùng bấm Hủy */
+  cancelled?: boolean
   filesWritten: string[]
   error?: string
 }

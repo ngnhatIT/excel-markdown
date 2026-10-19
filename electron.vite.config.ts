@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import type { Plugin } from 'vite'
@@ -27,7 +28,13 @@ function cspPlugin(): Plugin {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()]
+    plugins: [externalizeDepsPlugin()],
+    build: {
+      rollupOptions: {
+        // worker.js: utilityProcess đọc Excel (xem src/main/worker.ts)
+        input: { index: resolve('src/main/index.ts'), worker: resolve('src/main/worker.ts') },
+      },
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()]
