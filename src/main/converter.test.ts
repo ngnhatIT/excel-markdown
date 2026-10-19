@@ -342,6 +342,19 @@ describe('ô whitespace', () => {
     const out = md([['No', 'A'], ['1', '   ']], 'S', { ...OPTS, includeSheetTitle: false })
     expect(out).toContain('| 1 |  |')
   })
+
+  it('giữ khoảng trắng toàn角 giữa chữ và thụt lề dòng 2; space ASCII vẫn gộp', () => {
+    const rows = [['No', 'A'], ['1', '全角　　スペース  ascii'], ['2', '一行目\n　　二行目']]
+    const br = md(rows, 'S', { ...OPTS, includeSheetTitle: false })
+    expect(br).toContain('| 1 | 全角　　スペース ascii |')
+    expect(br).toContain('| 2 | 一行目<br>　　二行目 |')
+    const sp = md(rows, 'S', { ...OPTS, includeSheetTitle: false, multiline: 'space' })
+    expect(sp).toContain('| 2 | 一行目 　　二行目 |')
+  })
+
+  it('khoảng trắng toàn角 đầu/cuối ô vẫn bị trim (nhận diện label không đổi)', () => {
+    expect(md([['　機能ID　', 'X1']], 'S', { ...OPTS, includeSheetTitle: false })).toBe('- **機能ID**: X1')
+  })
 })
 
 describe('!ref thiếu', () => {

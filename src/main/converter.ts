@@ -130,7 +130,9 @@ function sheetToGrid(ws: WorkSheet): string[][] {
 function escCell(v: string, multiline: 'br' | 'space'): string {
   let s = v.replace(/\|/g, '\\|')
   s = multiline === 'space' ? s.replace(/\r?\n/g, ' ') : s.replace(/\r?\n/g, '<br>')
-  return s.replace(/[ \t　]+/g, ' ').trim()
+  // Chỉ gộp space/tab ASCII. Khoảng trắng toàn角 (U+3000) là nội dung: căn chỉnh
+  // giữa chữ và thụt lề dòng 2+ trong ô nhiều dòng của tài liệu tiếng Nhật.
+  return s.replace(/[ \t]+/g, ' ').trim()
 }
 
 const isSectionTitle = (s: string): boolean =>
