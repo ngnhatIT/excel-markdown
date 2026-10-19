@@ -286,18 +286,24 @@ try {
   check('md: thả file Excel -> toast gợi ý chế độ Excel → Markdown', (await waitFor(hasToast('chế độ Excel → Markdown'), 3000)) >= 0)
   check('md: thả file Excel không thêm vào danh sách (vẫn 2 file)', await ev(`${mdItems}.length === 2`))
 
-  // Sửa file .md trên đĩa: preview chưa đổi (đọc lúc thêm file); bấm "Tải lại" của file đó -> preview theo nội dung mới
+  // Sửa file .md trên đĩa (thêm một đoạn và một sheet mới): preview + số sheet chưa đổi (đọc lúc thêm file);
+  // bấm "Tải lại" của file đó -> preview, số sheet và tên sheet theo nội dung mới
   const tableItem = `${mdItems}.find(e => (e.querySelector('.x2m-file-name-text')?.textContent ?? '').includes('テーブル定義'))`
-  writeFileSync(mdTable, parts[1] + '\n\n再読込テスト\n')
+  const tableCount = `(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim()`
+  const tableSheets = `((${tableItem})?.querySelector('.x2m-md-sheets')?.textContent ?? '')`
+  writeFileSync(mdTable, parts[1] + '\n\n再読込テスト\n\n---\n\n## 新シート\n\nx\n')
   await sleep(300)
-  check('md: sửa file trên đĩa, chưa tải lại -> preview chưa có chữ mới', !(await previewText()).includes('再読込テスト'))
+  check(
+    'md: sửa file trên đĩa, chưa tải lại -> preview chưa có chữ mới, vẫn 1 sheet',
+    !(await previewText()).includes('再読込テスト') && (await ev(tableCount)) === '1 sheet'
+  )
   const reloadBtn = `(${tableItem})?.querySelector('button[aria-label="Tải lại"]')`
   check('md: mỗi file có nút Tải lại (title gợi ý)', (await ev(`${reloadBtn}?.title ?? ''`)) === 'Tải lại file (khi đã sửa file .md)')
   await ev(`${reloadBtn}?.click(), 1`)
   check(
-    'md: Tải lại -> preview có 再読込テスト, vẫn 1 sheet, vẫn chọn file đó',
+    'md: Tải lại -> preview có 再読込テスト, 2 sheet (có 新シート), vẫn chọn file đó',
     (await waitFor(
-      `(document.querySelector('.md-body')?.innerText ?? '').includes('再読込テスト') && (${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet' && !!(${tableItem})?.classList.contains('active')`,
+      `(document.querySelector('.md-body')?.innerText ?? '').includes('再読込テスト') && ${tableCount} === '2 sheet' && ${tableSheets}.includes('新シート') && !!(${tableItem})?.classList.contains('active')`,
       5000
     )) >= 0,
     await ev(`[(${tableItem})?.innerText, (document.querySelector('.md-body')?.innerText ?? '').slice(-80)]`).catch(() => null)
@@ -313,7 +319,7 @@ try {
   )
   renameSync(mdTable + '.bak', mdTable)
   await ev(`${reloadBtn}?.click(), 1`)
-  check('md: có lại file -> Tải lại hết lỗi, 1 sheet', (await waitFor(`(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet' && !(${tableItem})?.querySelector('.x2m-file-error')`, 5000)) >= 0)
+  check('md: có lại file -> Tải lại hết lỗi, 2 sheet', (await waitFor(`${tableCount} === '2 sheet' && !(${tableItem})?.querySelector('.x2m-file-error')`, 5000)) >= 0)
 
   await pressCtrlEnter()
   check('md: Ctrl+Enter -> toast Đã tạo kihon-sekkei.xlsx', (await waitFor(hasToast('Đã tạo kihon-sekkei.xlsx'), 30000)) >= 0)
@@ -323,18 +329,24 @@ try {
   } catch {
     /* chưa tạo file */
   }
-  check('md: thứ tự sheet theo danh sách', JSON.stringify(wbOut?.SheetNames) === JSON.stringify(['画面項目定義', 'テーブル定義']), wbOut?.SheetNames)
+  check(
+    'md: thứ tự sheet theo danh sách (sheet 新シート mới thêm khi Tải lại)',
+    JSON.stringify(wbOut?.SheetNames) === JSON.stringify(['画面項目定義', 'テーブル定義', '新シート']),
+    wbOut?.SheetNames
+  )
   const ws1 = wbOut ? wbOut.Sheets[wbOut.SheetNames[0]] : null
   const cells1 = ws1 ? Object.keys(ws1).filter((k) => !k.startsWith('!')).map((k) => ws1[k]) : []
   check('md: sheet 1 có ô <null> nguyên văn', cells1.some((c) => c.v === '<null>'))
   check('md: sheet 1 có ô số 1 định dạng 0.0', cells1.some((c) => c.v === 1 && c.z === '0.0'))
   const ws2 = wbOut ? wbOut.Sheets[wbOut.SheetNames[1]] : null
   check('md: sheet 2 có đoạn 再読込テスト (nội dung file đã sửa)', !!ws2 && Object.keys(ws2).some((k) => !k.startsWith('!') && ws2[k].v === '再読込テスト'))
+  const ws3 = wbOut ? wbOut.Sheets['新シート'] : null
+  check('md: sheet 新シート có ô x', !!ws3 && ws3['A1']?.v === 'x', ws3 ? Object.keys(ws3) : null)
   check('md: không để lại file .partial', listOut().every((f) => !f.endsWith('.partial')), listOut())
   const resText = `(document.querySelector('.x2m-results')?.innerText ?? '')`
   check(
-    'md: panel kết quả có kihon-sekkei.xlsx, 2 sheet',
-    (await waitFor(`${resText}.includes('kihon-sekkei.xlsx') && ${resText}.includes('2 sheet')`, 2000)) >= 0,
+    'md: panel kết quả có kihon-sekkei.xlsx, 3 sheet',
+    (await waitFor(`${resText}.includes('kihon-sekkei.xlsx') && ${resText}.includes('3 sheet')`, 2000)) >= 0,
     await ev(resText).catch(() => null)
   )
 
