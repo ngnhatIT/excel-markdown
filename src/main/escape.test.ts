@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx'
 import { marked } from 'marked'
 import { escapeMarkdownInline, sheetToMarkdown } from './converter'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../types'
+import { BLOCK_CASES, INLINE_CASES, UNTOUCHED } from './escapeCases'
 
 const OPTS: ConvertOptions = { ...DEFAULT_OPTIONS, includeSheetTitle: false }
 const md = (aoa: string[][], opts = OPTS): string => sheetToMarkdown(XLSX.utils.aoa_to_sheet(aoa), 'S', opts)
@@ -26,31 +27,6 @@ function render(src: string): { text: string; tags: Set<string> } {
   return { text: decode(html.replace(/<[^>]+>/g, '')).trim(), tags }
 }
 
-const INLINE_CASES = [
-  '<null>',
-  '<input type="text"> を使用',
-  '</div>',
-  '<!-- メモ -->',
-  '<https://example.com>',
-  '*必須*',
-  '2*3*4',
-  '__x__',
-  '_x_',
-  'a_b_ c',
-  '&nbsp;',
-  '&amp; と &#123;',
-  '`code`',
-  '[仕様](http://example.com/a)',
-  '![img](x.png)',
-  '[ref]: http://x',
-  '1~10, 20~30',
-  '~~del~~',
-  'C:\\Users\\x\\file',
-  '\\*not\\*',
-]
-// Không cần escape -> giữ nguyên trong file .md cho dễ đọc
-const UNTOUCHED = ['snake_case_name', 'a < b', '<画面名>', '1~10', 'x > y', 'https://example.com/a_b?x=1&y=2']
-
 describe('escape: ô trong bảng hiển thị nguyên văn', () => {
   for (const s of [...INLINE_CASES, ...UNTOUCHED]) {
     it(JSON.stringify(s), () => {
@@ -69,8 +45,6 @@ describe('escape: ô trong bảng hiển thị nguyên văn', () => {
     for (const s of UNTOUCHED) expect(escapeMarkdownInline(s)).toBe(s)
   })
 })
-
-const BLOCK_CASES = ['# 見出し', '###', '> 引用', '- item', '+ item', '* item', '1. one', '2) two', '---', '- - -', '***', '___', '[ref]: http://x']
 
 describe('escape: text đứng đầu dòng không thành heading/list/quote', () => {
   for (const s of BLOCK_CASES) {
