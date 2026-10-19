@@ -1,0 +1,22 @@
+[
+  {
+    "name": "画面項目定義",
+    "rows": 30,
+    "hidden": false
+  },
+  {
+    "name": "テーブル定義",
+    "rows": 20000,
+    "hidden": false
+  },
+  {
+    "name": "内部メモ",
+    "rows": 1,
+    "hidden": true
+  },
+  {
+    "name": "空シート",
+    "rows": 0,
+    "hidden": false
+  }
+]
