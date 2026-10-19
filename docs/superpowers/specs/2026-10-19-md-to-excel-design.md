@@ -1,0 +1,200 @@
+# Thiết kế: chiều Markdown → Excel (giai đoạn 4)
+
+Ngày: 2026-10-19 · App: ExcelToMarkdown 2.1.0 (Electron 44, React 18, TypeScript)
+
+## 1. Mục đích và lý do
+
+Nhóm làm tài liệu 基本設計 dạng Excel. Quy trình mong muốn: convert Excel → Markdown bằng
+app này, chỉnh nội dung trên Markdown (tay hoặc nhờ AI, dễ diff/quản lý bằng git), rồi
+**convert Markdown → Excel để gửi khách hàng** — khách làm việc bằng Excel.
+
+File Excel là sản phẩm giao khách nên phải trông chuyên nghiệp: không còn dấu vết cú pháp
+Markdown, bảng không vỡ, số hiển thị đúng như trong Markdown.
+
+Người dùng đã quyết định:
+
+- **Tạo workbook mới** với bố cục chuẩn của app. **Không** cố tái tạo bố cục Excel gốc
+  (方眼紙, merge ngang, màu, vị trí ô) — thông tin đó đã mất khi Excel → Markdown.
+- **Người dùng tự chỉ định** các file `.md` gộp chung; **tất cả file trong danh sách gộp
+  thành 1 file `.xlsx`** (không tự nhóm theo tên).
+- Thư viện ghi Excel: **exceljs** (cần style: đậm, viền, nền, wrap text). Đọc Excel vẫn
+  dùng SheetJS như hiện tại.
+- Bố cục sheet: **như bản thử đã duyệt** (mục 5; ảnh/bản thử nằm ở `spike/`, không commit).
+
+## 2. Mục tiêu
+
+1. Chế độ mới **Markdown → Excel** trong cùng app.
+2. Chọn file `.md` bằng kéo-thả hoặc hộp thoại; danh sách có nút ↑/↓ đổi thứ tự (thứ tự
+   sheet trong file Excel = thứ tự danh sách) và nút xóa.
+3. Toàn bộ file trong danh sách → **một** file `.xlsx` trong thư mục xuất.
+4. Markdown do app xuất ra (cả hai chế độ "mỗi sheet 1 file" và "gộp cả workbook") được
+   chuyển đúng cấu trúc: banner 基本設計, bảng 版数, meta, section, bảng, ghi chú, đoạn văn.
+5. Nội dung ô hiển thị **đúng chữ** người đọc Markdown thấy khi render (xem mục 6).
+6. Chạy trong worker (utilityProcess) như chiều Excel → Markdown; có nút Hủy; main không
+   nạp exceljs.
+
+## 3. Ngoài phạm vi (non-goals)
+
+- Tái tạo bố cục / style của file Excel gốc; chế độ "template" lấy style từ file mẫu.
+- Ghi `.xls` hay định dạng khác ngoài `.xlsx`.
+- Giữ định dạng chữ trong ô (đậm/nghiêng giữa câu): bản này ghi **chữ thuần** (bỏ ký hiệu,
+  giữ chữ). Rich text để sau.
+- Sửa Markdown trong app.
+- Hiển thị preview dạng lưới Excel trong app.
+
+## 4. Điều tuyệt đối tránh (anti-goals)
+
+Khách mở file và thấy bất kỳ điều sau thì coi như thất bại, dù code "chạy":
+
+- Còn cú pháp Markdown: `\*`, `\<`, `<br>`, `**`, `|`, `[x](y)`, `&nbsp;` bị hiểu sai.
+- Bảng lệch cột / mất dòng / mất ô.
+- Số sai: `1.0` thành `1`, `0001` mất số 0, `12.50%` thành `0.125` hiển thị khác.
+- Tam giác xanh "Number stored as text" khắp file.
+- Lỗi font / chữ Nhật vỡ; tên sheet bị Excel báo lỗi khi mở ("We found a problem...").
+- App treo khi Markdown lớn.
+
+## 5. Bố cục sheet (đã duyệt qua bản thử)
+
+Toàn sheet: font **游ゴシック 10**, ẩn gridline, căn trên (`vertical: top`), in **A4 ngang,
+vừa 1 trang theo chiều rộng** (`fitToWidth: 1, fitToHeight: 0`).
+
+Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau 1 dòng trống:
+
+| Block Markdown | Trong Excel |
+|---|---|
+| `> 基本設計：<tiêu đề>` | A: `基本設計` (đậm, 10pt, xám); B: tiêu đề (đậm, 16pt); dòng cao 24pt |
+| Bảng (gồm bảng 版数 và bảng có header No/№/項番) | Header: đậm, nền `#DDE5F0`, viền mảnh `#808080`; ô: viền, `wrapText`; bắt đầu cột A |
+| `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền; sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 15pt × số dòng (Excel không tự giãn ô merge) |
+| `### …` (section `【…】`, `■…`, tiêu đề bảng) | A: đậm 12pt, màu `#1F3864`, gạch dưới (viền dưới) |
+| `> …` (ghi chú `※…`, dòng 1 ô) | Như đoạn văn, chữ màu `#595959` |
+| Đoạn văn | **Merge ngang** từ A tới cột cuối (cùng bề rộng như ô meta), `wrapText`, không viền; giữ xuống dòng (`<br>`) và thụt lề toàn角; chiều cao dòng do app tính (mục dưới) |
+
+Đoạn văn / ghi chú dài hoặc nhiều dòng (người dùng chọn sau bản thử): trải ngang + tự
+xuống dòng để in A4 không bị cắt và không mất xuống dòng. Excel không tự giãn chiều cao ô
+merge, nên app tính: số dòng hiển thị = Σ theo từng dòng thật ⌈độ rộng chữ (CJK = 2) /
+tổng độ rộng các cột merge⌉, chiều cao = 15pt × số dòng. Ước lượng được phép dư (thừa
+khoảng trắng chấp nhận được), **không được thiếu** (chữ bị che là lỗi).
+
+Độ rộng cột: theo nội dung ô bảng (ký tự CJK tính 2), tối thiểu 6, tối đa 60, cộng 2.
+
+## 6. Nội dung ô: quy tắc chuyển
+
+Parse bằng `marked.lexer` (đã có trong dependency); lấy **chữ hiển thị** từ token inline:
+
+- escape `\x` → `x` (gỡ mọi escape mà Excel → Markdown đã thêm); `<br>` → xuống dòng trong ô;
+  `\|` → `|`; khoảng trắng toàn角 giữ nguyên.
+- `**x**`, `*x*`, `~~x~~`, `` `x` `` → `x` (bỏ ký hiệu, giữ chữ).
+- HTML khác (vd `<null>` khi Markdown viết tay không escape) → giữ nguyên chữ.
+- Link: **cả ô là đúng một link** → ô hyperlink (chữ + URL, màu xanh gạch chân). Link nằm
+  giữa câu, hoặc URL trần được GFM tự nhận → chỉ giữ chữ, không gắn hyperlink. Chỉ scheme
+  `http`/`https`/`mailto` (và link nội bộ, xem dưới) được gắn hyperlink; scheme khác
+  (`file:`, `javascript:`…) → chữ thuần (giống `guards.ts`).
+- Link nội bộ sang sheet (`#'Sheet'!A1`): bản thử cho thấy exceljs ghi sai mã hóa → builder
+  kiểm tra cách ghi đúng của exceljs; nếu không làm được sạch thì **ghi chữ thuần** (quyết
+  định của tôi).
+
+**Số** (quyết định của tôi, để không có tam giác xanh mà hiển thị y như Markdown):
+
+| Chữ trong Markdown | Ghi vào Excel |
+|---|---|
+| `10`, `-3` (nguyên, không có số 0 đứng đầu, ≤ 11 chữ số — General hiện số dài hơn dạng `1.23E+11`) | số, format General |
+| `1.0`, `1.10`, `0.5` | số, format `0.0` / `0.00`… (số chữ số thập phân giữ nguyên) |
+| `1,234,567.89` | số, format `#,##0.00` (số thập phân theo chữ) |
+| `12.50%`, `50%` | số /100, format `0.00%` / `0%` |
+| `0001`, số nguyên > 11 chữ số, `03-xxxx`, ngày `2026/10/01`, `#N/A`, `TRUE`, mọi thứ khác | text, giữ nguyên |
+
+Ô text trông như số (`0001`, mã 12 chữ số) vẫn bị Excel gắn tam giác xanh; exceljs không
+hỗ trợ `ignoredErrors` nên sau khi ghi, chèn
+`<ignoredErrors><ignoredError sqref="A1:XFD1048576" numberStoredAsText="1"/></ignoredErrors>`
+vào XML từng sheet — quyết định của tôi.
+
+## 7. Nhiều file → một workbook
+
+- Ranh giới sheet (quyết định của tôi, áp dụng cho mọi Markdown):
+  - Ranh giới file, và dòng `---` (thematic break) ở cấp ngoài cùng. **Chỉ hai thứ này**
+    tách sheet; `##` thêm vào giữa (vd AI thêm `## 変更履歴`) **không** tạo sheet mới.
+  - Trong mỗi phần: nếu block đầu tiên là `##` thì đó là **tên sheet** (không ghi thành
+    dòng); mọi heading khác (kể cả `##` sau đó) là dòng section.
+  - Phần không có `##` đầu: tên sheet lấy phần sau `__` trong tên file, không có `__` thì
+    lấy tên file (thêm ` (2)`… nếu một file sinh nhiều sheet không tên).
+  - `# tiêu đề` ở đầu file là tên workbook: chỉ dùng cho tên file mặc định, **không ghi**
+    vào sheet (để banner 基本設計 luôn ở dòng 1).
+  - Phần rỗng (vd `---` ở cuối file) bị bỏ qua.
+  - Hệ quả chấp nhận: Markdown viết tay dùng `---` làm đường kẻ trang trí sẽ bị tách sheet;
+    người dùng thấy trước danh sách sheet trong preview (mục 9).
+- Ví dụ: `# kihon` / `## 画面A` / … / `---` / `## 画面B` / … → 2 sheet `画面A`, `画面B`.
+  `# 画面設計` / `## 概要` / … / `## 項目` / … (không `---`) → 1 sheet tên `概要`, `項目` là
+  dòng section.
+- Tên sheet hợp lệ cho Excel: bỏ ký tự `[]:*?/\`, cắt 31 ký tự, không rỗng, không trùng
+  (thêm ` (2)`), tránh tên `History` (Excel dành riêng).
+- Thứ tự sheet = thứ tự file trong danh sách, trong file theo thứ tự xuất hiện.
+- Tên file `.xlsx` mặc định (quyết định của tôi): phần tên chung trước `__` của các file;
+  không có thì `# tiêu đề` của file đầu; không có thì tên file đầu. Người dùng sửa được
+  trong ô "Tên file Excel" trước khi xuất.
+- File đích đã tồn tại → hỏi xác nhận ghi đè (hộp thoại của main) — quyết định của tôi.
+- Một file `.md` lỗi (không đọc được) → **không tạo** file Excel, báo rõ file nào lỗi (file
+  Excel là một sản phẩm giao khách, thiếu sheet còn tệ hơn không có) — quyết định của tôi.
+- Ghi ra file tạm rồi đổi tên: Hủy hoặc lỗi giữa chừng không để lại `.xlsx` dở — quyết
+  định của tôi.
+
+## 8. Markdown không do app tạo
+
+Hỗ trợ ở mức "hợp lý" (quyết định của tôi): heading mọi cấp → dòng section (cấp 1–2 như
+`###`); bảng GFM → bảng; list thường (không có `**label**:`) → mỗi item một dòng ở cột A,
+tiền tố `・`; code block → từng dòng ở cột A, font monospace; ảnh → chữ alt; còn lại → chữ
+thuần. Không được crash với bất kỳ Markdown nào.
+
+## 9. Giao diện (quyết định của tôi)
+
+- Header có công tắc chế độ: **Excel → Markdown | Markdown → Excel**. Nhớ chế độ cuối.
+- Chế độ Markdown → Excel:
+  - Cột trái: danh sách file `.md` (tên file, số sheet sẽ tạo), ↑/↓, xóa; kéo-thả `.md`.
+  - Giữa: preview Markdown đã render của file đang chọn (dùng lại PreviewPane) + danh sách
+    tên sheet sẽ tạo.
+  - Phải: ô "Tên file Excel" (mặc định theo mục 7).
+  - Dưới: thư mục xuất (dùng chung), nút **Tạo file Excel** (Ctrl+Enter), Hủy khi đang chạy.
+  - Ctrl+O mở hộp thoại chọn `.md`. Kéo-thả file Excel khi đang ở chế độ này → gợi ý chuyển
+    chế độ (toast), không tự chuyển.
+- Kết quả: toast + panel kết quả (đường dẫn file, số sheet), nút mở thư mục.
+
+## 10. Ràng buộc
+
+- exceljs 4.4.0 (MIT): bản ổn định cuối 10/2023, kéo theo 193 package, `npm audit` báo 2
+  moderate (`uuid`). Chấp nhận vì **chỉ dùng để ghi** file do app tạo; **không bao giờ
+  dùng exceljs để đọc file** từ bên ngoài.
+- Chạy trong utilityProcess (worker convert hiện có hoặc worker riêng — builder chọn); main
+  không nạp exceljs/marked-parse nặng. Renderer không đọc file system: đọc nội dung `.md` để
+  preview phải qua IPC, và IPC chỉ đọc file đuôi `.md` (giữ nguyên tinh thần `guards.ts`).
+- Giữ các bảo vệ hiện có: CSP, chặn điều hướng, `openPath` chỉ thư mục.
+- Windows 10/11 x64; tên file/sheet tiếng Nhật.
+- Version 2.2.0 (tính năng mới, không đổi output Excel → Markdown).
+
+## 11. Kiểm chứng (bắt buộc)
+
+- Unit test: parse Markdown → mô hình sheet/block; quy tắc ô (mục 6) gồm mọi case escape
+  của `escape.test.ts` theo chiều ngược; quy tắc số; tên sheet.
+- Golden: 3 file `test/golden/*.md` hiện có → `.xlsx` → đọc lại bằng SheetJS → so giá trị ô,
+  merge, hyperlink, number format với golden mới (dạng JSON để diff được).
+- **Round-trip** (quyết định của tôi về phạm vi): chỉ với Markdown **do app tạo** (3 golden
+  hiện có + fixture mới cùng dạng): `md₁ → xlsx → md₂ (engine Excel → Markdown của app) →
+  xlsx → md₃`, yêu cầu `md₂ === md₃` (ổn định sau một vòng) và mọi chữ trong ô của `md₁` có
+  trong `md₂`. Markdown bất kỳ (fuzz + vài mẫu viết tay): chỉ yêu cầu không crash và mọi chữ
+  được giữ. **Không** sửa engine Excel → Markdown để round-trip ổn định hơn (output chiều
+  đó phải giữ nguyên); các trường hợp không ổn định đã biết (label meta ngoài `META_LABELS`
+  như `**作成者**:`, bảng 2 cột) ghi vào tài liệu như giới hạn.
+- Mở thật bằng Excel (COM) không báo lỗi sửa file; chụp ảnh sheet để review như bản thử.
+- E2E (`npm run e2e`): chuyển chế độ, kéo-thả 2 file `.md`, đổi thứ tự, tạo file, kiểm
+  số sheet + thứ tự + nội dung đọc lại.
+
+## 12. Quyết định của Claude (người dùng chưa xác nhận từng mục)
+
+Font 游ゴシック 10; quy tắc số (mục 6, gồm giới hạn 11 chữ số); `ignoredErrors`; link chỉ
+http/https/mailto; link nội bộ lỗi thì ghi chữ thuần; quy tắc tách sheet (mục 7); `#` đầu
+file không ghi vào sheet; tên file mặc định; hỏi trước khi ghi đè; một file lỗi thì không
+tạo Excel; ghi file tạm rồi đổi tên; hỗ trợ Markdown viết tay (mục 8); giao diện (mục 9);
+phạm vi round-trip (mục 11); version 2.2.0.
+
+## 13. Để builder tự quyết
+
+Cấu trúc module (vd `src/main/md2xlsx/`), tên IPC, mô hình dữ liệu trung gian, cách chia
+component UI, cách đo độ rộng cột chi tiết, cách lấy ảnh kiểm tra.
