@@ -4,6 +4,20 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## 1.3.1 — 2026-10-19
+- Fix: kéo-thả file vào app không hoạt động (Electron 32+ bỏ `File.path`);
+  chuyển sang `webUtils.getPathForFile` qua preload.
+- Bảo mật: nâng SheetJS 0.18.5 → 0.20.3 (cài từ cdn.sheetjs.com), vá
+  GHSA-4r6h-8v6p-xvw6 (prototype pollution) và GHSA-5pgg-2g8v-p4x9 (ReDoS).
+- Bảo mật: nâng Electron 34 (hết hỗ trợ) → 44.9.0; electron-builder 26.15.3.
+- Bảo mật: cửa sổ app không còn bị điều hướng bởi link trong preview (link
+  tương đối / `file://` / UNC bị chặn); chỉ link http/https/mailto mở trình
+  duyệt ngoài. `shell:openPath` chỉ mở thư mục, từ chối mọi file.
+- Dev: `npm run dev` tự tải binary Electron nếu thiếu (`predev`).
+- Thay đổi hành vi: hộp thoại chọn file/thư mục mặc định mở thư mục Downloads
+  (Electron 43+).
+- Test: 91 test (thêm 7 test cho `guards.ts`).
+
 ## 1.3.0 — 2026-10-12
 - Engine: bỏ dòng ma từ merge dọc trong header; hyperlink trong meta; ô đơn lẻ
   trùng meta label thành bullet.

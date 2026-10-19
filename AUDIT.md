@@ -55,7 +55,8 @@ render mới gắn ghi chú vào meta nó bổ nghĩa — tốt hơn hành vi c�
 - Không tải nội dung remote nào; preview render Markdown từ file local của chính user
   (nguy cơ XSS tự tấn công ≈ 0, chấp nhận, không thêm DOMPurify để tránh phình dependency).
 - Mọi IPC handler trong main đều try/catch, trả về `{ ok, data/error }`. ĐẠT.
-- `shell.openPath` chỉ nhận `outDir` do user chọn qua dialog. ĐẠT.
+- ~~`shell.openPath` chỉ nhận `outDir` do user chọn qua dialog. ĐẠT.~~ Sai: handler nhận
+  path bất kỳ từ renderer. Đã sửa ở 1.3.1 — chỉ mở thư mục (`guards.ts`).
 
 ## 5. Rủi ro còn lại (đã biết, chấp nhận)
 

@@ -34,7 +34,7 @@ trên dòng meta).
 2. **Meta** (`機能ID`, `機能名`, `画面ID`, `画面名`, `テーブルID`, `テーブル名`,
 `更新種別`, `画面遷移`, `動作環境`): thành bullet `- **label**: value`; các dòng
 nối tiếp (như 画面遷移 dòng 2) thành sub-bullet.
-3. **Section** ``, `■処理順序1`... thành `###`; ghi chú `※...` thành quote.
+3. **Section** `【...】`, `■処理順序1`... thành `###`; ghi chú `※...` thành quote.
 4. **Bảng**: nhận diện dòng tiêu đề (`No`, `№`, `項番` hoặc dòng nhiều ô + dòng sau
 giống dữ liệu), bỏ cột trống toàn bảng cho gọn.
 5. **Merge**: chỉ lan giá trị merge theo chiều dọc (merge ngang giữ tại ô gốc);
@@ -121,6 +121,9 @@ Macro trong `.xlsm` được bỏ qua, chỉ lấy giá trị.
 | Bảng 2 cột không thành bảng | Bật "Nhận diện bảng 2 cột" trong Tùy chọn > Sheet |
 
 ## Phát triển
+
+Từ Electron 42, `npm install` không tự tải binary Electron nữa; `npm run dev`
+tự gọi `install-electron` (script `predev`) để tải ở lần chạy đầu.
 
 ```bash
 npm install

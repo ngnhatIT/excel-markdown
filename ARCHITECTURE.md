@@ -22,6 +22,8 @@ Renderer (React) --IPC--> Main (Node) --> file .md
   - `index.ts` — BrowserWindow, IPC handlers, ghi file output, store JSON,
     log lỗi, nhớ bounds cửa sổ.
   - `errors.ts` — map lỗi kỹ thuật sang tiếng Việt.
+  - `guards.ts` — kiểm tra an toàn: chỉ cho reload đúng trang (chặn mọi điều hướng
+    khác), chỉ mở ngoài URL http/https/mailto, `openPath` chỉ nhận thư mục.
 
 ## Engine converter (tóm tắt)
 
@@ -37,6 +39,5 @@ Renderer (React) --IPC--> Main (Node) --> file .md
 
 ## Quy ước
 
-- Mọi ghi file source qua `muse.exec` + python3 (tool write/edit bị strip indent).
 - Mỗi thay đổi: typecheck + test xanh mới commit; regression trên 5 file thật.
 - Xem BACKLOG.md (kế hoạch 200 vòng), PROGRESS.md (tiến độ), AUDIT.md (báo cáo audit).
