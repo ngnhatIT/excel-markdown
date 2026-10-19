@@ -27,7 +27,10 @@ Renderer (React) --IPC--> Main (Node) --> file .md
 
 ## Engine converter (tóm tắt)
 
-1. `sheetToGrid`: đọc mọi cell thành string[][], lan merge **dọc** (trừ dòng banner).
+1. `sheetToGrid`: đọc cell trong `effectiveRange` (góc trên-trái theo `!ref`, góc
+   dưới-phải cắt về ô có nội dung cuối — `!ref` của Excel có thể phình theo vùng định
+   dạng) thành string[][], escape Markdown/HTML inline từng ô (`escapeMarkdownInline`),
+   lan merge **dọc** (trừ dòng banner).
 2. `sheetToMarkdown`: duyệt từng dòng —
    banner 基本設計 → quote + bảng version;
    dòng meta (機能ID/画面ID/...) → bullet, dòng nối tiếp → sub-bullet;
@@ -35,9 +38,13 @@ Renderer (React) --IPC--> Main (Node) --> file .md
    bảng (No/№/項番 hoặc heuristic) → bảng Markdown, bỏ cột trống;
    còn lại → quote/text.
 3. Ô: hyperlink → `[text](url)`, nhiều dòng → `<br>`, `|` → `\|`,
-   công thức → giá trị cache, lỗi → nguyên văn.
+   công thức → giá trị cache, lỗi → nguyên văn; text đứng đầu dòng (đoạn văn, quote,
+   sub-bullet) escape thêm cú pháp block (`# `, `> `, `- `, `1. `, `---`).
+   Khoảng trắng ASCII gộp, toàn角 (U+3000) giữ.
 
 ## Quy ước
 
-- Mỗi thay đổi: typecheck + test xanh mới commit; regression trên 5 file thật.
+- Mỗi thay đổi: typecheck + test xanh mới commit. Regression: golden test
+  (`src/main/golden.test.ts`, file mẫu `test/fixtures`, output `test/golden`);
+  đổi output có chủ ý thì `npm run test:update` và review diff `test/golden`.
 - Xem BACKLOG.md (kế hoạch 200 vòng), PROGRESS.md (tiến độ), AUDIT.md (báo cáo audit).

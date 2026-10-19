@@ -4,6 +4,24 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## 2.0.0 — 2026-10-19
+Major vì **đổi format output mặc định** (escape) — xem quy tắc bump ở đầu file.
+- Engine: escape ký tự Markdown/HTML trong ô (tùy chọn "Escape ký tự Markdown/HTML
+  trong ô", mặc định bật). Nội dung ô hiển thị nguyên văn khi render: `<null>`,
+  `<input>` không bị ẩn; `*必須*`, `__x__` không thành nghiêng/đậm; `&nbsp;` không
+  thành entity; `1~10, 20~30` không gạch ngang; `[a](b)` không thành link; `# x`,
+  `1. x`, `- x`, `---` đầu dòng không thành heading/list/đường kẻ. Chỉ escape chỗ bị
+  hiểu nhầm (`snake_case`, `a < b`, `<画面名>`, `1~10` giữ nguyên). Tắt tùy chọn để
+  có output như 1.x.
+- Engine: giữ khoảng trắng toàn角 (U+3000) giữa chữ và ở đầu dòng 2+ trong ô nhiều
+  dòng (trước đây gộp thành 1 dấu cách ASCII).
+- Hiệu năng: quét theo vùng có nội dung thật thay vì `!ref` (Excel ghi `!ref` theo
+  vùng có định dạng). Sheet `!ref` A1:AZ300000 với 1 ô: 11.8 s / 402 MB → ~0 ms.
+  Danh sách sheet hiện số dòng thật. Merge vượt ngoài `!ref` không còn crash.
+- Test: golden test với 3 file Excel mẫu (`test/fixtures`, gồm 2 file do Excel 16
+  ghi: .xlsx và .xls); 71 test round-trip escape qua `marked`; tổng 173 test.
+  `npm run test:update` cập nhật golden.
+
 ## 1.3.1 — 2026-10-19
 - Fix: kéo-thả file vào app không hoạt động (Electron 32+ bỏ `File.path`);
   chuyển sang `webUtils.getPathForFile` qua preload.

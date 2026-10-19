@@ -28,3 +28,14 @@ Ngưỡng cần xem lại: file > 10 MB hoặc sheet > 50k dòng.
 | SPVM00131 | 9 | 104 ms |
 
 Kết luận: dưới 0.5s/file lớn nhất, chấp nhận được, chưa cần tối ưu.
+
+## `!ref` phình (2026-10-19, Windows, Node 24)
+
+Excel ghi `!ref` (dimension) theo vùng có *định dạng*, không theo ô có giá trị: một ô
+tô màu lạc ở CZ5000 làm `!ref` = A1:CZ5000. Engine cũ quét toàn bộ `!ref`.
+
+| Trường hợp | Trước (1.3.x) | Sau (2.0.0) |
+|---|---|---|
+| 1 ô, `!ref` A1:AZ300000 (15.6M ô) | 11 842 ms, heap 402 MB | ~0 ms, heap 15 MB |
+
+Sau khi sửa, thời gian tỉ lệ với số ô có nội dung, không với `!ref`.

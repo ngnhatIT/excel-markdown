@@ -65,6 +65,8 @@ render mới gắn ghi chú vào meta nó bổ nghĩa — tốt hơn hành vi c�
   muốn chắc tuyệt đối cần thêm tín hiệu (border/bold) — để dành khi gặp case thật.
 - **Ngày không định dạng:** ô chứa serial ngày nhưng format General sẽ hiện số thô
   (hạn chế của SheetJS khi `cellDates: false`). File thật đều có format ngày chuẩn.
+- **`!ref` phình** (Excel ghi dimension theo vùng định dạng): đã sửa ở 2.0.0 — quét theo
+  vùng có nội dung thật (xem PERF.md).
 - **File rất lớn** (>100k dòng): đọc toàn bộ vào RAM, UI preview render full bảng —
   chậm nhưng không treo (convert chạy ở main process). Chưa cần virtualize ở quy mô hiện tại.
 - **Không có code signing:** .exe portable/unsigned → Windows SmartScreen cảnh báo lần đầu.

@@ -18,6 +18,8 @@ Xây dựng bằng **Electron + TypeScript + React 18**.
 - Bỏ qua sheet `DEL_`, bỏ qua sheet rỗng, thêm tiêu đề tên sheet
 - Ô nhiều dòng: `<br>` hoặc gộp một dòng
 - Tùy chọn nhận diện bảng 2 cột (mặc định tắt)
+- Escape ký tự Markdown/HTML trong ô (mặc định bật): `<null>`, `*必須*`, `# x`...
+  hiển thị nguyên văn khi render
 - Convert hàng loạt ra thư mục tùy chọn, thanh tiến độ từng file, báo cáo từng file,
   nút mở thư mục / copy đường dẫn
 - Tìm kiếm/lọc sheet, phím tắt, zoom preview, nhớ vị trí cửa sổ
@@ -106,6 +108,11 @@ Bảng từ 3 cột trở lên tự nhận diện; bảng 2 cột bật thêm tr
 **Sheet ẩn trong Excel có bị convert không?**
 Mặc định không tick (tránh convert thừa), bạn tick tay nếu cần.
 
+**Sao file .md có dấu `\` trước `*`, `<`, `#`...?**
+Đó là escape để Markdown hiển thị đúng nội dung ô (vd `<null>` không bị ẩn như thẻ HTML,
+`*必須*` không thành chữ nghiêng). Nếu ô Excel cố ý chứa cú pháp Markdown, tắt
+"Escape ký tự Markdown/HTML trong ô" trong Tùy chọn > Sheet.
+
 **File có mật khẩu?**
 App báo rõ "File có mật khẩu..." — hãy gỡ mật khẩu bằng Excel rồi thử lại.
 Macro trong `.xlsm` được bỏ qua, chỉ lấy giá trị.
@@ -129,9 +136,13 @@ tự gọi `install-electron` (script `predev`) để tải ở lần chạy đ�
 npm install
 npm run dev        # chạy dev
 npm run typecheck  # kiểm tra TypeScript
-npm run test       # chạy test (vitest)
+npm run test       # chạy test (vitest), gồm golden test với file mẫu
+npm run test:update  # cập nhật golden khi đổi engine có chủ ý (review diff test/golden)
 npm run build      # build renderer + main
 npm run dist       # đóng gói Windows (chạy trên Windows)
 ```
 
 Engine convert nằm ở `src/main/converter.ts`, test ở `src/main/converter.test.ts`.
+File Excel mẫu (dữ liệu hư cấu) ở `test/fixtures`, output đã duyệt ở `test/golden`.
+Sinh lại file mẫu: `node scripts/make-fixtures.mjs`, rồi (cần Excel)
+`powershell -ExecutionPolicy Bypass -File scripts/make-excel-fixture.ps1`.
