@@ -525,7 +525,21 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
       narrow: 82.5
     },
     { text: 'mixed ' + 'カタカナ'.repeat(10) + ' and ABCDEFGHIJKLMNOPQRSTUVWXYZ ' + 'ひらがな'.repeat(12), golden: 49.5, narrow: 148.5 },
-    { text: '※ CUST_CD は TBL_CUSTOMER.CUST_CD と一致すること。'.repeat(6), golden: 66, narrow: 214.5 }
+    { text: '※ CUST_CD は TBL_CUSTOMER.CUST_CD と一致すること。'.repeat(6), golden: 66, narrow: 214.5 },
+    // Emoji và ký tự rộng hơn 1em (đo lại sau review: trước khi sửa app đặt 16.5 / 49.5 / 82.5 / 33 -> chữ bị che)
+    { text: '✅'.repeat(40), golden: 33, narrow: 66 },
+    { text: '✅ 検索 ❌ 削除 ⭐ 重要 ✨ 新規 ❓ 要確認 '.repeat(4).trimEnd(), golden: 33, narrow: 82.5 },
+    { text: '進捗: ' + '✅'.repeat(20) + ' 完了 ' + '❌'.repeat(10) + ' 未完了 ' + '⭐'.repeat(5), golden: 33, narrow: 82.5 },
+    { text: '⚠️ 注意: ' + '⚠️'.repeat(30), golden: 49.5, narrow: 82.5 },
+    { text: '⏰⌛⚡⛔⬛⭕➕☔'.repeat(8), golden: 33, narrow: 99 },
+    { text: '﷽'.repeat(20), golden: 49.5, narrow: 165 },
+    { text: '⟶ → ⌨ ⏱ ⸻ '.repeat(10).trimEnd(), golden: 33, narrow: 82.5 },
+    {
+      text: '\u{1F468}‍\u{1F469}‍\u{1F467} \u{1F44D}\u{1F3FD} \u{1F1EF}\u{1F1F5} 1️⃣ '.repeat(8).trimEnd(),
+      golden: 16.5,
+      narrow: 49.5
+    },
+    { text: '\u{1F600}'.repeat(60), golden: 33, narrow: 82.5 }
   ]
   const META: { text: string; golden: number; narrow: number }[] = [
     {
@@ -537,7 +551,13 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ ABCDEFGHIJKLMNOPQRSTUVWXYZ', golden: 16.5, narrow: 66 },
     { text: '0123456789'.repeat(7), golden: 16.5, narrow: 49.5 },
     { text: IDENT, golden: 33, narrow: 132 },
-    { text: 'TBL_CUSTOMER / TBL_ORDER / TBL_ORDER_DETAIL / TBL_PRODUCT / TBL_STOCK', golden: 16.5, narrow: 82.5 }
+    { text: 'TBL_CUSTOMER / TBL_ORDER / TBL_ORDER_DETAIL / TBL_PRODUCT / TBL_STOCK', golden: 16.5, narrow: 82.5 },
+    {
+      text: '✅ 対応済み ❌ 未対応 ⭐ 優先 ✨ 新機能 ❓ 要確認 ✅ 対応済み ❌ 未対応 ⭐ 優先 ✨ 新機能 ❓ 要確認 ✅ 対応済み ❌ 未対応',
+      golden: 33,
+      narrow: 82.5
+    },
+    { text: '⚠️'.repeat(30), golden: 33, narrow: 82.5 }
   ]
   const samples = (): Block[] => [
     ...PARAGRAPHS.map(({ text }): Block => ({ kind: 'paragraph', text })),

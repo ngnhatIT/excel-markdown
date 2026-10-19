@@ -2,6 +2,8 @@
 // Excel không tự giãn chiều cao ô merge, nên app phải tự tính số dòng.
 // Ước lượng được phép dư (thừa khoảng trắng), không được thiếu (chữ bị che).
 
+import { WIDE_GLYPHS } from './glyphTable'
+
 /** Tách dòng thật của một ô (chấp nhận cả CRLF và CR lẻ). */
 export function splitLines(text: string): string[] {
   return text.split(/\r\n|\r|\n/)
@@ -68,8 +70,33 @@ const ASCII_BOLD_GLYPH_PX = [
 const WIDE_GLYPH_PX = 13
 /** Katakana nửa角 (U+FF61–U+FF9F): 0.5em, đo được như chữ số. */
 const HALF_GLYPH_PX = 7
-/** Ký tự ngoài BMP (emoji, CJK mở rộng B…) có thể lấy từ font khác: tính rộng hơn 1em cho chắc. */
+/**
+ * Ký tự ngoài BMP (emoji, CJK mở rộng B…) lấy từ font khác, và emoji trong BMP (`\p{Emoji_Presentation}`, vd ✅ ❌ ⭐):
+ * Excel hiển thị emoji ~18–19px (đo: 56 chữ ✅/⭐/⌛ mỗi dòng ở cột 1055px, so với 78 chữ あ; mọi ký tự
+ * U+1F000–U+1FFFF lặp 50 lần vẫn vừa một dòng, tức ≤ ~20px) -> 20px.
+ */
 const ASTRAL_GLYPH_PX = 20
+
+/** Bề rộng (px ở 1em = 13px) của ký tự BMP ngoài ASCII; 0 = 1em. Dựng một lần từ WIDE_GLYPHS + emoji. */
+let bmpGlyphPx: Uint8Array | undefined
+
+function buildBmpGlyphPx(): Uint8Array {
+  const table = new Uint8Array(0x10000)
+  for (const token of WIDE_GLYPHS.split(/\s+/)) {
+    const m = /^([0-9A-F]{4})(?:-([0-9A-F]{4}))?:(\d+)$/.exec(token)
+    if (!m) continue
+    const from = parseInt(m[1], 16)
+    const to = m[2] ? parseInt(m[2], 16) : from
+    for (let cp = from; cp <= to; cp++) table[cp] = Number(m[3])
+  }
+  const emoji = /\p{Emoji_Presentation}/u
+  for (let cp = 0x80; cp < 0x10000; cp++) {
+    // bỏ nửa cặp surrogate (không phải ký tự)
+    if (cp >= 0xd800 && cp <= 0xdfff) continue
+    if (emoji.test(String.fromCharCode(cp))) table[cp] = Math.max(table[cp], ASTRAL_GLYPH_PX)
+  }
+  return table
+}
 
 /** Bề rộng (đơn vị độ rộng cột) của một code point khi Excel hiển thị bằng 游ゴシック 10 (bảng ASCII thường/đậm). */
 function glyphWidth(cp: number, ascii: readonly number[]): number {
@@ -77,8 +104,9 @@ function glyphWidth(cp: number, ascii: readonly number[]): number {
   if (cp >= 0x20 && cp <= 0x7e) px = ascii[cp - 0x20]
   else if (cp >= 0xff61 && cp <= 0xff9f) px = HALF_GLYPH_PX
   else if (cp > 0xffff) px = ASTRAL_GLYPH_PX
-  // Latin-1, Hy Lạp, Kirin, ký hiệu…: nhiều chữ là toàn角 trong 游ゴシック (× ± ° §) -> tính 1em cho chắc.
-  else px = WIDE_GLYPH_PX
+  // Latin-1, Hy Lạp, Kirin, ký hiệu…: nhiều chữ là toàn角 trong 游ゴシック (× ± ° §) -> tính 1em cho chắc;
+  // ký tự đo được rộng hơn (emoji, ⟶, ⸻, U+FDFD…) theo bảng đo.
+  else px = (bmpGlyphPx ??= buildBmpGlyphPx())[cp] || WIDE_GLYPH_PX
   return px / GLYPH_PX_PER_UNIT
 }
 
