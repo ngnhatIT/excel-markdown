@@ -98,6 +98,17 @@ try {
   const startUrl = await ev('location.href')
   check('CSP meta có trong bản build', await ev(`!!document.querySelector('meta[http-equiv="Content-Security-Policy"]')`))
 
+  // Onboarding lần đầu + đổi theme
+  check('onboarding hiện lần đầu', await ev(`!!document.querySelector('.x2m-onboarding')`))
+  await ev(`document.querySelector('.x2m-onboarding button').click(), 1`)
+  check('đóng onboarding', (await waitFor(`!document.querySelector('.x2m-onboarding')`, 2000)) >= 0)
+  const theme0 = await ev(`document.documentElement.dataset.theme`)
+  const themeBtn = `[...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').startsWith('Chuyển sang nền'))`
+  await ev(`(${themeBtn}).click(), 1`)
+  const theme1 = await ev(`document.documentElement.dataset.theme`)
+  await ev(`(${themeBtn}).click(), 1`)
+  check('đổi theme sáng/tối', theme0 !== theme1 && (await ev(`document.documentElement.dataset.theme`)) === theme0, [theme0, theme1])
+
   // Kéo-thả file thật từ OS
   for (const type of ['dragEnter', 'dragOver', 'drop']) {
     await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files: [fixture], dragOperationsMask: 1 } })
@@ -109,6 +120,28 @@ try {
   check('preview render bảng', (await waitFor(`!!document.querySelector('.md-body table')`)) >= 0)
   const p1 = await previewText()
   check('preview escape: <null>, *必須* hiển thị nguyên văn', p1.includes('<null>') && p1.includes('*必須*'), p1.slice(0, 200))
+
+  // Tab Mã Markdown, zoom, lọc sheet
+  const tab = (t) => `[...document.querySelectorAll('.x2m-tab')].find(b => b.textContent.includes('${t}'))`
+  await ev(`(${tab('Mã Markdown')}).click(), 1`)
+  check('tab Mã Markdown hiện source', (await waitFor(`(document.querySelector('.x2m-source')?.textContent ?? '').includes('| No | 項目名 |')`, 2000)) >= 0)
+  await ev(`(${tab('Xem trước')}).click(), 1`)
+  await waitFor(`!!document.querySelector('.md-body')`, 2000)
+  const key = async (k, code, vk, modifiers = 0) => {
+    await send('Input.dispatchKeyEvent', { type: 'keyDown', key: k, code, windowsVirtualKeyCode: vk, modifiers })
+    await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, windowsVirtualKeyCode: vk, modifiers })
+  }
+  await ev(`document.activeElement && document.activeElement.blur(), 1`)
+  await key('=', 'Equal', 187, 2)
+  check('Ctrl+= phóng to preview (110%)', (await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === '110%')`, 2000)) >= 0)
+  await key('0', 'Digit0', 48, 2)
+  check('Ctrl+0 về 100%', (await waitFor(`![...document.querySelectorAll('button')].some(b => b.textContent.trim().endsWith('%'))`, 2000)) >= 0)
+  await ev(`document.querySelector('.x2m-filter-input').focus(), 1`)
+  await send('Input.insertText', { text: 'テーブル' })
+  check('lọc sheet: chỉ còn sheet khớp', (await waitFor(`document.querySelectorAll('.x2m-sheet').length === 1 && document.querySelector('.x2m-sheet').textContent.includes('テーブル定義')`, 2000)) >= 0)
+  await ev(`document.activeElement.blur(), 1`)
+  await key('Escape', 'Escape', 27)
+  check('Escape xóa bộ lọc', (await waitFor(`document.querySelectorAll('.x2m-sheet').length === 4`, 2000)) >= 0)
 
   // Phím ↓ chuyển sheet
   await ev(`document.activeElement && document.activeElement.blur(), 1`)
@@ -139,6 +172,7 @@ try {
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
   const convMs = await waitFor(`document.body.innerText.includes('Xong:')`, 20000)
   check('Ctrl+Enter convert xong', convMs >= 0)
+  check('panel kết quả: 1/1 file thành công', await ev(`(document.querySelector('.x2m-results')?.innerText ?? '').includes('1/1 file thành công')`))
   const written = (() => {
     try {
       return readdirSync(outDir).sort()
@@ -196,6 +230,10 @@ try {
   await waitFor(`(${convertBtn}).textContent.includes('Đang convert')`, 3000)
   check('convert lại sau Hủy chạy xong', (await waitFor(`!(${convertBtn}).textContent.includes('Đang convert')`, 90000)) >= 0)
   check('convert lại: đủ 3 file lớn', bigMd().length === 3, bigMd())
+
+  // Xóa file khỏi danh sách
+  await ev(`document.querySelector('.x2m-file button[aria-label="Xóa khỏi danh sách"]').click(), 1`)
+  check('xóa file: còn 3 file', (await waitFor(`document.querySelector('.x2m-pane-title').textContent.includes('(3)')`, 2000)) >= 0)
 
   // Cuối cùng: không vi phạm CSP, không exception
   const csp = await ev('window.__csp.slice()')
