@@ -22,10 +22,11 @@ Excel → Markdown (SheetJS đọc) và Markdown → Excel (marked parse + excel
     `excel2md` | `md2excel`, lưu vào store) và nhánh tạo file Excel.
   - `components/` — Header (có **công tắc chế độ** Excel → Markdown | Markdown → Excel),
     FileList, PreviewPane, ResultsPanel, OptionsPanel, Footer, Toasts, icons;
-    chế độ Markdown → Excel thêm `MdFileList` (danh sách file `.md`: số sheet, ↑/↓, xóa)
+    chế độ Markdown → Excel thêm `MdFileList` (danh sách file `.md`: số sheet, Tải lại, ↑/↓, xóa)
     và `MdOptionsPanel` (ô "Tên file Excel").
   - `hooks/` — `useFiles` (file + sheet + nhớ lựa chọn), `useMdFiles` (danh sách file `.md`:
-    thêm/xóa/đổi thứ tự, đọc nhanh từng file qua `md:inspect`), `usePreview` (debounce +
+    thêm/xóa/đổi thứ tự, đọc nhanh từng file qua `md:inspect`; `reload(id)` đọc lại một file khi
+    người dùng bấm Tải lại — không theo dõi file tự động), `usePreview` (debounce +
     generation guard), `useShortcuts` (phím tắt).
   - `api.ts` — kiểu `window.api`; `sanitize.ts` lọc HTML preview (chống XSS từ nội dung ô).
   - CSP (chỉ bản build, chèn trong `electron.vite.config.ts`): chỉ tài nguyên trong app,

@@ -85,6 +85,7 @@ export default function App(): React.ReactElement {
     selectedId: mdSelId,
     selected: mdSel,
     addPaths: addMdPaths,
+    reload: reloadMdFile,
     remove: removeMdFile,
     move: moveMdFile,
     select: selectMdFile,
@@ -562,6 +563,7 @@ export default function App(): React.ReactElement {
               selectedId={mdSelId}
               dragOver={dragOver}
               onSelect={selectMd}
+              onReload={(id) => void reloadMdFile(id)}
               onMove={moveMdFile}
               onRemove={removeMdFile}
             />

@@ -47,6 +47,25 @@ export function useMdFiles() {
     [patch]
   )
 
+  /**
+   * Đọc lại một file (người dùng đã sửa file .md trên đĩa): preview, tiêu đề và tên sheet theo nội dung mới.
+   * Không đổi file đang chọn; lỗi thì file hiện trạng thái lỗi như khi thêm file.
+   */
+  const reload = useCallback(
+    async (id: string) => {
+      const f = filesRef.current.find((x) => x.id === id)
+      if (!f || f.loading) return
+      patch(id, { loading: true, error: undefined })
+      try {
+        const r = await window.api.inspectMarkdown(f.path)
+        patch(id, { loading: false, title: r.title, sheets: r.sheets, markdown: r.markdown })
+      } catch (err) {
+        patch(id, { loading: false, error: errMsg(err), title: null, sheets: [], markdown: '' })
+      }
+    },
+    [patch]
+  )
+
   const remove = useCallback((id: string) => {
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }, [])
@@ -64,5 +83,5 @@ export function useMdFiles() {
   }, [files, selId])
   const selected = useMemo(() => files.find((f) => f.id === selId) ?? files[0] ?? null, [files, selId])
 
-  return { files, selectedId: selected?.id ?? null, selected, addPaths, remove, move, select }
+  return { files, selectedId: selected?.id ?? null, selected, addPaths, reload, remove, move, select }
 }

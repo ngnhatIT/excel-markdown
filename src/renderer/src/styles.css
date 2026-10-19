@@ -1109,6 +1109,8 @@ input[type='color'].color-input {
 }
 .x2m-move-btn:hover:not(:disabled) { color: var(--text); background: var(--bg-hover); }
 .x2m-move-btn:disabled { opacity: 0.35; cursor: default; }
+/* nút Tải lại (icon) cạnh ↑/↓: cùng kiểu nút trung tính, căn giữa icon */
+.x2m-reload-btn { display: flex; align-items: center; }
 .x2m-chevron {
   background: none; border: none; color: var(--text-dim); cursor: pointer;
   padding: 4px; border-radius: 8px; display: flex;

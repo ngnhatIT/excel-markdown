@@ -3,7 +3,7 @@
 // Chạy: npm run e2e  (= build + node scripts/e2e.mjs). Cần màn hình (không chạy headless CI).
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -286,6 +286,35 @@ try {
   check('md: thả file Excel -> toast gợi ý chế độ Excel → Markdown', (await waitFor(hasToast('chế độ Excel → Markdown'), 3000)) >= 0)
   check('md: thả file Excel không thêm vào danh sách (vẫn 2 file)', await ev(`${mdItems}.length === 2`))
 
+  // Sửa file .md trên đĩa: preview chưa đổi (đọc lúc thêm file); bấm "Tải lại" của file đó -> preview theo nội dung mới
+  const tableItem = `${mdItems}.find(e => (e.querySelector('.x2m-file-name-text')?.textContent ?? '').includes('テーブル定義'))`
+  writeFileSync(mdTable, parts[1] + '\n\n再読込テスト\n')
+  await sleep(300)
+  check('md: sửa file trên đĩa, chưa tải lại -> preview chưa có chữ mới', !(await previewText()).includes('再読込テスト'))
+  const reloadBtn = `(${tableItem})?.querySelector('button[aria-label="Tải lại"]')`
+  check('md: mỗi file có nút Tải lại (title gợi ý)', (await ev(`${reloadBtn}?.title ?? ''`)) === 'Tải lại file (khi đã sửa file .md)')
+  await ev(`${reloadBtn}?.click(), 1`)
+  check(
+    'md: Tải lại -> preview có 再読込テスト, vẫn 1 sheet, vẫn chọn file đó',
+    (await waitFor(
+      `(document.querySelector('.md-body')?.innerText ?? '').includes('再読込テスト') && (${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet' && !!(${tableItem})?.classList.contains('active')`,
+      5000
+    )) >= 0,
+    await ev(`[(${tableItem})?.innerText, (document.querySelector('.md-body')?.innerText ?? '').slice(-80)]`).catch(() => null)
+  )
+  check('md: Tải lại không đổi danh sách (vẫn 2 file, cùng thứ tự)', await ev(`(() => { const n = ${mdNames}; return n.length === 2 && n[0].includes('画面項目定義') && n[1].includes('テーブル定義') })()`))
+  // File biến mất -> Tải lại báo lỗi (vẫn chọn file đó); có lại file -> Tải lại hết lỗi
+  renameSync(mdTable, mdTable + '.bak')
+  await ev(`${reloadBtn}?.click(), 1`)
+  check(
+    'md: Tải lại file không còn -> trạng thái lỗi, vẫn chọn file đó',
+    (await waitFor(`(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === 'lỗi' && !!(${tableItem})?.querySelector('.x2m-file-error') && !!(${tableItem})?.classList.contains('active')`, 5000)) >= 0,
+    await ev(`(${tableItem})?.innerText`).catch(() => null)
+  )
+  renameSync(mdTable + '.bak', mdTable)
+  await ev(`${reloadBtn}?.click(), 1`)
+  check('md: có lại file -> Tải lại hết lỗi, 1 sheet', (await waitFor(`(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet' && !(${tableItem})?.querySelector('.x2m-file-error')`, 5000)) >= 0)
+
   await pressCtrlEnter()
   check('md: Ctrl+Enter -> toast Đã tạo kihon-sekkei.xlsx', (await waitFor(hasToast('Đã tạo kihon-sekkei.xlsx'), 30000)) >= 0)
   let wbOut = null
@@ -299,6 +328,8 @@ try {
   const cells1 = ws1 ? Object.keys(ws1).filter((k) => !k.startsWith('!')).map((k) => ws1[k]) : []
   check('md: sheet 1 có ô <null> nguyên văn', cells1.some((c) => c.v === '<null>'))
   check('md: sheet 1 có ô số 1 định dạng 0.0', cells1.some((c) => c.v === 1 && c.z === '0.0'))
+  const ws2 = wbOut ? wbOut.Sheets[wbOut.SheetNames[1]] : null
+  check('md: sheet 2 có đoạn 再読込テスト (nội dung file đã sửa)', !!ws2 && Object.keys(ws2).some((k) => !k.startsWith('!') && ws2[k].v === '再読込テスト'))
   check('md: không để lại file .partial', listOut().every((f) => !f.endsWith('.partial')), listOut())
   const resText = `(document.querySelector('.x2m-results')?.innerText ?? '')`
   check(

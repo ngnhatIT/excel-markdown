@@ -1,18 +1,19 @@
 import type { MdFileItem } from '../../../types'
 import { cn } from '../utils'
-import { IconFile, IconX } from './icons'
+import { IconFile, IconRefresh, IconX } from './icons'
 
 interface Props {
   files: MdFileItem[]
   selectedId: string | null
   dragOver: boolean
   onSelect: (id: string) => void
+  onReload: (id: string) => void
   onMove: (id: string, dir: -1 | 1) => void
   onRemove: (id: string) => void
 }
 
 /** Cột trái chế độ Markdown → Excel: file .md theo thứ tự sheet, tên sheet sẽ tạo của từng file. */
-export function MdFileList({ files, selectedId, dragOver, onSelect, onMove, onRemove }: Props): React.ReactElement {
+export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, onMove, onRemove }: Props): React.ReactElement {
   return (
     <aside className={cn('x2m-files', dragOver && 'drag-over')}>
       <div className="x2m-pane-title">File Markdown ({files.length})</div>
@@ -32,6 +33,15 @@ export function MdFileList({ files, selectedId, dragOver, onSelect, onMove, onRe
                   <span className={cn('x2m-md-count', f.error ? 'x2m-md-count-err' : 'dim')}>
                     {f.loading ? 'đang đọc...' : f.error ? 'lỗi' : `${f.sheets.length} sheet`}
                   </span>
+                </button>
+                <button
+                  className="x2m-move-btn x2m-reload-btn"
+                  onClick={() => onReload(f.id)}
+                  disabled={f.loading}
+                  title="Tải lại file (khi đã sửa file .md)"
+                  aria-label="Tải lại"
+                >
+                  <IconRefresh size={14} />
                 </button>
                 <button
                   className="x2m-move-btn"
