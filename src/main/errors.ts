@@ -1,6 +1,10 @@
-/** Chuyển lỗi kỹ thuật (SheetJS...) thành thông báo tiếng Việt dễ hiểu. */
-export function friendlyError(err: unknown): string {
+/** Chuyển lỗi kỹ thuật (SheetJS...) thành thông báo tiếng Việt dễ hiểu.
+ * `op`: 'read' (đọc file, mặc định) hoặc 'write' (ghi file Excel đầu ra). */
+export function friendlyError(err: unknown, op: 'read' | 'write' = 'read'): string {
   const msg = err instanceof Error ? err.message : String(err)
+  if (op === 'write' && /EBUSY|EPERM|EACCES/.test(msg)) {
+    return 'Không ghi được file Excel. File có thể đang mở trong Excel — đóng file rồi thử lại.'
+  }
   if (/password-protected/i.test(msg)) {
     return 'File có mật khẩu nên không đọc được. Hãy mở bằng Excel, gỡ mật khẩu rồi thử lại.'
   }

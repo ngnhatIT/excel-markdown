@@ -28,4 +28,11 @@ describe('friendlyError', () => {
     expect(friendlyError(new Error('boom'))).toBe('boom')
     expect(friendlyError('raw string')).toBe('raw string')
   })
+
+  it("op 'write': EBUSY/EPERM -> gợi ý đóng file đang mở trong Excel", () => {
+    const w = 'Không ghi được file Excel. File có thể đang mở trong Excel — đóng file rồi thử lại.'
+    expect(friendlyError(new Error('EBUSY: resource busy or locked'), 'write')).toBe(w)
+    expect(friendlyError(new Error('EPERM: operation not permitted, rename'), 'write')).toBe(w)
+    expect(friendlyError(new Error('EPERM: x'))).toContain('Không đọc được file') // 'read' giữ nguyên
+  })
 })

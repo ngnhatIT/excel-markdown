@@ -4,6 +4,8 @@ import type {
   ConvertFileSpec,
   ConvertOptions,
   ConvertResultItem,
+  MdConvertResult,
+  MdInspectResult,
   OutputMode,
 } from '../types'
 
@@ -27,6 +29,8 @@ contextBridge.exposeInMainWorld('api', {
 
   openExcelFiles: (): Promise<string[]> =>
     unwrap(ipcRenderer.invoke('dialog:openExcelFiles') as Promise<ApiResult<string[]>>),
+  openMarkdownFiles: (): Promise<string[]> =>
+    unwrap(ipcRenderer.invoke('dialog:openMarkdownFiles') as Promise<ApiResult<string[]>>),
   openDirectory: (): Promise<string | null> =>
     unwrap(ipcRenderer.invoke('dialog:openDirectory') as Promise<ApiResult<string | null>>),
   openPath: (target: string): Promise<void> =>
@@ -72,4 +76,10 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('excel:convert', payload) as Promise<ApiResult<ConvertResultItem[]>>),
   cancelConvert: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('excel:cancel') as Promise<ApiResult<null>>).then(() => undefined),
+
+  // Markdown → Excel (Hủy dùng lại cancelConvert)
+  inspectMarkdown: (path: string): Promise<MdInspectResult> =>
+    unwrap(ipcRenderer.invoke('md:inspect', path) as Promise<ApiResult<MdInspectResult>>),
+  convertMarkdown: (payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult> =>
+    unwrap(ipcRenderer.invoke('md:convert', payload) as Promise<ApiResult<MdConvertResult>>),
 })

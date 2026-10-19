@@ -38,3 +38,9 @@ export async function isOpenableDirectory(target: unknown): Promise<boolean> {
     return false
   }
 }
+
+/** Renderer chỉ được yêu cầu đọc file Markdown (`.md`/`.markdown`, đường dẫn tuyệt đối):
+ * IPC `md:*` không được thành đường đọc file bất kỳ nếu renderer bị chiếm quyền. */
+export function isMarkdownPath(p: unknown): boolean {
+  return typeof p === 'string' && isAbsolute(p) && /\.(md|markdown)$/i.test(p)
+}

@@ -1,5 +1,11 @@
 /* Kiểu của `window.api` (expose bởi src/preload/index.ts qua contextBridge). */
-import type { ConvertOptions, ConvertResultItem, OutputMode } from '../../types'
+import type {
+  ConvertOptions,
+  ConvertResultItem,
+  MdConvertResult,
+  MdInspectResult,
+  OutputMode,
+} from '../../types'
 
 export interface SheetListItem {
   name: string
@@ -16,6 +22,7 @@ export interface WindowApi {
   storeGet<T>(key: string): Promise<T | null>
   storeSet(key: string, value: unknown): Promise<void>
   openExcelFiles(): Promise<string[]>
+  openMarkdownFiles(): Promise<string[]>
   openDirectory(): Promise<string | null>
   openPath(target: string): Promise<void>
   getVersion(): Promise<string>
@@ -31,6 +38,8 @@ export interface WindowApi {
     outputMode: OutputMode
   }): Promise<ConvertResultItem[]>
   cancelConvert(): Promise<void>
+  inspectMarkdown(path: string): Promise<MdInspectResult>
+  convertMarkdown(payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult>
 }
 
 declare global {

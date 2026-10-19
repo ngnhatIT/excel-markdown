@@ -1,17 +1,20 @@
-import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
-import { join, dirname, basename, extname } from 'node:path'
+import { app, BrowserWindow, ipcMain, dialog, shell, type MessageBoxOptions } from 'electron'
+import { join, dirname, basename, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { access, appendFile, constants, readFile, stat, writeFile, mkdir } from 'node:fs/promises'
+import { access, appendFile, constants, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
 import type {
   ConvertOptions,
   ConvertFileSpec,
   ConvertResultItem,
+  MdConvertResult,
+  MdInspectResult,
   OutputMode,
 } from '../types'
 import { dedupeFileName, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
 import { CancelledError, ConverterWorker } from './converterWorker'
 import { friendlyError } from './errors'
-import { isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
+import { isMarkdownPath, isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
+import { PARTIAL_SUFFIX } from './workerProtocol'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -163,6 +166,19 @@ ipcMain.handle('dialog:openExcelFiles', async () => {
       title: 'Chọn file Excel',
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Excel', extensions: ['xlsx', 'xlsm', 'xls', 'xltx', 'xltm'] }],
+    })
+    return { ok: true, data: res.canceled ? [] : res.filePaths }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+ipcMain.handle('dialog:openMarkdownFiles', async () => {
+  try {
+    const res = await dialog.showOpenDialog({
+      title: 'Chọn file Markdown',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Markdown', extensions: ['md', 'markdown'] }],
     })
     return { ok: true, data: res.canceled ? [] : res.filePaths }
   } catch (err) {
@@ -333,6 +349,99 @@ ipcMain.handle('excel:cancel', async () => {
   }
   return { ok: true, data: null }
 })
+
+/* ------------------------- Markdown → Excel (md:*) ------------------------- */
+
+/** Đọc nhanh một file Markdown: tiêu đề, tên sheet sẽ tạo, nội dung để preview.
+ * Chạy ở worker preview (renderer không đọc filesystem; chỉ nhận file .md). */
+ipcMain.handle('md:inspect', async (_e, path: unknown) => {
+  if (!isMarkdownPath(path)) return { ok: false, error: 'Chỉ đọc được file Markdown (.md).' }
+  try {
+    const result = await previewWorker.request<MdInspectResult>({ type: 'mdInspect', path: path as string })
+    return { ok: true, data: result }
+  } catch (err) {
+    void logError('md:inspect', err)
+    // Worker đã dịch lỗi sang tiếng Việt (kèm tên file) nên trả nguyên văn
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+/** Ghép các file .md thành một workbook .xlsx trong `outDir`. Dùng chung cờ `convertRunning`,
+ * worker convert và `excel:cancel` với Excel → Markdown (một lúc chỉ chạy một lần convert).
+ * File đích đã có thì hỏi ghi đè; worker ghi `.partial` rồi đổi tên nên Hủy/lỗi không để lại .xlsx dở. */
+ipcMain.handle(
+  'md:convert',
+  async (_e, payload: { files: string[]; outDir: string; fileName: string }) => {
+    if (!Array.isArray(payload?.files) || !payload.files.every(isMarkdownPath)) {
+      return { ok: false, error: 'Chỉ đọc được file Markdown (.md).' }
+    }
+    if (
+      typeof payload.outDir !== 'string' ||
+      !isAbsolute(payload.outDir) ||
+      typeof payload.fileName !== 'string'
+    ) {
+      return { ok: false, error: 'Thư mục hoặc tên file xuất không hợp lệ.' }
+    }
+    if (convertRunning) return { ok: false, error: 'Đang convert, vui lòng chờ hoặc bấm Hủy.' }
+    convertRunning = true
+    convertCancelRequested = false
+    const outPath = join(payload.outDir, safeFileName(payload.fileName.replace(/\.xlsx$/i, '')) + '.xlsx')
+    try {
+      try {
+        await mkdir(payload.outDir, { recursive: true })
+        await access(payload.outDir, constants.W_OK)
+      } catch {
+        return { ok: false, error: 'Không ghi được vào thư mục: ' + payload.outDir }
+      }
+      const exists = await access(outPath, constants.F_OK).then(
+        () => true,
+        () => false
+      )
+      if (exists) {
+        const box: MessageBoxOptions = {
+          type: 'question',
+          buttons: ['Ghi đè', 'Hủy'],
+          defaultId: 1,
+          cancelId: 1,
+          message: `File ${basename(outPath)} đã tồn tại. Ghi đè?`,
+        }
+        const { response } = await (mainWindow
+          ? dialog.showMessageBox(mainWindow, box)
+          : dialog.showMessageBox(box))
+        if (response !== 0) {
+          const declined: MdConvertResult = { status: 'declined' }
+          return { ok: true, data: declined }
+        }
+      }
+      // Hủy bấm trước khi worker khởi động (lúc tạo thư mục / chờ hộp thoại): cancel() chưa có gì để kill
+      if (convertCancelRequested) {
+        const cancelled: MdConvertResult = { status: 'cancelled' }
+        return { ok: true, data: cancelled }
+      }
+      const written = await convertWorker.request<{ outPath: string; sheets: string[] }>({
+        type: 'mdToXlsx',
+        files: payload.files,
+        outPath,
+      })
+      const done: MdConvertResult = { status: 'done', outPath: written.outPath, sheets: written.sheets }
+      return { ok: true, data: done }
+    } catch (err) {
+      // Worker bị kill giữa chừng (Hủy) hoặc ghi lỗi: không để lại .partial (file đích cũ, nếu có, còn nguyên).
+      // Windows có thể còn giữ handle vài chục ms sau khi process thoát nên thử lại.
+      await rm(outPath + PARTIAL_SUFFIX, { force: true, maxRetries: 5, retryDelay: 100 }).catch(() => undefined)
+      if (err instanceof CancelledError) {
+        const cancelled: MdConvertResult = { status: 'cancelled' }
+        return { ok: true, data: cancelled }
+      }
+      void logError('md:convert', err)
+      // Worker đã dịch lỗi sang tiếng Việt (EBUSY khi file đang mở trong Excel, tên file lỗi...)
+      return { ok: false, error: err instanceof Error ? err.message : String(err) }
+    } finally {
+      convertRunning = false
+      convertCancelRequested = false
+    }
+  }
+)
 
 /* ---------------------------------- App ----------------------------------- */
 

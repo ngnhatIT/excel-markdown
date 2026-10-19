@@ -63,3 +63,22 @@ export interface ApiResult<T> {
   data?: T
   error?: string
 }
+
+/** Chế độ làm việc của app: Excel → Markdown (mặc định) hoặc Markdown → Excel. */
+export type AppMode = 'excel2md' | 'md2excel'
+
+/** Kết quả đọc nhanh một file Markdown (preview + danh sách sheet sẽ tạo). */
+export interface MdInspectResult {
+  /** `# tiêu đề` đầu file (dùng cho tên file Excel mặc định); null nếu không có */
+  title: string | null
+  /** Tên sheet đã hợp lệ/không trùng trong riêng file này */
+  sheets: string[]
+  /** Nội dung Markdown nguyên văn để hiển thị preview */
+  markdown: string
+}
+
+/** Kết quả Markdown → Excel. `declined`: người dùng chọn không ghi đè file đã có. */
+export type MdConvertResult =
+  | { status: 'done'; outPath: string; sheets: string[] }
+  | { status: 'cancelled' }
+  | { status: 'declined' }

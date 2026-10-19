@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
+import { isMarkdownPath, isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
 
 describe('isSafeExternalUrl', () => {
   it('cho phép http/https/mailto', () => {
@@ -64,5 +64,18 @@ describe('isOpenableDirectory', () => {
     expect(await isOpenableDirectory(join(dir, 'missing'))).toBe(false)
     expect(await isOpenableDirectory('')).toBe(false)
     expect(await isOpenableDirectory(42)).toBe(false)
+  })
+})
+
+describe('isMarkdownPath', () => {
+  it('cho phép đường dẫn tuyệt đối đuôi .md/.markdown (không phân biệt hoa/thường)', () => {
+    expect(isMarkdownPath('C:\\a\\b.md')).toBe(true)
+    expect(isMarkdownPath('/a/B.MARKDOWN')).toBe(true)
+  })
+
+  it('chặn đường dẫn tương đối, đuôi khác, không phải string', () => {
+    expect(isMarkdownPath('b.md')).toBe(false)
+    expect(isMarkdownPath('C:\\a\\b.xlsx')).toBe(false)
+    expect(isMarkdownPath(1)).toBe(false)
   })
 })
