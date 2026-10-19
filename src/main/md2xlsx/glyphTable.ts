@@ -1,4 +1,6 @@
 // Ký tự BMP ngoài ASCII mà Excel hiển thị rộng hơn 1em (dữ liệu đo, sinh tự động — không sửa tay).
+// Sinh lại: scripts/measure-glyphs (README.md): run.ps1 đo bằng Excel 16 thật -> data/precise-*.txt,
+// rồi `node scripts/measure-glyphs/gen-table.cjs` ghi file này.
 //
 // Đo bằng Excel 16 thật (COM, 96 DPI), cột rộng 150 (1055px), wrapText, AutoFit:
 // 1. Quét U+00A0–U+FFFF: mỗi ký tự lặp đủ số lần để vừa đúng một dòng nếu nó rộng 1em (78 lần ở 游ゴシック 10

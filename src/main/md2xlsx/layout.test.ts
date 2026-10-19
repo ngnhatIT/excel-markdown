@@ -1,5 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { displayWidth, estimateLines, splitByLines } from './layout'
+import { WIDE_GLYPHS } from './glyphTable'
+import { displayWidth, estimateLines, parseWideGlyphs, splitByLines } from './layout'
+
+describe('parseWideGlyphs (bảng glyphTable.ts)', () => {
+  it('đọc đủ bảng đo: 618 khoảng, 1468 ký tự, px > 13 (rộng hơn 1em)', () => {
+    const ranges = parseWideGlyphs(WIDE_GLYPHS)
+    expect(ranges).toHaveLength(618)
+    expect(ranges.reduce((n, r) => n + r.to - r.from + 1, 0)).toBe(1468)
+    for (const r of ranges) {
+      expect(r.to).toBeGreaterThanOrEqual(r.from)
+      expect(r.px).toBeGreaterThan(13)
+    }
+    expect(ranges.find((r) => r.from <= 0xfdfd && 0xfdfd <= r.to)?.px).toBe(92)
+  })
+
+  it('token sai định dạng -> ném lỗi (không lặng lẽ bỏ qua)', () => {
+    expect(parseWideGlyphs('0152:15\n01C4:15 2E3A-2E3B:25')).toHaveLength(3)
+    for (const bad of ['0152', '01c4:15', '2E3B-2E3A:25', 'ZZZZ:15', '0152:15:1', '1F600:20'])
+      expect(() => parseWideGlyphs(bad), bad).toThrow()
+  })
+})
 
 describe('displayWidth', () => {
   it('ký tự mã > 0xFF tính 2, còn lại tính 1', () => {

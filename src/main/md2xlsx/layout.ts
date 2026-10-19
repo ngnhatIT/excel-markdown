@@ -105,14 +105,35 @@ const ASTRAL_GLYPH_PX = 20
 /** Bề rộng (px ở 1em = 13px) của ký tự BMP ngoài ASCII; 0 = 1em. Dựng một lần từ WIDE_GLYPHS + emoji. */
 let bmpGlyphPx: Uint8Array | undefined
 
-function buildBmpGlyphPx(): Uint8Array {
-  const table = new Uint8Array(0x10000)
-  for (const token of WIDE_GLYPHS.split(/\s+/)) {
+/** Một khoảng code point BMP cùng bề rộng (px ở 1em = 13px) trong bảng đo. */
+export interface WideGlyphRange {
+  from: number
+  to: number
+  px: number
+}
+
+/**
+ * Đọc bảng đo (`HHHH:px` hoặc `HHHH-HHHH:px`, cách nhau bằng khoảng trắng / xuống dòng). Token sai định dạng thì ném
+ * lỗi: bảng do script sinh ra, sai là lỗi sinh bảng, không được lặng lẽ bỏ qua (ký tự sẽ bị tính hẹp).
+ */
+export function parseWideGlyphs(src: string): WideGlyphRange[] {
+  const ranges: WideGlyphRange[] = []
+  for (const token of src.split(/\s+/)) {
+    if (token === '') continue
     const m = /^([0-9A-F]{4})(?:-([0-9A-F]{4}))?:(\d+)$/.exec(token)
-    if (!m) continue
+    if (!m) throw new Error(`glyphTable: token sai định dạng: ${token}`)
     const from = parseInt(m[1], 16)
     const to = m[2] ? parseInt(m[2], 16) : from
-    for (let cp = from; cp <= to; cp++) table[cp] = Number(m[3])
+    if (to < from) throw new Error(`glyphTable: khoảng ngược: ${token}`)
+    ranges.push({ from, to, px: Number(m[3]) })
+  }
+  return ranges
+}
+
+function buildBmpGlyphPx(): Uint8Array {
+  const table = new Uint8Array(0x10000)
+  for (const { from, to, px } of parseWideGlyphs(WIDE_GLYPHS)) {
+    for (let cp = from; cp <= to; cp++) table[cp] = px
   }
   const emoji = /\p{Emoji_Presentation}/u
   for (let cp = 0x80; cp < 0x10000; cp++) {
