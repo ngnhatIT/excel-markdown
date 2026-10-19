@@ -328,6 +328,21 @@ describe('buildWorkbook: đầu vào biên', () => {
     expect(ws.getRow(4).height).toBe(2 * LINE)
   })
 
+  it('meta: value căn trái (số không bị đẩy sang mép phải vùng merge)', async () => {
+    const ws = (
+      await reload([
+        {
+          name: 'S',
+          blocks: [{ kind: 'meta', items: [{ label: '版数', value: { text: '1.0' } }, { label: 'L', value: { text: 'abc' } }] }]
+        }
+      ])
+    ).worksheets[0]
+    expect(ws.getCell('B1').value).toBe(1)
+    expect(ws.getCell('B1').numFmt).toBe('0.0')
+    expect(ws.getCell('B1').alignment).toMatchObject({ horizontal: 'left', vertical: 'top', wrapText: true })
+    expect(ws.getCell('B2').alignment.horizontal).toBe('left')
+  })
+
   it('meta: hàng có chiều cao do app đặt thì đủ cao cho cả nhãn dài (ô nhãn tự xuống dòng)', async () => {
     // cột A tối đa 60: 80 chữ 'W' cần 3 dòng; value 2 dòng
     const ws = (

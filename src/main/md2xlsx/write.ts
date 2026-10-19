@@ -198,11 +198,12 @@ function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: numbe
 
     const value = ws.getCell(r, 2)
     setCellContent(value, item.value, font())
-    // Viền mọi ô trong vùng merge; ô phụ lấy style của ô chính khi merge.
+    // Viền mọi ô trong vùng merge; ô phụ lấy style của ô chính khi merge. Căn trái: value là số (vd `1.0`)
+    // mặc định Excel căn phải, bị đẩy sang tận mép phải vùng merge.
     for (let c = 2; c <= span; c++) {
       const cell = ws.getCell(r, c)
       cell.border = allBorders()
-      cell.alignment = wrapTop()
+      cell.alignment = { ...wrapTop(), horizontal: 'left' }
     }
     ws.mergeCells(r, 2, r, span)
     // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng. Value 1 dòng thì để Excel tự

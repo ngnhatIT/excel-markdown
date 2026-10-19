@@ -64,7 +64,7 @@ Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau
 |---|---|
 | `> 基本設計：<tiêu đề>` | A: `基本設計` (đậm, 10pt, xám); B: tiêu đề (đậm, 16pt); dòng cao 24pt |
 | Bảng (gồm bảng 版数 và bảng có header No/№/項番) | Header: đậm, nền `#DDE5F0`, viền mảnh `#808080`; ô: viền, `wrapText`; bắt đầu cột A |
-| `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền; sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự giãn 16.5pt/dòng; Excel không tự giãn ô merge) |
+| `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền, căn trái (cả khi value là số); sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự giãn 16.5pt/dòng; Excel không tự giãn ô merge) |
 | `### …` (section `【…】`, `■…`, tiêu đề bảng) | A: đậm 12pt, màu `#1F3864`, gạch dưới (viền dưới) |
 | `> …` (ghi chú `※…`, dòng 1 ô) | Như đoạn văn, chữ màu `#595959` |
 | Đoạn văn | **Merge ngang** từ A tới cột cuối (cùng bề rộng như ô meta), `wrapText`, không viền; giữ xuống dòng (`<br>`) và thụt lề toàn角; chiều cao dòng do app tính (mục dưới) |
