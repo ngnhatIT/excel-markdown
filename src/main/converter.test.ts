@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
+import { marked } from 'marked'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
@@ -133,6 +134,49 @@ describe('meta 機能ID/画面ID/...', () => {
     const out = sheetToMarkdown(ws, 'S', OPTS)
     expect(out).toContain('- **画面遷移**: A→B')
     expect(out).toContain('  - 条件あり')
+  })
+})
+
+describe('dòng trống sau sub-bullet meta', () => {
+  const NO_TITLE = { ...OPTS, includeSheetTitle: false }
+  const META = [
+    ['画面遷移', 'A'],
+    ['', 'B'],
+  ]
+  /** HTML của block nằm trong <li> nào không (bị list nuốt mất). */
+  const insideLi = (out: string, tag: string): boolean =>
+    new RegExp('<li>(?:(?!</li>)[\\s\\S])*<' + tag + '[\\s>]').test(marked.parse(out, { async: false }) as string)
+
+  it('bảng ngay sau sub-bullet (Excel không có dòng trống): tách khỏi list', () => {
+    const out = md([...META, ['No', '項目', '値'], ['1', 'x', 'y']], 'S', NO_TITLE)
+    expect(out).toBe('- **画面遷移**: A\n  - B\n\n| No | 項目 | 値 |\n|---|---|---|\n| 1 | x | y |')
+    expect(insideLi(out, 'table')).toBe(false)
+  })
+
+  it('section 【...】 ngay sau sub-bullet: heading tách khỏi list', () => {
+    const out = md([...META, ['【項目定義】']], 'S', NO_TITLE)
+    expect(out).toBe('- **画面遷移**: A\n  - B\n\n### 【項目定義】')
+    expect(insideLi(out, 'h3')).toBe(false)
+  })
+
+  it('đoạn văn sau sub-bullet + dòng trống: không bị nối lazy vào bullet', () => {
+    const out = md([...META, [], ['テキスト', 'x']], 'S', NO_TITLE)
+    expect(out).toBe('- **画面遷移**: A\n  - B\n\nテキスト x')
+    expect(marked.parse(out, { async: false })).toContain('<p>テキスト x</p>')
+  })
+
+  it('quote sau sub-bullet + dòng trống', () => {
+    const out = md([...META, [], ['ノート']], 'S', NO_TITLE)
+    expect(out).toBe('- **画面遷移**: A\n  - B\n\n> ノート')
+  })
+
+  it('sub-bullet nhiều cột (continuation) rồi bảng', () => {
+    const out = md([['画面遷移', 'A'], ['', 'B', 'C'], ['No', '項目', '値'], ['1', 'x', 'y']], 'S', NO_TITLE)
+    expect(out).toContain('  - B C\n\n| No |')
+  })
+
+  it('không thêm dòng trống thừa giữa các sub-bullet liên tiếp', () => {
+    expect(md([...META, ['', 'C']], 'S', NO_TITLE)).toBe('- **画面遷移**: A\n  - B\n  - C')
   })
 })
 

@@ -13,6 +13,9 @@ Major vì **đổi format output mặc định** (escape) — xem quy tắc bump
   `1. x`, `- x`, `---` đầu dòng không thành heading/list/đường kẻ. Chỉ escape chỗ bị
   hiểu nhầm (`snake_case`, `a < b`, `<画面名>`, `1~10` giữ nguyên). Tắt tùy chọn để
   có output như 1.x.
+- Engine: luôn có dòng trống trước bảng/heading/quote/đoạn văn đi sau sub-bullet meta.
+  Trước đây bảng nằm ngay dưới dòng nối tiếp meta (Excel không có dòng trống) bị
+  render lồng trong list item, đoạn văn bị nối vào bullet.
 - Engine: giữ khoảng trắng toàn角 (U+3000) giữa chữ và ở đầu dòng 2+ trong ô nhiều
   dòng (trước đây gộp thành 1 dấu cách ASCII).
 - Hiệu năng: quét theo vùng có nội dung thật thay vì `!ref` (Excel ghi `!ref` theo

@@ -280,10 +280,19 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   let tableHeader: string[] | null = null
   let tableRows: string[][] = []
   let lastMetaLabel: string | null = null
+  /** Sub-bullet meta không có dòng trống phía sau (để các dòng nối tiếp liền nhau).
+   * Block mới (bảng, heading, quote, đoạn văn) phải cách 1 dòng trống, nếu không
+   * Markdown nuốt nó vào list item (bảng nằm trong <li>, đoạn văn nối lazy). */
+  const startBlock = (): void => {
+    if (out.length > 0 && out[out.length - 1] !== '') out.push('')
+  }
   const flushTable = (): void => {
     if (tableHeader) {
       const t = renderTable(tableHeader, tableRows, opts)
-      if (t) out.push(t, '')
+      if (t) {
+        startBlock()
+        out.push(t, '')
+      }
       tableHeader = null
       tableRows = []
     }
@@ -334,6 +343,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       } else if (isSectionTitle(fe)) {
         flushTable()
         lastMetaLabel = null
+        startBlock()
         out.push('### ' + v, '')
       } else {
         flushTable()
@@ -343,6 +353,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
         const nnr = grid[i + 2]
         const nfe = nr?.find((x) => x !== '') ?? ''
         const aboveTable = !!nr && isTableHeaderRow(nr, nnr, nfe, nonEmptyCount(nr))
+        startBlock()
         out.push(aboveTable ? '### ' + v : '> ' + blk(v), '')
       }
       continue
@@ -408,6 +419,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       continue
     }
     lastMetaLabel = null
+    startBlock()
     out.push(blk(escCell(r.filter((v) => v !== '').join(' '), opts.multiline)), '')
   }
   flushTable()
