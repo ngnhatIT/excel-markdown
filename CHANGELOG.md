@@ -7,8 +7,9 @@
 ## 2.2.0 — 2026-10-19
 Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/golden/*.md` giữ nguyên byte).
 - Tính năng: chế độ **Markdown → Excel** (công tắc ở Header, nhớ chế độ cuối). Chọn file `.md`
-  bằng kéo-thả / `Ctrl+O`, ↑/↓ đổi thứ tự, xem trước Markdown + danh sách sheet, ô "Tên file
-  Excel" (mặc định theo tên chung trước `__`), `Ctrl+Enter` tạo file. **Mọi file trong danh sách
+  bằng kéo-thả / `Ctrl+O`, ↑/↓ đổi thứ tự, xem trước Markdown + danh sách sheet, nút **Tải lại**
+  từng file (đọc lại preview + tên sheet sau khi sửa file `.md`; không theo dõi file tự động), ô
+  "Tên file Excel" (mặc định theo tên chung trước `__`), `Ctrl+Enter` tạo file. **Mọi file trong danh sách
   gộp thành một `.xlsx`**; có nút Hủy; file đích đã có thì hỏi `Ghi đè` / `Hủy`; ghi file tạm
   `.partial` rồi đổi tên nên Hủy/lỗi không để lại `.xlsx` dở; một file `.md` lỗi thì không tạo
   file. File `.md` không phải UTF-8 (vd Shift_JIS) bị từ chối với thông báo nêu tên file, thay
@@ -28,10 +29,16 @@ Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/gol
   bảng; đoạn cao hơn 409.5pt (giới hạn một hàng Excel) được **tách thành nhiều hàng merge liền
   nhau**. Số dòng ước lượng theo bề rộng glyph đo bằng Excel thật (chữ hoa, số, định danh
   `TBL_CUSTOMER`… rộng hơn chữ thường) và mô phỏng xuống dòng theo khoảng trắng như Excel, nên
-  câu SQL/định danh dài không còn bị che dòng cuối (kiểm bằng AutoFit của Excel thật).
+  câu SQL/định danh dài không còn bị che dòng cuối (kiểm bằng AutoFit của Excel thật). Emoji
+  (✅ ❌ ⭐ ⌛…, Excel hiển thị ~18–19px) tính 20px, ký tự khác rộng hơn 1em (⟶ ⸻ U+FDFD, chữ
+  Ấn/Đông Nam Á…) theo bảng đo bằng Excel thật, nên hàng có emoji không còn bị che chữ.
+- Heading và dòng code dài: merge từ cột A tới cột cuối như đoạn văn, tự xuống dòng, chiều cao
+  do app tính (heading 游ゴシック 12 đậm 19.5pt/dòng; code MS Gothic đơn cách 12pt/dòng) nên
+  không tràn ra ngoài vùng in và bị cắt khi in; mỗi dòng code vẫn một hàng, dòng quá cao tách
+  thành nhiều hàng.
 - Kiểm tra: `scripts/xlsx-snapshot.ps1` mở file bằng Excel thật (COM), báo `REPAIRED` nếu Excel
   đòi sửa file và chụp PNG từng sheet; test golden + round-trip cho chiều mới; E2E mở rộng
-  (54 kiểm tra), 404 unit test.
+  (61 kiểm tra), 431 unit test.
 - Giới hạn round-trip đã biết (spec §11): `md → xlsx → md` chỉ ổn định với Markdown do app tạo;
   label meta ngoài `META_LABELS` của engine Excel → Markdown (vd `**作成者**:`) và bảng 2 cột có
   thể ra khác sau một vòng. Chỉ ghi chữ thuần (không giữ đậm/nghiêng giữa câu); link nội bộ `#…`

@@ -60,7 +60,9 @@ Cách dùng:
 2. Kéo thả file `.md` vào cửa sổ, hoặc `Ctrl+O` / nút "Thêm file Markdown". Cột trái liệt kê
    file kèm số sheet sẽ tạo, dưới mỗi file là tên các sheet sẽ tạo: ↑/↓ đổi thứ tự (thứ tự
    sheet trong Excel = thứ tự danh sách), nút xóa bỏ file. Giữa là preview Markdown của file
-   đang chọn.
+   đang chọn. Preview và tên sheet được đọc lúc thêm file: sửa file `.md` sau đó thì bấm nút
+   **Tải lại** (icon ⟳) của file đó để xem nội dung mới (app không tự theo dõi file; file
+   Excel tạo ra luôn đọc nội dung mới nhất).
 3. Ô "Tên file Excel" ở cột phải. Mặc định: phần tên chung trước `__` của các file; không có
    thì `# tiêu đề` của file đầu; không có thì tên file đầu.
 4. Chọn thư mục xuất, bấm **Tạo file Excel** (`Ctrl+Enter`). **Mọi file trong danh sách gộp
@@ -78,8 +80,10 @@ Quy tắc chuyển (chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-d
 - **Bố cục**: font 游ゴシック 10, ẩn gridline, in A4 ngang vừa 1 trang theo chiều rộng. Banner
   `> 基本設計：…`; bảng có header nền `#DDE5F0` + viền mảnh; `- **label**: value` thành ô
   label + ô value merge ngang; `###` thành dòng section; ghi chú và đoạn văn merge ngang, tự
-  xuống dòng. Chiều cao dòng được app tính (Excel không tự giãn ô merge; đo thực tế
-  16.5pt/dòng), đoạn quá cao tách thành nhiều hàng merge liền nhau.
+  xuống dòng; heading và từng dòng code (MS Gothic) cũng merge ngang + tự xuống dòng nên dòng
+  dài không bị cắt khi in. Chiều cao dòng được app tính (Excel không tự giãn ô merge; đo thực
+  tế 16.5pt/dòng, heading 19.5pt/dòng, code 12pt/dòng; emoji và ký tự rộng tính theo bề rộng
+  đo bằng Excel), đoạn / heading / dòng code quá cao tách thành nhiều hàng merge liền nhau.
 - **Ô**: lấy chữ hiển thị (bỏ escape `\*`, `<br>` thành xuống dòng, bỏ `**`, `*`, `` ` ``);
   cả ô là đúng một link `http`/`https`/`mailto` thì thành hyperlink, còn lại chữ thuần.
 - **Số**: `10`, `1.0` (giữ `0.0`), `1,234,567.89`, `12.50%` thành số đúng định dạng hiển thị;

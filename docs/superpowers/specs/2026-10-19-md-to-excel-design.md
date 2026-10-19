@@ -65,7 +65,8 @@ Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau
 | `> 基本設計：<tiêu đề>` | A: `基本設計` (đậm, 10pt, xám); B: tiêu đề (đậm, 16pt); dòng cao 24pt |
 | Bảng (gồm bảng 版数 và bảng có header No/№/項番) | Header: đậm, nền `#DDE5F0`, viền mảnh `#808080`; ô: viền, `wrapText`; bắt đầu cột A |
 | `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền, căn trái (cả khi value là số); sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự giãn 16.5pt/dòng; Excel không tự giãn ô merge) |
-| `### …` (section `【…】`, `■…`, tiêu đề bảng) | A: đậm 12pt, màu `#1F3864`, gạch dưới (viền dưới) |
+| `### …` (section `【…】`, `■…`, tiêu đề bảng) | A: đậm 12pt, màu `#1F3864`, gạch dưới (viền dưới); **merge ngang** A…cột cuối (gạch dưới trải cả vùng merge), `wrapText`, chiều cao do app tính (19.5pt/dòng) — heading dài xuống dòng thay vì tràn ra ngoài vùng in |
+| Code block | Mỗi dòng code một hàng (không gộp), font MS Gothic 10; **merge ngang** A…cột cuối, `wrapText`, chiều cao do app tính (12pt/dòng + 1.5, tối thiểu 15pt) |
 | `> …` (ghi chú `※…`, dòng 1 ô) | Như đoạn văn, chữ màu `#595959` |
 | Đoạn văn | **Merge ngang** từ A tới cột cuối (cùng bề rộng như ô meta), `wrapText`, không viền; giữ xuống dòng (`<br>`) và thụt lề toàn角; chiều cao dòng do app tính (mục dưới) |
 
@@ -77,8 +78,16 @@ Excel tự xuống dòng**, chiều cao = 16.5pt × số dòng (đo bằng Excel
 
 - Độ rộng chữ theo bề rộng glyph 游ゴシック 10 trong Excel, tính bằng đơn vị độ rộng cột:
   chữ toàn角 (CJK, kana, ký hiệu) = 2; chữ Latin theo bảng đo được (vd `0` ≈ 1.08, `A` ≈ 1.23,
-  `W` ≈ 1.85, `i` ≈ 0.46); ký tự ngoài ASCII khác tính như toàn角. Hệ số chọn hơi lớn hơn
-  Excel (≈ 3.5%) để ước lượng nghiêng về dư.
+  `W` ≈ 1.85, `i` ≈ 0.46); ký tự ngoài ASCII khác tính như toàn角, trừ emoji
+  (`\p{Emoji_Presentation}`: ✅ ❌ ⭐ ⌛…, Excel hiển thị ~18–19px so với 13px của toàn角) và
+  ký tự ngoài BMP tính 20px, ký tự BMP đo được rộng hơn 1em (⟶ ⸻ U+FDFD, chữ Ấn/Đông Nam Á…:
+  quét toàn bộ U+00A0–U+FFFF bằng Excel thật) theo bảng đo (`glyphTable.ts`). Hệ số chọn hơi
+  lớn hơn Excel (≈ 3.5%) để ước lượng nghiêng về dư.
+- Heading (游ゴシック 12 đậm) và code (MS Gothic 10) có bảng bề rộng glyph đo riêng: heading
+  rộng hơn cỡ 10 (vd `i` 5px, `W` 15px, toàn角 16px); MS Gothic đơn cách (mọi chữ ASCII 7px,
+  toàn角 14px — bảng 游ゴシック tính `i`/`l` quá hẹp, sẽ thiếu dòng). Chiều cao: heading
+  19.5pt/dòng; code 12pt/dòng + 1.5 (Excel AutoFit: 12n khi tự xuống dòng, 12n + 1.5 khi có
+  xuống dòng thật), không thấp hơn 15pt (hàng mặc định).
 - Excel chỉ xuống dòng sau khoảng trắng ASCII (khoảng trắng cuối dòng được treo); một từ
   không vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn một dòng thì cắt theo ký tự.
   Chữ Nhật không có khoảng trắng cũng là một từ.
@@ -92,7 +101,9 @@ Excel tự xuống dòng**, chiều cao = 16.5pt × số dòng (đo bằng Excel
 là lỗi). Một hàng Excel cao tối đa 409.5pt (24 dòng), nên đoạn văn / ghi chú cao hơn thì được
 tách thành các hàng merge liền nhau (không có hàng trống giữa các mảnh, mỗi hàng ≤ 409.5pt):
 xếp nguyên từng dòng thật theo thứ tự, dòng thật tự nó vượt một hàng thì cắt tại chỗ xuống
-dòng của mô phỏng (mỗi mảnh ≤ 24 dòng hiển thị; không cắt giữa cặp surrogate).
+dòng của mô phỏng (mỗi mảnh ≤ 24 dòng hiển thị; không cắt giữa cặp surrogate). Heading
+(≤ 21 dòng mỗi hàng; chỉ hàng cuối có gạch dưới) và một dòng code (≤ 34 dòng mỗi hàng) quá cao
+cũng tách như vậy.
 
 Độ rộng cột: theo nội dung ô bảng (ký tự CJK tính 2), tối thiểu 6, tối đa 60, cộng 2.
 
@@ -179,9 +190,12 @@ thuần. Không được crash với bất kỳ Markdown nào.
 
 - Header có công tắc chế độ: **Excel → Markdown | Markdown → Excel**. Nhớ chế độ cuối.
 - Chế độ Markdown → Excel:
-  - Cột trái: danh sách file `.md` (tên file, số sheet sẽ tạo), ↑/↓, xóa; kéo-thả `.md`.
-  - Giữa: preview Markdown đã render của file đang chọn (dùng lại PreviewPane) + danh sách
-    tên sheet sẽ tạo.
+  - Cột trái: danh sách file `.md` (tên file, số sheet sẽ tạo; tên các sheet sẽ tạo liệt kê
+    ngay dưới từng file — Ruling 3), ↑/↓, xóa; kéo-thả `.md`. Mỗi file có nút **Tải lại**
+    (icon): preview và tên sheet được đọc lúc thêm file, người dùng sửa file `.md` thì bấm để
+    đọc lại (đang đọc / lỗi hiện như khi thêm file, không đổi file đang chọn); không theo dõi
+    file tự động. File Excel tạo ra luôn đọc nội dung mới nhất của file.
+  - Giữa: preview Markdown đã render của file đang chọn (dùng lại PreviewPane).
   - Phải: ô "Tên file Excel" (mặc định theo mục 7).
   - Dưới: thư mục xuất (dùng chung), nút **Tạo file Excel** (Ctrl+Enter), Hủy khi đang chạy.
   - Ctrl+O mở hộp thoại chọn `.md`. Kéo-thả file Excel khi đang ở chế độ này → gợi ý chuyển
