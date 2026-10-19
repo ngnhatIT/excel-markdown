@@ -90,6 +90,53 @@ function collectTexts(sheets: SheetModel[]): string[] {
   return out.filter((t) => t !== '')
 }
 
+/** collectTexts + những chữ khác cũng phải ghi ra ô (dòng code, nhãn banner): dùng cho kiểm tra "mọi chữ được giữ". */
+function allCellTexts(sheet: SheetModel): string[] {
+  const out = collectTexts([sheet])
+  for (const b of sheet.blocks) {
+    if (b.kind === 'code') out.push(...b.lines)
+    if (b.kind === 'banner') out.push(b.label)
+  }
+  return out.filter((t) => t !== '')
+}
+
+/**
+ * Chữ đọc lại (SheetJS) của từng sheet: chữ hiển thị (`w`, đã theo number format) của mọi ô, cộng chuỗi nối các
+ * ô liền nhau ở cột A bằng `\n` và bằng chuỗi rỗng (đoạn văn quá cao được tách thành nhiều hàng merge).
+ */
+function readBackTexts(buf: Buffer): Set<string>[] {
+  const wb = XLSX.read(buf)
+  return wb.SheetNames.map((name) => {
+    const ws = wb.Sheets[name]
+    const texts = new Set<string>()
+    const colA: (string | null)[] = []
+    for (const addr of Object.keys(ws).filter((k) => !k.startsWith('!'))) {
+      const c = ws[addr]
+      if (c.v === undefined) continue
+      const text = String(c.w ?? c.v)
+      texts.add(text)
+      const { r, c: col } = XLSX.utils.decode_cell(addr)
+      if (col === 0) colA[r] = text
+    }
+    for (let r = 0; r < colA.length; r++) {
+      let byLine = colA[r]
+      let byChar = colA[r]
+      for (let k = r + 1; byLine != null && k < colA.length && colA[k] != null; k++) {
+        byLine += '\n' + colA[k]
+        byChar += colA[k]!
+        texts.add(byLine)
+        texts.add(byChar!)
+      }
+    }
+    return texts
+  })
+}
+
+/** Chữ của mô hình không tìm thấy trong ô đọc lại, theo từng sheet (rỗng = không mất chữ nào). */
+function lostTexts(sheets: SheetModel[], back: Set<string>[]): { sheet: number; text: string }[] {
+  return sheets.flatMap((s, i) => allCellTexts(s).filter((t) => !back[i]?.has(t)).map((text) => ({ sheet: i, text })))
+}
+
 function countBy(texts: string[]): Map<string, number> {
   const m = new Map<string, number>()
   for (const t of texts) m.set(t, (m.get(t) ?? 0) + 1)
@@ -148,4 +195,71 @@ describe('golden md2xlsx: Markdown do app tạo', () => {
       expect(diff).toEqual([])
     })
   }
+})
+
+/** Markdown -> mô hình -> .xlsx (buffer) -> chữ đọc lại bằng SheetJS. */
+async function mdToReadBack(md: string, fileName: string): Promise<{ sheets: SheetModel[]; back: Set<string>[] }> {
+  const sheets = assignSheetNames(parseMarkdownFile(md, fileName).sheets)
+  if (sheets.length === 0) return { sheets, back: [] }
+  const buf = Buffer.from((await buildWorkbook(sheets).xlsx.writeBuffer()) as ArrayBuffer)
+  return { sheets, back: readBackTexts(buf) }
+}
+
+describe('Markdown bất kỳ (spec §11): không crash, mọi chữ được giữ trong file Excel', () => {
+  it('fuzz 300 chuỗi ghép ngẫu nhiên (seed cố định): parse -> ghi -> đọc lại không mất chữ', async () => {
+    const pieces = [
+      '# h',
+      '## s',
+      '### 見出し',
+      '---',
+      '> q',
+      '> 1. 引用',
+      '- **L**: v',
+      '- **ラベル**：値',
+      '  - sub',
+      '  1. 番号',
+      '1. **初期表示**: 画面',
+      '2. item',
+      '- 項目',
+      '| a | b |\n|---|---|\n| 1 | 2.50 |',
+      '```',
+      '<div>',
+      '<br>',
+      '<!-- c -->',
+      '[x](https://a.example)',
+      '\\*esc\\* `code` **b**',
+      '',
+      'text 0001'
+    ]
+    const seps = ['\n', '\n\n', '\n  ', '\r\n']
+    // mulberry32: PRNG xác định để test lặp lại được
+    let a = 0x5eed2b1
+    const rnd = (): number => {
+      a = (a + 0x6d2b79f5) | 0
+      let t = Math.imul(a ^ (a >>> 15), 1 | a)
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+    }
+    const pick = <T>(xs: T[]): T => xs[Math.floor(rnd() * xs.length)]
+    const failures: { md: string; lost: unknown }[] = []
+    for (let i = 0; i < 300; i++) {
+      const n = 1 + Math.floor(rnd() * 12)
+      let md = ''
+      for (let j = 0; j < n; j++) md += pick(pieces) + pick(seps)
+      const { sheets, back } = await mdToReadBack(md, 'fuzz.md')
+      expect(back.length, JSON.stringify(md)).toBe(sheets.length)
+      const lost = lostTexts(sheets, back)
+      if (lost.length > 0) failures.push({ md, lost })
+    }
+    expect(failures).toEqual([])
+  })
+
+  it('mẫu viết tay (heading nhiều cấp, list có số, quote, bảng, code, <br>): không mất chữ', async () => {
+    const md = readFileSync(fileURLToPath(new URL('../../../test/fixtures/handwritten.md', import.meta.url)), 'utf8')
+    const { sheets, back } = await mdToReadBack(md, 'handwritten.md')
+    expect(sheets.map((s) => s.name)).toEqual(['概要', '変更履歴'])
+    // mẫu đủ lớn để kiểm có ý nghĩa
+    expect(allCellTexts(sheets[0]).length).toBeGreaterThan(15)
+    expect(lostTexts(sheets, back)).toEqual([])
+  })
 })
