@@ -26,13 +26,24 @@ class MdRequestError extends Error {
   }
 }
 
-/** Đọc UTF-8 một file Markdown; lỗi đọc nêu rõ tên file. */
+/** Ký tự thay thế mà bộ giải mã UTF-8 sinh ra cho byte không hợp lệ. */
+const REPLACEMENT_CHAR = '\uFFFD'
+
+/**
+ * Đọc UTF-8 một file Markdown; lỗi đọc nêu rõ tên file. File không phải UTF-8 (vd Shift_JIS) bị từ chối thay
+ * vì ghi chữ mojibake vào Excel: giải mã ra U+FFFD thì coi là không phải UTF-8.
+ */
 async function readMarkdown(path: string): Promise<string> {
+  let text: string
   try {
-    return await readFile(path, 'utf-8')
+    text = await readFile(path, 'utf-8')
   } catch (err) {
     throw new MdRequestError(`Không đọc được file: ${basename(path)} — ${friendlyError(err)}`, err)
   }
+  if (text.includes(REPLACEMENT_CHAR)) {
+    throw new MdRequestError(`File không phải UTF-8: ${basename(path)}. Hãy lưu lại file dạng UTF-8 rồi thử lại.`)
+  }
+  return text
 }
 
 async function readAndParse(path: string): Promise<{ text: string; parsed: ParsedFile }> {

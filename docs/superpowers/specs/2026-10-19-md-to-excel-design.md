@@ -150,7 +150,9 @@ vào XML từng sheet — quyết định của tôi.
   không có thì `# tiêu đề` của file đầu; không có thì tên file đầu. Người dùng sửa được
   trong ô "Tên file Excel" trước khi xuất.
 - File đích đã tồn tại → hỏi xác nhận ghi đè (hộp thoại của main) — quyết định của tôi.
-- Một file `.md` lỗi (không đọc được) → **không tạo** file Excel, báo rõ file nào lỗi (file
+- Một file `.md` lỗi (không đọc được, hoặc không phải UTF-8 — giải mã ra U+FFFD, vd file
+  Shift_JIS: báo `File không phải UTF-8: <tên file>. Hãy lưu lại file dạng UTF-8 rồi thử lại.`
+  cả khi xem trước lẫn khi tạo file) → **không tạo** file Excel, báo rõ file nào lỗi (file
   Excel là một sản phẩm giao khách, thiếu sheet còn tệ hơn không có) — quyết định của tôi.
 - Ghi ra file tạm rồi đổi tên: Hủy hoặc lỗi giữa chừng không để lại `.xlsx` dở — quyết
   định của tôi.

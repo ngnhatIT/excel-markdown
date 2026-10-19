@@ -11,7 +11,8 @@ Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/gol
   Excel" (mặc định theo tên chung trước `__`), `Ctrl+Enter` tạo file. **Mọi file trong danh sách
   gộp thành một `.xlsx`**; có nút Hủy; file đích đã có thì hỏi `Ghi đè` / `Hủy`; ghi file tạm
   `.partial` rồi đổi tên nên Hủy/lỗi không để lại `.xlsx` dở; một file `.md` lỗi thì không tạo
-  file.
+  file. File `.md` không phải UTF-8 (vd Shift_JIS) bị từ chối với thông báo nêu tên file, thay
+  vì ghi chữ lỗi mã vào Excel.
 - Bố cục Excel: font 游ゴシック 10, ẩn gridline, A4 ngang vừa 1 trang rộng; banner 基本設計,
   bảng 版数, meta merge ngang, bảng có header nền + viền, section, ghi chú, đoạn văn. Chữ trong
   ô là chữ hiển thị (bỏ escape, `<br>` thành xuống dòng); số giữ đúng hiển thị (`0001` text,

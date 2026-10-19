@@ -62,6 +62,17 @@ describe('handleMdRequest mdInspect', () => {
     })
   })
 
+  it('file không phải UTF-8 (Shift_JIS) -> từ chối, nêu tên file, không trả chữ mojibake', async () => {
+    const p = join(dir, 'sjis.md')
+    // '# ' + 'あ' mã Shift_JIS (0x82 0xA0): giải mã UTF-8 ra U+FFFD
+    writeFileSync(p, Buffer.from([0x23, 0x20, 0x82, 0xa0, 0x0a]))
+    expect(await handleMdRequest({ id: 14, type: 'mdInspect', path: p })).toEqual({
+      id: 14,
+      ok: false,
+      error: 'File không phải UTF-8: sjis.md. Hãy lưu lại file dạng UTF-8 rồi thử lại.',
+    })
+  })
+
   it('file không đọc được -> lỗi nêu tên file', async () => {
     const r = await handleMdRequest({ id: 8, type: 'mdInspect', path: join(dir, 'nope.md') })
     expect(r.ok).toBe(false)
@@ -99,6 +110,19 @@ describe('handleMdRequest mdToXlsx', () => {
     expect(!r4.ok && r4.error).toContain('missing.md')
     expect(existsSync(out2)).toBe(false)
     expect(existsSync(out2 + '.partial')).toBe(false)
+  })
+
+  it('một file không phải UTF-8 -> không tạo file Excel, báo rõ file nào', async () => {
+    const sjis = join(dir, 'sjis2.md')
+    writeFileSync(sjis, Buffer.from([0x82, 0xa0]))
+    const out6 = join(dir, 'out6.xlsx')
+    expect(await handleMdRequest({ id: 15, type: 'mdToXlsx', files: [mdA, sjis], outPath: out6 })).toEqual({
+      id: 15,
+      ok: false,
+      error: 'File không phải UTF-8: sjis2.md. Hãy lưu lại file dạng UTF-8 rồi thử lại.',
+    })
+    expect(existsSync(out6)).toBe(false)
+    expect(existsSync(out6 + '.partial')).toBe(false)
   })
 
   it('không có nội dung để tạo sheet -> lỗi rõ ràng, không tạo file', async () => {
