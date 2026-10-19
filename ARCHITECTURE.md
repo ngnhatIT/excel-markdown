@@ -98,7 +98,7 @@ Thiết kế và quyết định: `docs/superpowers/specs/2026-10-19-md-to-excel
 | `cellValue.ts` | Quy tắc giá trị ô: `10` số, `1.0`/`1.10` số + format `0.0`/`0.00`, `1,234` → `#,##0`, `1,234.50` → `#,##0.00` (số chữ số thập phân theo chữ), `12.50%` → số/100 + `0.00%`; `0001`, số > 11 chữ số, ngày, `#N/A`... giữ text. |
 | `parse.ts` | `parseMarkdownFile(md, fileName)` → `{ title, sheets }`: tách sheet (ranh giới file và `---` ngoài cùng, `##` đầu phần là tên sheet), nhận banner 基本設計, bảng, meta `**label**:`/`**label**：`, section, ghi chú, đoạn văn, list, code. Không crash với Markdown bất kỳ. |
 | `names.ts` | `assignSheetNames`: tên sheet hợp lệ (ký tự cấm `[]:*?/\` và `'` ở đầu/cuối thành `_`; ký tự điều khiển cấm của XML bị bỏ; ≤ 31 ký tự; không trùng → ` (2)`; `History` → `History_`). |
-| `layout.ts` | Độ rộng hiển thị (CJK = 2), ước lượng số dòng của ô merge, `splitByLines` tách đoạn quá cao thành nhiều hàng. |
+| `layout.ts` | Độ rộng hiển thị cho độ rộng cột (CJK = 2); ước lượng số dòng của ô merge (bề rộng glyph 游ゴシック đo bằng Excel thật, mô phỏng Excel xuống dòng sau khoảng trắng); `splitByLines` tách đoạn quá cao thành nhiều hàng. |
 | `write.ts` | `buildWorkbook(sheets)` ghi bố cục (font 游ゴシック 10, màu, viền, merge, wrap, A4 ngang vừa 1 trang rộng; chiều cao dòng = **16.5pt × số dòng**, đo bằng Excel thật; hàng ≤ 409.5pt nên đoạn dài tách thành nhiều hàng merge liền nhau). `saveWorkbook` chèn `ignoredErrors` (không tam giác xanh) vào XML từng sheet bằng JSZip, ghi `.partial` rồi đổi tên. |
 | `mdHandler.ts` | `handleMdRequest`: `mdInspect` / `mdToXlsx`. Một file lỗi → dừng, chưa ghi gì. |
 

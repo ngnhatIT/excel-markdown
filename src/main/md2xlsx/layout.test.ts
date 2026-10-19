@@ -34,9 +34,52 @@ describe('estimateLines', () => {
     expect(estimateLines('a'.repeat(25) + '\nb', 10)).toBe(4)
   })
 
-  it('đúng biên: vừa khít không thêm dòng', () => {
-    expect(estimateLines('a'.repeat(10), 10)).toBe(1)
-    expect(estimateLines('a'.repeat(11), 10)).toBe(2)
+  it('đúng biên: chữ toàn角 rộng 2, vừa khít không thêm dòng', () => {
+    expect(estimateLines('あ'.repeat(5), 10)).toBe(1)
+    expect(estimateLines('あ'.repeat(6), 12)).toBe(1)
+    expect(estimateLines('あ'.repeat(6), 11.9)).toBe(2)
+  })
+
+  it('độ rộng chữ Latin theo glyph 游ゴシック: chữ hoa/số rộng hơn 1, chữ hẹp (i, l, .) dưới 1', () => {
+    // 40 chữ 'W' rộng gần gấp đôi 40 đơn vị; 40 chữ 'i' chưa tới một nửa
+    expect(estimateLines('W'.repeat(40), 40)).toBe(2)
+    expect(estimateLines('i'.repeat(40), 20)).toBe(1)
+    // số và chữ hoa vượt 1 đơn vị: 10 ký tự không vừa vùng rộng 10
+    expect(estimateLines('0123456789', 10)).toBe(2)
+    expect(estimateLines('ABCDEFGHIJ', 10)).toBe(2)
+  })
+
+  it('ký tự ngoài ASCII (Latin-1, Hy Lạp, ký hiệu) tính như toàn角; katakana nửa角 như số', () => {
+    expect(estimateLines('×'.repeat(6), 11)).toBe(2)
+    expect(estimateLines('ｱ'.repeat(10), 11)).toBe(1)
+  })
+
+  it('tự xuống dòng theo từ: từ Latin không bị cắt khi còn vừa một dòng mới', () => {
+    // mỗi từ 13 chữ 'i' ≈ 6 đơn vị: hai từ + khoảng trắng không vừa vùng rộng 10 -> mỗi từ một dòng
+    const word = 'i'.repeat(13)
+    expect(estimateLines([word, word, word].join(' '), 10)).toBe(3)
+    // cùng tổng độ rộng nhưng là một từ liền (cắt theo ký tự): chỉ 2 dòng
+    expect(estimateLines(word.repeat(3) + 'ii', 10)).toBe(2)
+  })
+
+  it('từ dài hơn một dòng bị cắt theo ký tự (không treo)', () => {
+    expect(estimateLines('W'.repeat(100), 10)).toBeGreaterThanOrEqual(19)
+    expect(estimateLines('x', 0.1)).toBe(1)
+  })
+
+  it('chỉ xuống dòng sau khoảng trắng ASCII: cụm chữ Nhật là một từ, không vừa phần còn lại thì sang dòng mới', () => {
+    // từ đầu dòng dài hơn một dòng: cắt theo ký tự, mỗi dòng đầy
+    expect(estimateLines('あ'.repeat(10), 10)).toBe(2)
+    // 'ab ' rồi cụm 8 chữ toàn角 (16 đơn vị): cụm sang dòng mới rồi mới cắt -> 1 + 2 dòng (Excel đo: như vậy)
+    expect(estimateLines('ab ' + 'あ'.repeat(8), 10)).toBe(3)
+    expect(estimateLines('ab ' + 'あ'.repeat(6), 10)).toBe(3)
+    // khoảng trắng toàn角 không phải chỗ xuống dòng: cả chuỗi là một từ, cắt theo ký tự -> 2 dòng
+    expect(estimateLines('ab　' + 'あ'.repeat(6), 10)).toBe(2)
+  })
+
+  it('khoảng trắng cuối dòng được treo, không tự tạo dòng mới', () => {
+    expect(estimateLines('i'.repeat(13) + ' '.repeat(40), 6.2)).toBe(1)
+    expect(estimateLines('i'.repeat(13) + '   ' + 'i', 6.2)).toBe(2)
   })
 
   it('tổng độ rộng không hợp lệ không sinh Infinity/NaN', () => {
@@ -92,6 +135,16 @@ describe('splitByLines', () => {
       expect(r).not.toMatch(lone)
       expect(estimateLines(r, 33.72)).toBeLessThanOrEqual(24)
     }
+  })
+
+  it('dòng dài nhiều từ: mỗi mảnh vừa maxLines theo cách xuống dòng theo từ, nối lại ra bản gốc', () => {
+    const line = 'SELECT CUSTOMER_ID, CUSTOMER_NAME FROM TBL_CUSTOMER WHERE DELETE_FLG = 0 '.repeat(200)
+    const rows = splitByLines(line, 50, 24)
+    expect(rows.length).toBeGreaterThan(1)
+    for (const r of rows) expect(estimateLines(r, 50)).toBeLessThanOrEqual(24)
+    expect(rows.join('')).toBe(line)
+    // không cắt quá vụn: tổng số dòng hiển thị của các mảnh bằng số dòng của cả dòng gốc
+    expect(rows.reduce((n, r) => n + estimateLines(r, 50), 0)).toBe(estimateLines(line, 50))
   })
 
   it('maxChars: khối không vượt số ký tự tối đa (ghép dòng và cắt dòng dài)', () => {

@@ -22,7 +22,9 @@ Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/gol
 - Chiều cao dòng: Excel không tự giãn ô merge nên app tự tính, theo **16.5pt mỗi dòng** (đo bằng
   Excel thật với 游ゴシック 10). Đoạn văn/ghi chú dài hoặc nhiều dòng trải ngang cả bề rộng
   bảng; đoạn cao hơn 409.5pt (giới hạn một hàng Excel) được **tách thành nhiều hàng merge liền
-  nhau**.
+  nhau**. Số dòng ước lượng theo bề rộng glyph đo bằng Excel thật (chữ hoa, số, định danh
+  `TBL_CUSTOMER`… rộng hơn chữ thường) và mô phỏng xuống dòng theo khoảng trắng như Excel, nên
+  câu SQL/định danh dài không còn bị che dòng cuối (kiểm bằng AutoFit của Excel thật).
 - Kiểm tra: `scripts/xlsx-snapshot.ps1` mở file bằng Excel thật (COM), báo `REPAIRED` nếu Excel
   đòi sửa file và chụp PNG từng sheet; test golden + round-trip cho chiều mới; E2E mở rộng
   (54 kiểm tra), 404 unit test.

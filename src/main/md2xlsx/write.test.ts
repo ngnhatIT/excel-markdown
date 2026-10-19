@@ -3,12 +3,14 @@ import JSZip from 'jszip'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PARTIAL_SUFFIX } from '../workerProtocol'
 import { estimateLines } from './layout'
 import type { Block, SheetModel } from './model'
 import { safeSheetName } from './names'
+import { parseMarkdownFile } from './parse'
 import { buildWorkbook, injectIgnoredErrors, LINE_HEIGHT, MAX_ROW_HEIGHT, saveWorkbook } from './write'
 
 const T = (h: string[], ...rows: string[][]): Block => ({
@@ -313,7 +315,26 @@ describe('buildWorkbook: đầu vào biên', () => {
     const total = sumWidths(ws, 1, 4)
     expect(total).toBeCloseTo(6 + 6 + 2 * 8.43)
     expect(ws.getRow(4).height).toBe(LINE * estimateLines(text, total))
-    expect(ws.getRow(4).height).toBe(231)
+    // 14 chữ toàn角 (28 đơn vị) mỗi dòng trong 28.86 -> 15 dòng
+    expect(ws.getRow(4).height).toBe(15 * LINE)
+  })
+
+  it('cột tính ra rộng đúng 9 (exceljs coi là mặc định, không ghi <col>) được tính như cột mặc định 8.43', async () => {
+    // cột A: 'abcdefg' -> 7 + 2 = 9; B..D mặc định. Vùng merge A:D = 4 × 8.43 = 33.72, không phải 9 + 3 × 8.43 = 34.29:
+    // 17 chữ toàn角 (34 đơn vị) vừa một dòng nếu tính 9, phải là 2 dòng.
+    const ws = (await reload([{ name: 'S', blocks: [T(['abcdefg'], ['x']), { kind: 'paragraph', text: 'あ'.repeat(17) }] }]))
+      .worksheets[0]
+    expect(ws.getColumn(1).width).toBeUndefined()
+    expect(ws.getRow(4).height).toBe(2 * LINE)
+  })
+
+  it('meta: hàng có chiều cao do app đặt thì đủ cao cho cả nhãn dài (ô nhãn tự xuống dòng)', async () => {
+    // cột A tối đa 60: 80 chữ 'W' cần 3 dòng; value 2 dòng
+    const ws = (
+      await reload([{ name: 'S', blocks: [{ kind: 'meta', items: [{ label: 'W'.repeat(80), value: { text: 'a\nb' } }] }] }])
+    ).worksheets[0]
+    expect(ws.getColumn(1).width).toBe(60)
+    expect(ws.getRow(1).height).toBe(3 * LINE)
   })
 
   it('meta value một dòng dài vẫn đủ cao theo độ rộng vùng merge', async () => {
@@ -438,6 +459,91 @@ describe('buildWorkbook: đoạn văn/ghi chú quá cao được tách qua nhi�
     expect(ws.getRow(1).height).toBe(MAX_ROW_HEIGHT)
     expect(ws.getCell('B1').value).toBe(text)
     expect(ws.getCell('A3').value).toBe('H')
+  })
+})
+
+describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit của Excel thật', () => {
+  /*
+   * Số đo bằng Excel 16 thật (COM, 96 DPI): đặt cùng chữ vào một cột nháp rộng đúng bằng vùng merge, cùng font,
+   * wrapText, rồi AutoFit; giá trị là chiều cao AutoFit (pt). Chữ bị che nếu app đặt thấp hơn.
+   * - golden: sheet 1 của test/golden/kihon-sekkei.xlsx.md + các mẫu (đoạn văn A:H = 509.3pt, value meta B:H = 456.8pt)
+   * - narrow: sheet chỉ có các mẫu (span 4: A = 6, B..D mặc định; đoạn văn 175.5pt, value meta 144pt)
+   * Cách đo và bảng đầy đủ: .superpowers/sdd/2026-10-19-md-to-excel/final-fix-report.md.
+   */
+  const SQL =
+    'SELECT CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER, REGISTERED_DATE FROM TBL_CUSTOMER WHERE DELETE_FLG = 0 AND STATUS_CODE IN (1, 2, 3) ORDER BY CUSTOMER_ID, REGISTERED_DATE DESC'
+  const IDENT =
+    '※ 顧客コード（CUST_CD）は TBL_CUSTOMER.CUST_CD と一致すること。ERR_CODE: E0001, E0002, E0003, E0004, E0005, E0006, E0007, E0008 を返す。DELETE_FLG = 1 のデータは対象外'
+  const PARAGRAPHS: { text: string; golden: number; narrow: number }[] = [
+    { text: SQL, golden: 49.5, narrow: 148.5 },
+    { text: IDENT, golden: 33, narrow: 99 },
+    { text: 'ABCDEFGHIJ'.repeat(30), golden: 66, narrow: 198 },
+    { text: '0123456789'.repeat(20), golden: 49.5, narrow: 115.5 },
+    { text: 'W'.repeat(120), golden: 49.5, narrow: 115.5 },
+    { text: 'MW '.repeat(60).trimEnd(), golden: 49.5, narrow: 132 },
+    {
+      text: 'WWWWWWWWWWWWWWW MMMMMMMMMMMMMMMMMMM WWWWWWWWWWWWWWWWWWWWWW MMMMMMMMMMMMMMMM WWWWWWWWWWWWWWWWWWWWWWWWWWWW MMMMMMMMMMMMM',
+      golden: 49.5,
+      narrow: 148.5
+    },
+    { text: '顧客IDはCUSTOMER_IDで管理し、顧客名はCUSTOMER_NAMEで管理する。'.repeat(4), golden: 49.5, narrow: 148.5 },
+    { text: 'm'.repeat(80) + ' ' + 'w'.repeat(80), golden: 66, narrow: 132 },
+    { text: '%%%%%%%%%% @@@@@@@@@@ ########## &&&&&&&&&& ++++++++++ =========='.repeat(3), golden: 66, narrow: 165 },
+    { text: 'ＡＢＣＤＥＦ１２３４５６ｱｲｳｴｵｶｷｸｹｺ ×÷±° '.repeat(6).trimEnd(), golden: 49.5, narrow: 198 },
+    {
+      text: '行1: SELECT * FROM TBL_A\n行2: UPDATE TBL_B SET FLG = 1 WHERE ID IN (SELECT ID FROM TBL_C WHERE STATUS = 9)\n行3: 完了',
+      golden: 49.5,
+      narrow: 82.5
+    },
+    {
+      text: 'CUSTOMER_ID CUSTOMER_NAME PHONE_NUMBER EMAIL_ADDRESS POSTAL_CODE ADDRESS_LINE1 ADDRESS_LINE2 REGISTERED_AT UPDATED_AT',
+      golden: 33,
+      narrow: 82.5
+    },
+    { text: 'mixed ' + 'カタカナ'.repeat(10) + ' and ABCDEFGHIJKLMNOPQRSTUVWXYZ ' + 'ひらがな'.repeat(12), golden: 49.5, narrow: 148.5 },
+    { text: '※ CUST_CD は TBL_CUSTOMER.CUST_CD と一致すること。'.repeat(6), golden: 66, narrow: 214.5 }
+  ]
+  const META: { text: string; golden: number; narrow: number }[] = [
+    {
+      text: 'SELECT CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER, REGISTERED_DATE FROM TBL_CUSTOMER WHERE DELETE_FLG = 0 ORDER BY CUSTOMER_ID',
+      golden: 33,
+      narrow: 115.5
+    },
+    { text: 'CUSTOMER_ID, CUSTOMER_NAME, PHONE_NUMBER, EMAIL_ADDRESS, POSTAL_CODE', golden: 16.5, narrow: 82.5 },
+    { text: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ ABCDEFGHIJKLMNOPQRSTUVWXYZ', golden: 16.5, narrow: 66 },
+    { text: '0123456789'.repeat(7), golden: 16.5, narrow: 49.5 },
+    { text: IDENT, golden: 33, narrow: 132 },
+    { text: 'TBL_CUSTOMER / TBL_ORDER / TBL_ORDER_DETAIL / TBL_PRODUCT / TBL_STOCK', golden: 16.5, narrow: 82.5 }
+  ]
+  const samples = (): Block[] => [
+    ...PARAGRAPHS.map(({ text }): Block => ({ kind: 'paragraph', text })),
+    { kind: 'meta', items: META.map(({ text }, i) => ({ label: `M${i + 1}`, value: { text } })) }
+  ]
+  const golden = parseMarkdownFile(
+    readFileSync(fileURLToPath(new URL('../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)), 'utf8'),
+    'kihon-sekkei.xlsx.md'
+  ).sheets[0]
+
+  /** Chiều cao hiển thị của hàng có ô chính (cột `col`) chứa `text`; hàng không đặt chiều cao thì Excel tự giãn = 1 dòng. */
+  const heightOf = (ws: ExcelJS.Worksheet, col: number, text: string): number => {
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const cell = ws.getCell(r, col)
+      // ô phụ của vùng merge trả về giá trị của ô chính: chỉ xét ô chính
+      if (cell.master.address === cell.address && cell.value === text) return ws.getRow(r).height ?? LINE
+    }
+    throw new Error('không thấy ô: ' + text.slice(0, 30))
+  }
+
+  it.each([
+    ['golden', () => [...golden.blocks, ...samples()]],
+    ['narrow', () => samples()]
+  ] as const)('%s: mọi mẫu (SQL, định danh, chữ hoa, …) cao >= AutoFit', async (sheet, blocks) => {
+    const ws = (await reload([{ name: 'S', blocks: blocks() }])).worksheets[0]
+    const got = [
+      ...PARAGRAPHS.map((s) => ({ text: s.text.slice(0, 30), excel: s[sheet], app: heightOf(ws, 1, s.text) })),
+      ...META.map((s) => ({ text: 'meta ' + s.text.slice(0, 25), excel: s[sheet], app: heightOf(ws, 2, s.text) }))
+    ]
+    expect(got.filter((g) => g.app < g.excel)).toEqual([])
   })
 })
 

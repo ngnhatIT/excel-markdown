@@ -71,13 +71,27 @@ Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau
 
 Đoạn văn / ghi chú dài hoặc nhiều dòng (người dùng chọn sau bản thử): trải ngang + tự
 xuống dòng để in A4 không bị cắt và không mất xuống dòng. Excel không tự giãn chiều cao ô
-merge, nên app tính: số dòng hiển thị = Σ theo từng dòng thật ⌈độ rộng chữ (CJK = 2) /
-tổng độ rộng các cột merge⌉, chiều cao = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự
-giãn 16.5pt/dòng). Ước lượng được phép dư (thừa khoảng trắng chấp nhận được), **không được
-thiếu** (chữ bị che là lỗi). Một hàng Excel cao tối đa 409.5pt (24 dòng), nên đoạn văn / ghi
-chú cao hơn thì được tách thành các hàng merge liền nhau (không có hàng trống giữa các mảnh,
-mỗi hàng ≤ 409.5pt): xếp nguyên từng dòng thật theo thứ tự, dòng thật tự nó vượt một hàng thì
-cắt theo độ rộng hiển thị (không cắt giữa cặp surrogate).
+merge, nên app tính: số dòng hiển thị = Σ theo từng dòng thật số dòng khi **mô phỏng cách
+Excel tự xuống dòng**, chiều cao = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự giãn
+16.5pt/dòng). Mô phỏng (đo bằng AutoFit của Excel 16 thật, sửa sau review cuối):
+
+- Độ rộng chữ theo bề rộng glyph 游ゴシック 10 trong Excel, tính bằng đơn vị độ rộng cột:
+  chữ toàn角 (CJK, kana, ký hiệu) = 2; chữ Latin theo bảng đo được (vd `0` ≈ 1.08, `A` ≈ 1.23,
+  `W` ≈ 1.85, `i` ≈ 0.46); ký tự ngoài ASCII khác tính như toàn角. Hệ số chọn hơi lớn hơn
+  Excel (≈ 3.5%) để ước lượng nghiêng về dư.
+- Excel chỉ xuống dòng sau khoảng trắng ASCII (khoảng trắng cuối dòng được treo); một từ
+  không vừa phần còn lại của dòng thì sang dòng mới, từ dài hơn một dòng thì cắt theo ký tự.
+  Chữ Nhật không có khoảng trắng cũng là một từ.
+- Vùng rộng = tổng độ rộng các cột merge; cột giữ mặc định (không có dữ liệu, hoặc tính ra
+  đúng 9 — exceljs coi 9 là mặc định và không ghi `<col>`) tính 8.43.
+- Hàng meta mà value > 1 dòng: chiều cao lấy thêm max với số dòng của ô nhãn ở cột A (hàng
+  đã có chiều cao cố định thì Excel không tự giãn cho ô nhãn nữa).
+
+Ước lượng được phép dư (thừa khoảng trắng chấp nhận được), **không được thiếu** (chữ bị che
+là lỗi). Một hàng Excel cao tối đa 409.5pt (24 dòng), nên đoạn văn / ghi chú cao hơn thì được
+tách thành các hàng merge liền nhau (không có hàng trống giữa các mảnh, mỗi hàng ≤ 409.5pt):
+xếp nguyên từng dòng thật theo thứ tự, dòng thật tự nó vượt một hàng thì cắt tại chỗ xuống
+dòng của mô phỏng (mỗi mảnh ≤ 24 dòng hiển thị; không cắt giữa cặp surrogate).
 
 Độ rộng cột: theo nội dung ô bảng (ký tự CJK tính 2), tối thiểu 6, tối đa 60, cộng 2.
 

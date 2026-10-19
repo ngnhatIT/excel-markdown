@@ -41,6 +41,8 @@ const COL_PADDING = 2
  * Dùng đúng 8.43 khi tính chiều cao hàng merge để ước lượng không bị thiếu dòng.
  */
 const DEFAULT_COL_WIDTH = 8.43
+/** exceljs coi độ rộng đúng 9 là mặc định và không ghi `<col>` (Column.isCustomWidth) -> Excel hiện cột mặc định. */
+const EXCELJS_DEFAULT_WIDTH = 9
 /** Ô Excel chứa tối đa 32 767 ký tự. */
 const MAX_CELL_CHARS = 32767
 
@@ -79,7 +81,7 @@ interface Ctx {
   ws: ExcelJS.Worksheet
   /** Số cột của vùng merge: max(4, số cột của bảng rộng nhất). */
   span: number
-  /** Độ rộng đã đặt cho từng cột (chỉ số 0 = cột A); `undefined` = cột không có dữ liệu, giữ mặc định. */
+  /** Độ rộng đã đặt cho từng cột (chỉ số 0 = cột A); `undefined` = cột giữ mặc định (không có dữ liệu, hoặc tính ra đúng 9). */
   widths: (number | undefined)[]
 }
 
@@ -121,7 +123,9 @@ function computeLayout(blocks: Block[]): { span: number; widths: (number | undef
   const widths: (number | undefined)[] = []
   for (let c = 0; c < span; c++) {
     const w = widest[c]
-    widths[c] = w === undefined ? undefined : Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w + COL_PADDING))
+    const width = w === undefined ? undefined : Math.min(MAX_COL_WIDTH, Math.max(MIN_COL_WIDTH, w + COL_PADDING))
+    // Độ rộng 9 exceljs không ghi ra file: coi như cột mặc định để ước lượng chiều cao theo đúng cột Excel hiện.
+    widths[c] = width === EXCELJS_DEFAULT_WIDTH ? undefined : width
   }
   return { span, widths }
 }
@@ -181,6 +185,7 @@ function writeTable(ctx: Ctx, block: Extract<Block, { kind: 'table' }>, row: num
 
 function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: number): number {
   const { ws, span } = ctx
+  const labelWidth = sumWidths(ctx, 1, 1)
   const valueWidth = sumWidths(ctx, 2, span)
   block.items.forEach((item, i) => {
     const r = row + i
@@ -200,9 +205,10 @@ function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: numbe
       cell.alignment = wrapTop()
     }
     ws.mergeCells(r, 2, r, span)
-    // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng.
+    // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng. Value 1 dòng thì để Excel tự
+    // giãn hàng (theo ô nhãn); đã đặt chiều cao thì phải đủ cho cả ô nhãn tự xuống dòng ở cột A.
     const lines = estimateLines(item.value.text, valueWidth)
-    if (lines > 1) setRowHeight(ws, r, lines)
+    if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth)))
   })
   return block.items.length
 }
