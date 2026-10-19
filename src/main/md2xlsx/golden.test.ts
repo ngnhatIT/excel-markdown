@@ -261,5 +261,27 @@ describe('Markdown bất kỳ (spec §11): không crash, mọi chữ được gi
     // mẫu đủ lớn để kiểm có ý nghĩa
     expect(allCellTexts(sheets[0]).length).toBeGreaterThan(15)
     expect(lostTexts(sheets, back)).toEqual([])
+    // chữ người đọc Markdown thấy (kiểm độc lập với mô hình: parse làm mất chữ cũng bị bắt)
+    const expected = [
+      'この文書は手書きの Markdown サンプルです。\n改行も含みます。',
+      '1. 目的',
+      '1.1 対象画面',
+      '・顧客検索画面',
+      '・基本情報タブ',
+      // list đánh số giữ số, không thành meta (Ruling 18)
+      '1. 初期表示: 画面を表示する',
+      '2. 検索: 条件で検索する',
+      '3. 結果を一覧に表示する',
+      // list con đánh số trong value meta / trong ghi chú giữ `N. ` (Ruling 18)
+      '1. 検索\n2. 表示\n補足',
+      '仕様書',
+      '※ 注意事項\n1. 必須項目を確認する\n2. 保存する',
+      '全角 50 文字\nカナ可',
+      '12.50%',
+      'SELECT CUSTOMER_ID, CUSTOMER_NAME',
+      '  FROM TBL_CUSTOMER'
+    ]
+    expect(expected.filter((t) => !back[0].has(t))).toEqual([])
+    expect(['初版', '検索条件を追加', '小見出し', '最後の段落です。'].filter((t) => !back[1].has(t))).toEqual([])
   })
 })

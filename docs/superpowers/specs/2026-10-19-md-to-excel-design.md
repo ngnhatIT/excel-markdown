@@ -160,7 +160,12 @@ vào XML từng sheet — quyết định của tôi.
 Hỗ trợ ở mức "hợp lý" (quyết định của tôi): heading mọi cấp → dòng section (cấp 1–2 như
 `###`); bảng GFM → bảng; list thường (không có `**label**:`) → mỗi item một dòng ở cột A:
 list không đánh số → tiền tố `・`, list đánh số → số hiển thị `N. ` (theo số bắt đầu của
-list, vd `3.` `4.`); `**label**:` hoặc `**label**：` (dấu `：` toàn角) → meta; `<br>` đứng
+list, vd `3.` `4.`); item của list **không đánh số** dạng `**label**:` hoặc `**label**：`
+(dấu `：` toàn角) → meta; list đánh số **không bao giờ** thành meta: mỗi item giữ `N. ` +
+chữ (vd `1. **初期表示**: 画面を表示する` → `1. 初期表示: 画面を表示する`, ký hiệu `**` bỏ như
+chữ inline khác); list con nằm trong value meta hoặc trong ghi chú `>`: list đánh số giữ
+tiền tố `N. ` (`- **処理**:` + `1. 検索` / `2. 表示` → value `1. 検索⏎2. 表示`), bullet không
+số chỉ giữ chữ (sửa sau review cuối, Ruling 18); `<br>` đứng
 riêng một dòng và comment HTML `<!-- … -->` → bỏ (không có chữ), HTML khác → chữ nguyên văn;
 code block → từng dòng ở cột A, font monospace; ảnh → chữ alt; còn lại → chữ
 thuần. Không được crash với bất kỳ Markdown nào.

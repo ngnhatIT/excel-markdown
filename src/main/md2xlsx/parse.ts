@@ -44,13 +44,32 @@ function blockLines(t: Token): string[] {
     case 'blockquote':
       return (t.tokens ?? []).flatMap(blockLines)
     case 'list':
-      return (t.items ?? []).flatMap((item: Token) => (item.tokens ?? []).flatMap(blockLines))
+      return listLines(t)
     case 'html':
       return isBlankHtml(t) ? [] : [String(t.raw ?? '').trim()]
     // table, def... -> chữ thuần
     default:
       return [String(t.raw ?? '').trim()]
   }
+}
+
+/** Số hiển thị của item đầu một list đánh số (`3.` -> 3); marked để `''` khi list không đánh số. */
+function listStart(list: Token): number {
+  return typeof list.start === 'number' ? list.start : 1
+}
+
+/**
+ * Các dòng của một list khi gộp vào ô (value meta, ghi chú): list đánh số giữ số hiển thị `N. ` ở dòng đầu mỗi
+ * item (Ruling 18), list không đánh số chỉ giữ chữ (không thêm `・`).
+ */
+function listLines(list: Token): string[] {
+  const start = listStart(list)
+  return (list.items ?? []).flatMap((item: Token, i: number) => {
+    const lines = (item.tokens ?? []).flatMap(blockLines)
+    if (!list.ordered) return lines
+    const prefix = `${start + i}. `
+    return lines.length === 0 ? [prefix] : [prefix + lines[0], ...lines.slice(1)]
+  })
 }
 
 /** Item meta: token inline đầu tiên là `strong`, phần sau rỗng hoặc bắt đầu bằng `:`. */
@@ -91,11 +110,12 @@ function bannerOf(text: string): Block {
 function listBlocks(list: Token, out: Block[]): void {
   // Item meta liên tiếp trong cùng một list gộp thành một block
   let meta: MetaItem[] | null = null
-  // List đánh số: item thường mang số hiển thị (start + vị trí); list không đánh số: `・`
-  const start = typeof list.start === 'number' ? list.start : 1
+  // List đánh số: mọi item mang số hiển thị (start + vị trí) và không bao giờ thành meta (Ruling 18:
+  // `1. **初期表示**: …` giữ số `1. `); list không đánh số: `・`, item `**label**:` thành meta.
+  const start = listStart(list)
   const items: Token[] = list.items ?? []
   for (const [i, item] of items.entries()) {
-    const m = metaItem(item)
+    const m = list.ordered ? null : metaItem(item)
     if (m) {
       if (!meta) {
         meta = []

@@ -197,11 +197,33 @@ describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
     ])
   })
 
-  it('list đánh số: item meta không thêm số; item con có số riêng', () => {
+  it('list đánh số không bao giờ thành meta: giữ `N. ` + chữ (bỏ ký hiệu **); item con có số riêng', () => {
     expect(g('1. **A**: v\n2. x\n   1. y')).toEqual([
-      { kind: 'meta', items: [{ label: 'A', value: { text: 'v' } }] },
+      { kind: 'paragraph', text: '1. A: v' },
       { kind: 'paragraph', text: '2. x' },
       { kind: 'paragraph', text: '1. y' }
+    ])
+    expect(g('1. **初期表示**: 画面を表示する\n2. **検索**：条件で検索する')).toEqual([
+      { kind: 'paragraph', text: '1. 初期表示: 画面を表示する' },
+      { kind: 'paragraph', text: '2. 検索：条件で検索する' }
+    ])
+  })
+
+  it('list đánh số con trong value meta và trong ghi chú giữ tiền tố `N. `; bullet con không số giữ nguyên chữ', () => {
+    expect(g('- **処理**:\n  1. 検索\n  2. 表示')).toEqual([
+      { kind: 'meta', items: [{ label: '処理', value: { text: '1. 検索\n2. 表示' } }] }
+    ])
+    expect(g('- **処理**: 概要\n  3. a\n  4. b\n  - c')).toEqual([
+      { kind: 'meta', items: [{ label: '処理', value: { text: '概要\n3. a\n4. b\nc' } }] }
+    ])
+    expect(g('x\n\n> 1. x\n> 2. y')).toEqual([
+      { kind: 'paragraph', text: 'x' },
+      { kind: 'note', text: '1. x\n2. y' }
+    ])
+    // lồng nhau: mỗi list đánh số theo số bắt đầu của chính nó
+    expect(g('x\n\n> 1. a\n>    1. b\n> 2. c')).toEqual([
+      { kind: 'paragraph', text: 'x' },
+      { kind: 'note', text: '1. a\n1. b\n2. c' }
     ])
   })
 
