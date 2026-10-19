@@ -189,7 +189,7 @@ ipcMain.handle('dialog:openMarkdownFiles', async () => {
 ipcMain.handle('dialog:openDirectory', async () => {
   try {
     const res = await dialog.showOpenDialog({
-      title: 'Chọn thư mục lưu file Markdown',
+      title: 'Chọn thư mục lưu kết quả',
       properties: ['openDirectory', 'createDirectory'],
     })
     return { ok: true, data: res.canceled ? null : res.filePaths[0] ?? null }

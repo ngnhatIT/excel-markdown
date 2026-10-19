@@ -12,6 +12,8 @@ interface Props {
   onCopyDir: () => void
   /** Đơn vị đếm `filesWritten` của từng dòng (mặc định `file.md`) */
   unitLabel?: string
+  /** title/aria-label nút mở thư mục kết quả */
+  openDirLabel?: string
 }
 
 /** Kết quả lần convert gần nhất, từng file Excel. */
@@ -24,6 +26,7 @@ export function ResultsPanel({
   onOpenDir,
   onCopyDir,
   unitLabel = 'file.md',
+  openDirLabel = 'Mở thư mục chứa file.md',
 }: Props): React.ReactElement {
   return (
     <div className="x2m-results" role="status" aria-live="polite">
@@ -58,8 +61,8 @@ export function ResultsPanel({
                 <button
                   className="icon-btn"
                   onClick={onOpenDir}
-                  title="Mở thư mục chứa file.md"
-                  aria-label="Mở thư mục chứa file.md"
+                  title={openDirLabel}
+                  aria-label={openDirLabel}
                 >
                   <IconOpen size={13} />
                 </button>

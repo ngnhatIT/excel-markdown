@@ -19,6 +19,8 @@ interface Props {
   appVersion: string
   lastConvertAt: string
   onConvert: () => void
+  /** Chữ khi chưa chọn thư mục lưu */
+  outDirPlaceholder?: string
 }
 
 /** Thanh dưới: thư mục xuất, tiến độ, nút Hủy và nút Convert. */
@@ -28,7 +30,7 @@ export function Footer(p: Props): React.ReactElement {
     <footer className="x2m-footer">
       <div className="x2m-outdir" title={outDir || 'Chưa chọn thư mục lưu'}>
         <IconFolder size={16} />
-        <span className={cn('x2m-outdir-text', !outDir && 'dim')}>{outDir || 'Chưa chọn thư mục lưu file.md'}</span>
+        <span className={cn('x2m-outdir-text', !outDir && 'dim')}>{outDir || (p.outDirPlaceholder ?? 'Chưa chọn thư mục lưu file.md')}</span>
         {p.recentDirs.length > 0 && (
           <select
             className="x2m-dir-select"

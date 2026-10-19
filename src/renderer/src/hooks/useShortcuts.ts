@@ -21,6 +21,18 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       const h = ref.current
+      const mod = e.ctrlKey || e.metaKey
+      // Ctrl+Enter / Ctrl+O chạy cả khi đang gõ trong ô nhập (vd ô "Tên file Excel" rồi Ctrl+Enter)
+      if (mod && e.key === 'Enter') {
+        e.preventDefault()
+        h.onConvert()
+        return
+      }
+      if (mod && (e.key === 'o' || e.key === 'O')) {
+        e.preventDefault()
+        h.onPickFiles()
+        return
+      }
       const tag = (e.target as HTMLElement | null)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
       if (e.key === 'Escape') {
@@ -37,14 +49,8 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
         h.onMoveSheet(-1)
         return
       }
-      if (!(e.ctrlKey || e.metaKey)) return
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        h.onConvert()
-      } else if (e.key === 'o' || e.key === 'O') {
-        e.preventDefault()
-        h.onPickFiles()
-      } else if (e.key === '=' || e.key === '+') {
+      if (!mod) return
+      if (e.key === '=' || e.key === '+') {
         e.preventDefault()
         h.onZoom('in')
       } else if (e.key === '-') {

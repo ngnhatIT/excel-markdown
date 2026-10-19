@@ -318,20 +318,23 @@ try {
   }
   await dropFiles([bigMdPath])
   const bigReadyMs = await waitFor(`${mdItems}.length === 1 && ${mdItems}[0].querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet'`, 30000)
+  // Đổi tên khác tên mặc định (big) rồi Ctrl+Enter ngay trong ô tên (KHÔNG blur): phím tắt phải chạy cả khi đang gõ
   await ev(`(() => { const i = ${nameInput}; if (!i) return 0; i.focus(); i.select(); return 1 })()`)
-  await send('Input.insertText', { text: 'big' })
-  await waitFor(`${nameInput}?.value === 'big'`, 2000)
-  await pressCtrlEnter()
+  await send('Input.insertText', { text: 'big-huy' })
+  const renamedMs = await waitFor(`${nameInput}?.value === 'big-huy' && document.activeElement === ${nameInput}`, 2000)
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
   const mdCancelBtnMs = await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Hủy')`, 5000)
   const tMdCancel = Date.now()
   await ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hủy')?.click(), 1`)
   const mdCancelMs = await waitFor(hasToast('Đã hủy tạo file Excel'), 5000)
   check(
-    `md Hủy: toast Đã hủy nhanh (${mdCancelMs >= 0 ? Date.now() - tMdCancel : '-'} ms)`,
-    mdCancelMs >= 0 && mdCancelMs < 2000,
-    { bigReadyMs, mdCancelBtnMs, mdCancelMs }
+    `md Hủy: Ctrl+Enter trong ô tên bắt đầu tạo, toast Đã hủy nhanh (${mdCancelMs >= 0 ? Date.now() - tMdCancel : '-'} ms)`,
+    renamedMs >= 0 && mdCancelBtnMs >= 0 && mdCancelMs >= 0 && mdCancelMs < 2000,
+    { bigReadyMs, renamedMs, mdCancelBtnMs, mdCancelMs }
   )
-  check('md Hủy: không có big.xlsx lẫn big.xlsx.partial', !listOut().includes('big.xlsx') && !listOut().includes('big.xlsx.partial'), listOut())
+  const leftover = listOut().filter((f) => /^big(-huy)?\.xlsx(\.partial)?$/.test(f))
+  check('md Hủy: không có big-huy.xlsx lẫn big-huy.xlsx.partial', leftover.length === 0, leftover)
 
   await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
   check('về Excel → Markdown: danh sách Excel còn nguyên', (await waitFor(`(document.querySelector('.x2m-pane-title')?.textContent ?? '').includes('File Excel (3)')`, 2000)) >= 0)

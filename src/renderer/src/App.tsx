@@ -350,6 +350,8 @@ export default function App(): React.ReactElement {
   }, [outDir, applyOutDir])
 
   const doConvert = useCallback(async () => {
+    // đang chạy (kể cả lần tạo Excel ở chế độ kia): không gửi lần mới, tránh xóa cờ converting khi main từ chối
+    if (converting) return
     if (files.length === 0) {
       toast('Chưa có file Excel nào', 'err')
       return
@@ -390,7 +392,7 @@ export default function App(): React.ReactElement {
       setConverting(false)
       window.setTimeout(() => setProgress(null), 1500)
     }
-  }, [files, options, outputMode, ensureOutDir])
+  }, [converting, files, options, outputMode, ensureOutDir])
 
   /* ------------------------- Markdown → Excel ------------------------------ */
   const mdDefaultName = useMemo(() => defaultWorkbookName(mdFiles), [mdFiles])
@@ -535,10 +537,17 @@ export default function App(): React.ReactElement {
 
       {showOnboarding && (
         <div className="x2m-onboarding">
-          <span>
-            Kéo thả file Excel vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
-            <b> Ctrl+Enter</b> để convert.
-          </span>
+          {isMd ? (
+            <span>
+              Kéo thả file Markdown vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
+              <b> Ctrl+Enter</b> để tạo file Excel.
+            </span>
+          ) : (
+            <span>
+              Kéo thả file Excel vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
+              <b> Ctrl+Enter</b> để convert.
+            </span>
+          )}
           <button className="icon-btn" onClick={dismissOnboarding} title="Đóng" aria-label="Đóng">
             <IconX size={14} />
           </button>
@@ -565,6 +574,9 @@ export default function App(): React.ReactElement {
                 error={mdSel?.error ?? ''}
                 zoom={zoom}
                 onResetZoom={() => setZoom(1)}
+                noSelectionText="Chưa chọn file"
+                loadingText="Đang đọc..."
+                emptyText="Chọn một file Markdown để xem trước"
               />
               {mdResult && (
                 <ResultsPanel
@@ -576,6 +588,7 @@ export default function App(): React.ReactElement {
                   onOpenDir={openOutDir}
                   onCopyDir={copyOutDir}
                   unitLabel="sheet"
+                  openDirLabel="Mở thư mục chứa file Excel"
                 />
               )}
             </main>
@@ -644,6 +657,7 @@ export default function App(): React.ReactElement {
         onCancel={cancelConvert}
         appVersion={appVersion}
         lastConvertAt={lastConvertAt}
+        outDirPlaceholder={isMd ? 'Chưa chọn thư mục lưu file Excel' : undefined}
         {...footerMode}
       />
 

@@ -15,10 +15,26 @@ interface Props {
   error: string
   zoom: number
   onResetZoom: () => void
+  /** Chữ ở thanh trên khi chưa chọn gì */
+  noSelectionText?: string
+  /** Chữ khi đang tải nội dung */
+  loadingText?: string
+  /** Chữ vùng trống khi chưa có nội dung */
+  emptyText?: string
 }
 
 /** Thanh tab + vùng xem trước (Markdown đã render hoặc mã nguồn). */
-export function PreviewPane({ title, md, loading, error, zoom, onResetZoom }: Props): React.ReactElement {
+export function PreviewPane({
+  title,
+  md,
+  loading,
+  error,
+  zoom,
+  onResetZoom,
+  noSelectionText = 'Chưa chọn sheet',
+  loadingText = 'Đang convert...',
+  emptyText = 'Chọn một sheet để xem trước kết quả convert',
+}: Props): React.ReactElement {
   const [tab, setTab] = useState<'rendered' | 'source'>('rendered')
   const [expanded, setExpanded] = useState(false)
 
@@ -77,7 +93,7 @@ export function PreviewPane({ title, md, loading, error, zoom, onResetZoom }: Pr
               {stats ? ` · ${stats.lines} dòng, ${stats.tables} bảng, ${stats.chars} ký tự` : ''}
             </span>
           ) : (
-            <span className="dim">Chưa chọn sheet</span>
+            <span className="dim">{noSelectionText}</span>
           )}
           {zoom !== 1 && (
             <button className="btn btn-sm btn-ghost" onClick={onResetZoom} title="Khôi phục cỡ chữ (Ctrl+0)">
@@ -91,13 +107,13 @@ export function PreviewPane({ title, md, loading, error, zoom, onResetZoom }: Pr
       </div>
       <div className="x2m-preview" style={{ zoom }}>
         {loading ? (
-          <div className="x2m-loading">Đang convert...</div>
+          <div className="x2m-loading">{loadingText}</div>
         ) : error ? (
           <div className="x2m-error">{error}</div>
         ) : !md ? (
           <div className="x2m-empty">
             <IconEye size={36} />
-            <p>Chọn một sheet để xem trước kết quả convert</p>
+            <p>{emptyText}</p>
           </div>
         ) : tab === 'source' ? (
           <div className="x2m-source-wrap">
