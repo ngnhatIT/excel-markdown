@@ -352,6 +352,15 @@ describe('buildWorkbook: đầu vào biên', () => {
     expect(ws.getRow(1).height).toBe(3 * LINE)
   })
 
+  it('meta: nhãn in đậm nên tính theo bề rộng glyph đậm (đậm rộng hơn, vd i: 3 -> 4px)', async () => {
+    // 200 chữ 'i' trong cột 60: chữ thường vừa 2 dòng, chữ đậm cần 3 dòng
+    const ws = (
+      await reload([{ name: 'S', blocks: [{ kind: 'meta', items: [{ label: 'i'.repeat(200), value: { text: 'a\nb' } }] }] }])
+    ).worksheets[0]
+    expect(estimateLines('i'.repeat(200), 60)).toBe(2)
+    expect(ws.getRow(1).height).toBe(3 * LINE)
+  })
+
   it('meta value một dòng dài vẫn đủ cao theo độ rộng vùng merge', async () => {
     const text = 'x'.repeat(100)
     const ws = (await reload([{ name: 'S', blocks: [{ kind: 'meta', items: [{ label: 'L', value: { text } }] }] }])).worksheets[0]

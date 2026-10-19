@@ -85,7 +85,8 @@ Excel tự xuống dòng**, chiều cao = 16.5pt × số dòng (đo bằng Excel
 - Vùng rộng = tổng độ rộng các cột merge; cột giữ mặc định (không có dữ liệu, hoặc tính ra
   đúng 9 — exceljs coi 9 là mặc định và không ghi `<col>`) tính 8.43.
 - Hàng meta mà value > 1 dòng: chiều cao lấy thêm max với số dòng của ô nhãn ở cột A (hàng
-  đã có chiều cao cố định thì Excel không tự giãn cho ô nhãn nữa).
+  đã có chiều cao cố định thì Excel không tự giãn cho ô nhãn nữa); nhãn in đậm nên dùng bảng
+  bề rộng glyph đậm (đo cùng cách, rộng hơn tới 1px mỗi chữ).
 
 Ước lượng được phép dư (thừa khoảng trắng chấp nhận được), **không được thiếu** (chữ bị che
 là lỗi). Một hàng Excel cao tối đa 409.5pt (24 dòng), nên đoạn văn / ghi chú cao hơn thì được

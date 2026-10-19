@@ -54,6 +54,16 @@ const ASCII_GLYPH_PX = [
   7, 7, 8, 7, 8, 7, 4, 7, 8, 3, 4, 7, 3, 11, 8, 7, // ` a-o
   8, 8, 5, 7, 5, 8, 6, 10, 6, 6, 6, 5, 5, 5, 9 // p-z { | } ~
 ]
+/** Như ASCII_GLYPH_PX nhưng cho chữ đậm (nhãn meta), đo cùng cách: đậm rộng hơn tới 1px (vd i 3 -> 4, a 7 -> 8). */
+// prettier-ignore
+const ASCII_BOLD_GLYPH_PX = [
+  4, 5, 6, 8, 8, 11, 10, 3, 5, 5, 7, 10, 4, 6, 4, 7, //  ! " # $ % & ' ( ) * + , - . /
+  7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 4, 4, 10, 10, 10, 7, // 0-9 : ; < = > ?
+  12, 9, 9, 9, 10, 8, 8, 10, 10, 4, 6, 9, 8, 12, 10, 10, // @ A-O
+  9, 10, 9, 9, 9, 10, 9, 12, 9, 9, 8, 5, 8, 5, 7, 7, // P-Z [ \ ] ^ _
+  7, 8, 8, 7, 8, 8, 5, 8, 8, 4, 4, 7, 4, 12, 8, 8, // ` a-o
+  8, 8, 5, 7, 5, 8, 7, 11, 7, 7, 6, 5, 5, 5, 9 // p-z { | } ~
+]
 /** Chữ toàn角 (CJK, kana, ký hiệu…) và mọi ký tự ngoài ASCII không có trong bảng: 1em. */
 const WIDE_GLYPH_PX = 13
 /** Katakana nửa角 (U+FF61–U+FF9F): 0.5em, đo được như chữ số. */
@@ -61,10 +71,10 @@ const HALF_GLYPH_PX = 7
 /** Ký tự ngoài BMP (emoji, CJK mở rộng B…) có thể lấy từ font khác: tính rộng hơn 1em cho chắc. */
 const ASTRAL_GLYPH_PX = 20
 
-/** Bề rộng (đơn vị độ rộng cột) của một code point khi Excel hiển thị bằng 游ゴシック 10. */
-function glyphWidth(cp: number): number {
+/** Bề rộng (đơn vị độ rộng cột) của một code point khi Excel hiển thị bằng 游ゴシック 10 (bảng ASCII thường/đậm). */
+function glyphWidth(cp: number, ascii: readonly number[]): number {
   let px: number
-  if (cp >= 0x20 && cp <= 0x7e) px = ASCII_GLYPH_PX[cp - 0x20]
+  if (cp >= 0x20 && cp <= 0x7e) px = ascii[cp - 0x20]
   else if (cp >= 0xff61 && cp <= 0xff9f) px = HALF_GLYPH_PX
   else if (cp > 0xffff) px = ASTRAL_GLYPH_PX
   // Latin-1, Hy Lạp, Kirin, ký hiệu…: nhiều chữ là toàn角 trong 游ゴシック (× ± ° §) -> tính 1em cho chắc.
@@ -83,7 +93,13 @@ const SPACE = 0x20
  * cắt giữa cặp surrogate). Chạy lại từ một chỉ số đầu dòng cho ra đúng các dòng như khi chạy liền từ đầu
  * (splitByLines dựa vào điều này).
  */
-function wrapStarts(line: string, from: number, width: number, limit = Infinity): number[] {
+function wrapStarts(
+  line: string,
+  from: number,
+  width: number,
+  limit = Infinity,
+  ascii: readonly number[] = ASCII_GLYPH_PX
+): number[] {
   const starts = [from]
   let lineStart = from
   let x = 0
@@ -94,7 +110,7 @@ function wrapStarts(line: string, from: number, width: number, limit = Infinity)
   for (let i = from; i < line.length; ) {
     const cp = line.codePointAt(i)!
     const size = cp > 0xffff ? 2 : 1
-    const w = glyphWidth(cp)
+    const w = glyphWidth(cp, ascii)
     if (cp === SPACE) {
       // Khoảng trắng "treo" ở cuối dòng: cộng độ rộng nhưng không xuống dòng vì nó.
       x += w
@@ -135,12 +151,13 @@ function safeWidth(totalWidth: number): number {
 
 /**
  * Số dòng hiển thị khi chữ tự xuống dòng trong vùng rộng `totalWidth` (tổng độ rộng các cột merge):
- * Σ theo từng dòng thật của số dòng khi mô phỏng xuống dòng (dòng trống vẫn là 1 dòng).
+ * Σ theo từng dòng thật của số dòng khi mô phỏng xuống dòng (dòng trống vẫn là 1 dòng). `bold`: chữ in đậm.
  */
-export function estimateLines(text: string, totalWidth: number): number {
+export function estimateLines(text: string, totalWidth: number, bold = false): number {
   const width = safeWidth(totalWidth)
+  const ascii = bold ? ASCII_BOLD_GLYPH_PX : ASCII_GLYPH_PX
   let lines = 0
-  for (const line of splitLines(text)) lines += wrapStarts(line, 0, width).length
+  for (const line of splitLines(text)) lines += wrapStarts(line, 0, width, Infinity, ascii).length
   return lines
 }
 

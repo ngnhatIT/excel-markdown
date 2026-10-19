@@ -209,7 +209,7 @@ function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: numbe
     // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng. Value 1 dòng thì để Excel tự
     // giãn hàng (theo ô nhãn); đã đặt chiều cao thì phải đủ cho cả ô nhãn tự xuống dòng ở cột A.
     const lines = estimateLines(item.value.text, valueWidth)
-    if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth)))
+    if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth, true)))
   })
   return block.items.length
 }
