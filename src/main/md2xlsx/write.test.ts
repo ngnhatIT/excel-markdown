@@ -8,7 +8,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PARTIAL_SUFFIX } from '../workerProtocol'
 import { estimateLines } from './layout'
 import type { Block, SheetModel } from './model'
-import { buildWorkbook, injectIgnoredErrors, saveWorkbook } from './write'
+import { safeSheetName } from './names'
+import { buildWorkbook, injectIgnoredErrors, LINE_HEIGHT, MAX_ROW_HEIGHT, saveWorkbook } from './write'
 
 const T = (h: string[], ...rows: string[][]): Block => ({
   kind: 'table',
@@ -21,6 +22,8 @@ const reload = async (sheets: SheetModel[]) => {
   await w.xlsx.load(b as ArrayBuffer)
   return w
 }
+/** Chiều cao mỗi dòng 游ゴシック 10 tự giãn trong Excel thật (đo bằng COM autofit): 16.5pt. */
+const LINE = 16.5
 /** Độ rộng Excel hiển thị cho cột không được đặt width (exceljs không ghi <col> cho cột mặc định). */
 const EXCEL_DEFAULT_WIDTH = 8.43
 const sumWidths = (ws: ExcelJS.Worksheet, from: number, to: number) => {
@@ -97,7 +100,7 @@ describe('buildWorkbook: bố cục', () => {
     expect(ws.getCell('H6').border.right).toMatchObject({ style: 'thin' })
     expect(ws.getCell('D7').border.bottom).toMatchObject({ style: 'thin' })
     expect(ws.getCell('B7').alignment.wrapText).toBe(true)
-    expect(ws.getRow(7).height).toBe(30)
+    expect(ws.getRow(7).height).toBe(33)
     expect(ws.getRow(6).height).toBeUndefined()
   })
 
@@ -107,12 +110,12 @@ describe('buildWorkbook: bố cục', () => {
     expect(ws.getCell('H10').master.address).toBe('A10')
     expect(ws.getCell('A10').alignment.wrapText).toBe(true)
     expect(ws.getCell('A10').border.top).toBeUndefined()
-    expect(ws.getRow(10).height).toBe(15 * estimateLines('x'.repeat(300), sumWidths(ws, 1, 8)))
+    expect(ws.getRow(10).height).toBe(LINE * estimateLines('x'.repeat(300), sumWidths(ws, 1, 8)))
   })
 
   it('note: chữ xám, 2 dòng cao 30; code: MS Gothic, một dòng một hàng', () => {
     expect(ws.getCell('A12').font.color?.argb).toBe('FF595959')
-    expect(ws.getRow(12).height).toBe(30)
+    expect(ws.getRow(12).height).toBe(33)
     expect(ws.getCell('A14').font.name).toBe('MS Gothic')
     expect(ws.getCell('A14').value).toBe('c1')
     expect(ws.getCell('A14').isMerged).toBe(false)
@@ -249,7 +252,7 @@ describe('buildWorkbook: đầu vào biên', () => {
     expect(wb.worksheets[0].views[0].showGridLines).toBe(false)
   })
 
-  it("note/paragraph rỗng hoặc '・' không làm hỏng; hàng vẫn cao 15", async () => {
+  it("note/paragraph rỗng hoặc '・' không làm hỏng; hàng vẫn cao 16.5", async () => {
     const ws = (
       await reload([
         {
@@ -263,10 +266,10 @@ describe('buildWorkbook: đầu vào biên', () => {
         }
       ])
     ).worksheets[0]
-    expect(ws.getRow(1).height).toBe(15)
+    expect(ws.getRow(1).height).toBe(16.5)
     expect(ws.getCell('A3').value).toBe('・')
-    expect(ws.getRow(3).height).toBe(15)
-    expect(ws.getRow(5).height).toBe(15)
+    expect(ws.getRow(3).height).toBe(16.5)
+    expect(ws.getRow(5).height).toBe(16.5)
     expect(ws.getCell('A7').value).toBe('H')
   })
 
@@ -309,16 +312,16 @@ describe('buildWorkbook: đầu vào biên', () => {
     // span = 4 (cột C, D không có dữ liệu: mặc định 8.43)
     const total = sumWidths(ws, 1, 4)
     expect(total).toBeCloseTo(6 + 6 + 2 * 8.43)
-    expect(ws.getRow(4).height).toBe(15 * estimateLines(text, total))
-    expect(ws.getRow(4).height).toBe(15 * 14)
+    expect(ws.getRow(4).height).toBe(LINE * estimateLines(text, total))
+    expect(ws.getRow(4).height).toBe(231)
   })
 
   it('meta value một dòng dài vẫn đủ cao theo độ rộng vùng merge', async () => {
     const text = 'x'.repeat(100)
     const ws = (await reload([{ name: 'S', blocks: [{ kind: 'meta', items: [{ label: 'L', value: { text } }] }] }])).worksheets[0]
     // cột A = 6 (nhãn 'L'), B..D không có dữ liệu = 8.43 mặc định => vùng value rộng 25.29
-    expect(ws.getRow(1).height).toBe(15 * estimateLines(text, 3 * 8.43))
-    expect(ws.getRow(1).height).toBe(15 * 4)
+    expect(ws.getRow(1).height).toBe(LINE * estimateLines(text, 3 * 8.43))
+    expect(ws.getRow(1).height).toBe(66)
   })
 
   it('khối rỗng không để lại hàng trống thừa', async () => {
@@ -333,6 +336,108 @@ describe('buildWorkbook: đầu vào biên', () => {
     const ws = (await reload(sheets)).worksheets[0]
     expect(ws.getCell('A1').value).toBe('  indented')
     expect(ws.getCell('A3').value).toBe('x')
+  })
+})
+
+describe('buildWorkbook: độ rộng cột A và tên sheet', () => {
+  it('nhãn banner tính vào độ rộng cột A (bảng chỉ có No/1 vẫn rộng 10); tiêu đề (cột B) thì không', async () => {
+    const ws = (
+      await reload([{ name: 'S', blocks: [{ kind: 'banner', label: '基本設計', title: '画面項目定義書' }, T(['No'], ['1'])] }])
+    ).worksheets[0]
+    expect(ws.getColumn(1).width).toBe(10)
+    expect(ws.getColumn(2).width).toBeUndefined()
+  })
+
+  it('tên sheet bẩn đi qua safeSheetName: workbook.xml sạch, exceljs đọc lại được, không trùng tên', async () => {
+    const used = new Set<string>()
+    const names = ['A\uFFFEB', '\u0001', 'X\u0002', 'X\u0003'].map((n) => safeSheetName(n, used))
+    expect(names).toEqual(['AB', 'Sheet', 'X', 'X (2)'])
+    const sheets = names.map((name) => ({ name, blocks: [T(['H'], ['v'])] }))
+    const buf = Buffer.from((await buildWorkbook(sheets).xlsx.writeBuffer()) as ArrayBuffer)
+    const xml = await (await JSZip.loadAsync(buf)).file('xl/workbook.xml')!.async('string')
+    expect(xml).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/)
+    expect(xml.match(/<sheet /g)).toHaveLength(4)
+    const w = new ExcelJS.Workbook()
+    await w.xlsx.load(buf as unknown as ExcelJS.Buffer)
+    expect(w.worksheets.map((s) => s.name)).toEqual(names)
+  })
+})
+
+describe('buildWorkbook: đoạn văn/ghi chú quá cao được tách qua nhiều hàng', () => {
+  const MAX_LINES = Math.floor(MAX_ROW_HEIGHT / LINE_HEIGHT)
+  /** Giá trị cột A của các hàng liên tiếp có chữ, bắt đầu từ `from`. */
+  const consecutive = (ws: ExcelJS.Worksheet, from: number) => {
+    const rows: { row: number; text: string }[] = []
+    for (let r = from; ws.getCell(r, 1).value !== null; r++) rows.push({ row: r, text: ws.getCell(r, 1).value as string })
+    return rows
+  }
+
+  it('LINE_HEIGHT đo bằng Excel thật là 16.5 nên mỗi hàng chứa tối đa 24 dòng', () => {
+    expect(LINE_HEIGHT).toBe(16.5)
+    expect(MAX_LINES).toBe(24)
+  })
+
+  it.each(['paragraph', 'note'] as const)('%s 60 dòng ngắn -> ceil(60/MAX_LINES) hàng merge liền nhau, đủ chữ', async (kind) => {
+    const lines = Array.from({ length: 60 }, (_, i) => `dòng ${i}`)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind, text: lines.join('\n') }, { kind: 'heading', text: 'H' }] }])).worksheets[0]
+    const rows = consecutive(ws, 1)
+    expect(rows).toHaveLength(Math.ceil(60 / MAX_LINES))
+    const expectedCounts = [MAX_LINES, MAX_LINES, 60 - 2 * MAX_LINES]
+    rows.forEach(({ row, text }, i) => {
+      expect(text.split('\n')).toHaveLength(expectedCounts[i])
+      expect(ws.getRow(row).height).toBe(LINE_HEIGHT * expectedCounts[i])
+      expect(ws.getRow(row).height as number).toBeLessThanOrEqual(MAX_ROW_HEIGHT)
+      // merge A..D, cùng style, tự xuống dòng
+      expect(ws.getCell(row, 4).master.address).toBe(`A${row}`)
+      expect(ws.getCell(row, 1).alignment).toMatchObject({ wrapText: true, vertical: 'top' })
+      expect(ws.getCell(row, 1).font.color?.argb).toBe(kind === 'note' ? 'FF595959' : undefined)
+    })
+    expect(rows.map((r) => r.text).join('\n')).toBe(lines.join('\n'))
+    // một hàng trống sau mảnh cuối, heading ngay sau đó
+    expect(ws.getCell(rows.length + 1, 1).value).toBeNull()
+    expect(ws.getCell(rows.length + 2, 1).value).toBe('H')
+  })
+
+  it('một dòng 20 000 ký tự -> nhiều hàng liền nhau, mỗi hàng không quá cao, nối lại ra bản gốc', async () => {
+    const text = 'x'.repeat(20000)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'paragraph', text }, { kind: 'heading', text: 'H' }] }])).worksheets[0]
+    const rows = consecutive(ws, 1)
+    expect(rows.length).toBeGreaterThan(1)
+    const total = sumWidths(ws, 1, 4)
+    for (const { row, text: piece } of rows) {
+      expect(ws.getRow(row).height).toBe(LINE_HEIGHT * estimateLines(piece, total))
+      expect(ws.getRow(row).height as number).toBeLessThanOrEqual(MAX_ROW_HEIGHT)
+    }
+    // dòng gốc không có xuống dòng nên nối các mảnh bằng chuỗi rỗng
+    expect(rows.map((r) => r.text).join('')).toBe(text)
+    expect(ws.getCell(rows.length + 2, 1).value).toBe('H')
+  })
+
+  it('cắt dòng dài không làm vỡ cặp surrogate trong file', async () => {
+    const text = '😀'.repeat(3000)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'note', text }] }])).worksheets[0]
+    const rows = consecutive(ws, 1)
+    expect(rows.length).toBeGreaterThan(1)
+    expect(rows.map((r) => r.text).join('')).toBe(text)
+    for (const { text: piece } of rows) expect(piece).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/)
+  })
+
+  it('đoạn văn vừa một hàng thì không tách', async () => {
+    const lines = Array.from({ length: MAX_LINES }, (_, i) => `l${i}`)
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'paragraph', text: lines.join('\n') }, { kind: 'heading', text: 'H' }] }])).worksheets[0]
+    expect(consecutive(ws, 1)).toHaveLength(1)
+    expect(ws.getRow(1).height).toBe(LINE_HEIGHT * MAX_LINES)
+    expect(ws.getCell('A3').value).toBe('H')
+  })
+
+  it('ô value của meta vẫn là một ô, cao tối đa MAX_ROW_HEIGHT (không tách)', async () => {
+    const text = Array.from({ length: 40 }, (_, i) => `v${i}`).join('\n')
+    const ws = (
+      await reload([{ name: 'S', blocks: [{ kind: 'meta', items: [{ label: 'L', value: { text } }] }, { kind: 'heading', text: 'H' }] }])
+    ).worksheets[0]
+    expect(ws.getRow(1).height).toBe(MAX_ROW_HEIGHT)
+    expect(ws.getCell('B1').value).toBe(text)
+    expect(ws.getCell('A3').value).toBe('H')
   })
 })
 

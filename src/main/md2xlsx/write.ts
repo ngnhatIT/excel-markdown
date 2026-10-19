@@ -6,7 +6,7 @@ import JSZip from 'jszip'
 import { promises as fsp } from 'node:fs'
 import { PARTIAL_SUFFIX } from '../workerProtocol'
 import { toCellValue } from './cellValue'
-import { displayWidth, estimateLines } from './layout'
+import { displayWidth, estimateLines, splitByLines } from './layout'
 import type { Block, SheetModel, XCell } from './model'
 
 // ---- Hằng số bố cục (Global Constraints) ----
@@ -21,12 +21,14 @@ const COLOR_HEADING = 'FF1F3864'
 const COLOR_MUTED = 'FF595959'
 const COLOR_LINK = 'FF0563C1'
 
-/** Chiều cao một dòng chữ (pt). */
-const LINE_HEIGHT = 15
+/** Chiều cao một dòng chữ (pt): đo bằng Excel thật, 游ゴシック 10 tự giãn đúng 16.5pt mỗi dòng. */
+export const LINE_HEIGHT = 16.5
 /** Chiều cao hàng banner (pt). */
 const BANNER_HEIGHT = 24
 /** Excel không chấp nhận hàng cao hơn 409.5pt. */
-const MAX_ROW_HEIGHT = 409.5
+export const MAX_ROW_HEIGHT = 409.5
+/** Số dòng chữ tối đa trong một hàng (24 dòng = 396pt). */
+const MAX_LINES_PER_ROW = Math.floor(MAX_ROW_HEIGHT / LINE_HEIGHT)
 /** Bề rộng tối thiểu (số cột) của vùng merge, kể cả khi sheet không có bảng nào rộng như vậy. */
 const MIN_SPAN = 4
 /** Độ rộng cột tối thiểu / tối đa / phần cộng thêm quanh chữ. */
@@ -103,7 +105,10 @@ function computeLayout(blocks: Block[]): { span: number; widths: (number | undef
   }
   let maxCols = 0
   for (const block of blocks) {
-    if (block.kind === 'table') {
+    if (block.kind === 'banner') {
+      // Nhãn banner nằm ở cột A và cột B luôn có tiêu đề nên không tràn sang được: phải đủ rộng.
+      touch(0, block.label)
+    } else if (block.kind === 'table') {
       const cols = tableColumns(block)
       maxCols = Math.max(maxCols, cols)
       for (let c = 0; c < cols; c++) touch(c, block.header[c]?.text ?? '')
@@ -135,7 +140,7 @@ function setCellContent(cell: ExcelJS.Cell, x: XCell, baseFont: Partial<ExcelJS.
   if (numFmt) cell.numFmt = numFmt
 }
 
-/** Đặt chiều cao hàng theo số dòng (không vượt mức tối đa của Excel). */
+/** Đặt chiều cao hàng theo số dòng (không vượt mức tối đa của Excel; ô value của meta bị kẹp ở đây). */
 function setRowHeight(ws: ExcelJS.Worksheet, row: number, lines: number): void {
   ws.getRow(row).height = Math.min(MAX_ROW_HEIGHT, LINE_HEIGHT * lines)
 }
@@ -211,16 +216,25 @@ function writeHeading(ctx: Ctx, block: Extract<Block, { kind: 'heading' }>, row:
   return 1
 }
 
-/** Đoạn văn / ghi chú: merge A..span, tự xuống dòng, không viền, chiều cao do app tính. */
+/**
+ * Đoạn văn / ghi chú: merge A..span, tự xuống dòng, không viền, chiều cao do app tính.
+ * Nếu cao hơn một hàng Excel cho phép (409.5pt) thì tách thành các hàng merge liền nhau,
+ * không để chữ bị che; không có hàng trống giữa các mảnh.
+ */
 function writeText(ctx: Ctx, text: string, muted: boolean, row: number): number {
   const { ws, span } = ctx
-  const cell = ws.getCell(row, 1)
-  if (text !== '') cell.value = cellText(text)
-  cell.font = font(muted ? { color: { argb: COLOR_MUTED } } : {})
-  cell.alignment = wrapTop()
-  ws.mergeCells(row, 1, row, span)
-  setRowHeight(ws, row, estimateLines(text, sumWidths(ctx, 1, span)))
-  return 1
+  const width = sumWidths(ctx, 1, span)
+  const pieces = splitByLines(text, width, MAX_LINES_PER_ROW, MAX_CELL_CHARS)
+  pieces.forEach((piece, i) => {
+    const r = row + i
+    const cell = ws.getCell(r, 1)
+    if (piece !== '') cell.value = cellText(piece)
+    cell.font = font(muted ? { color: { argb: COLOR_MUTED } } : {})
+    cell.alignment = wrapTop()
+    ws.mergeCells(r, 1, r, span)
+    setRowHeight(ws, r, estimateLines(piece, width))
+  })
+  return pieces.length
 }
 
 function writeCode(ctx: Ctx, block: Extract<Block, { kind: 'code' }>, row: number): number {

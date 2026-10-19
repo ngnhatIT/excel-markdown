@@ -64,7 +64,7 @@ Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau
 |---|---|
 | `> 基本設計：<tiêu đề>` | A: `基本設計` (đậm, 10pt, xám); B: tiêu đề (đậm, 16pt); dòng cao 24pt |
 | Bảng (gồm bảng 版数 và bảng có header No/№/項番) | Header: đậm, nền `#DDE5F0`, viền mảnh `#808080`; ô: viền, `wrapText`; bắt đầu cột A |
-| `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền; sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 15pt × số dòng (Excel không tự giãn ô merge) |
+| `- **label**: value` (meta) + sub-bullet `  - …` | A: label (đậm, nền `#F2F2F2`, viền); B…cột cuối: value **merge ngang** tới bề rộng bảng lớn nhất của sheet (tối thiểu 4 cột), viền; sub-bullet thành dòng mới trong cùng ô value; chiều cao dòng = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự giãn 16.5pt/dòng; Excel không tự giãn ô merge) |
 | `### …` (section `【…】`, `■…`, tiêu đề bảng) | A: đậm 12pt, màu `#1F3864`, gạch dưới (viền dưới) |
 | `> …` (ghi chú `※…`, dòng 1 ô) | Như đoạn văn, chữ màu `#595959` |
 | Đoạn văn | **Merge ngang** từ A tới cột cuối (cùng bề rộng như ô meta), `wrapText`, không viền; giữ xuống dòng (`<br>`) và thụt lề toàn角; chiều cao dòng do app tính (mục dưới) |
@@ -72,8 +72,12 @@ Từ trên xuống, theo thứ tự block trong Markdown, mỗi block cách nhau
 Đoạn văn / ghi chú dài hoặc nhiều dòng (người dùng chọn sau bản thử): trải ngang + tự
 xuống dòng để in A4 không bị cắt và không mất xuống dòng. Excel không tự giãn chiều cao ô
 merge, nên app tính: số dòng hiển thị = Σ theo từng dòng thật ⌈độ rộng chữ (CJK = 2) /
-tổng độ rộng các cột merge⌉, chiều cao = 15pt × số dòng. Ước lượng được phép dư (thừa
-khoảng trắng chấp nhận được), **không được thiếu** (chữ bị che là lỗi).
+tổng độ rộng các cột merge⌉, chiều cao = 16.5pt × số dòng (đo bằng Excel: 游ゴシック 10 tự
+giãn 16.5pt/dòng). Ước lượng được phép dư (thừa khoảng trắng chấp nhận được), **không được
+thiếu** (chữ bị che là lỗi). Một hàng Excel cao tối đa 409.5pt (24 dòng), nên đoạn văn / ghi
+chú cao hơn thì được tách thành các hàng merge liền nhau (không có hàng trống giữa các mảnh,
+mỗi hàng ≤ 409.5pt): xếp nguyên từng dòng thật theo thứ tự, dòng thật tự nó vượt một hàng thì
+cắt theo độ rộng hiển thị (không cắt giữa cặp surrogate).
 
 Độ rộng cột: theo nội dung ô bảng (ký tự CJK tính 2), tối thiểu 6, tối đa 60, cộng 2.
 

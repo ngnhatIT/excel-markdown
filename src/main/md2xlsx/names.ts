@@ -7,6 +7,8 @@ const MAX_SHEET_NAME = 31
 const FORBIDDEN = /[[\]:*?/\\]/g
 // Dấu nháy đơn ở đầu hoặc cuối tên.
 const EDGE_QUOTE = /^'|'$/g
+// Ký tự cấm của XML 1.0: lọt vào workbook.xml thì exceljs ghi sai hoặc Excel đòi sửa file.
+const XML_INVALID = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g
 
 /** Cắt còn tối đa `max` đơn vị UTF-16, không để lại nửa cặp surrogate. */
 function cut(text: string, max: number): string {
@@ -21,8 +23,10 @@ function cut(text: string, max: number): string {
  * `used` chứa các tên đã dùng ở dạng chữ thường; hàm tự thêm tên trả về vào `used`.
  */
 export function safeSheetName(raw: string, used: Set<string>): string {
+  // Bỏ ký tự cấm XML TRƯỚC khi trim/cắt/khử trùng: tên rỗng sau đó thành `Sheet`,
+  // hai tên chỉ khác ký tự cấm vẫn được khử trùng.
   // Cắt xong mới trim và xử lý dấu nháy: phép cắt có thể để lại khoảng trắng hoặc `'` ở cuối.
-  let base = cut(raw.replace(FORBIDDEN, '_').trim(), MAX_SHEET_NAME)
+  let base = cut(raw.replace(XML_INVALID, '').replace(FORBIDDEN, '_').trim(), MAX_SHEET_NAME)
     .trim()
     // Excel cấm `'` ở ký tự đầu hoặc cuối tên sheet.
     .replace(EDGE_QUOTE, '_')

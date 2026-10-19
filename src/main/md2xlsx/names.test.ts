@@ -55,6 +55,22 @@ describe('safeSheetName', () => {
     expect(second.length).toBeLessThanOrEqual(31)
   })
 
+  it('bỏ ký tự cấm của XML 1.0 trước khi trim/cắt/khử trùng', () => {
+    expect(safeSheetName('A\uFFFEB', fresh())).toBe('AB')
+    expect(safeSheetName('A\uFFFFB\u0001C\u000BD\u001FE', fresh())).toBe('ABCDE')
+  })
+
+  it('tên chỉ gồm ký tự cấm XML -> Sheet', () => {
+    expect(safeSheetName('\u0001', fresh())).toBe('Sheet')
+    expect(safeSheetName('\uFFFE \u0002', fresh())).toBe('Sheet')
+  })
+
+  it('hai tên chỉ khác ký tự cấm XML vẫn được khử trùng sau khi bỏ ký tự', () => {
+    const used = fresh()
+    expect(safeSheetName('X\u0002', used)).toBe('X')
+    expect(safeSheetName('X\u0003', used)).toBe('X (2)')
+  })
+
   it('tự thêm tên trả về vào used (chữ thường)', () => {
     const used = fresh()
     safeSheetName('Abc', used)
