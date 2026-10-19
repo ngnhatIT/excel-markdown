@@ -96,6 +96,7 @@ Giới hạn đã biết:
   dưới từng file ở cột trái).
 - Link nội bộ `#…` và scheme khác `http`/`https`/`mailto` ghi thành chữ thuần.
 - Nội dung ô dài hơn 32 767 ký tự bị cắt (ký tự cuối là `…`).
+- File `.md` phải lưu dạng UTF-8; file mã khác (vd Shift_JIS) bị từ chối, thông báo nêu tên file.
 
 ## Chạy dev
 
