@@ -362,6 +362,68 @@ describe('!ref thiếu', () => {
   })
 })
 
+describe('!ref phình (Excel ghi dimension theo vùng có định dạng)', () => {
+  it('1 ô nhưng !ref A1:AZ300000: nhanh, output như !ref chuẩn', () => {
+    const ws = makeWs([['No', 'A'], ['1', 'x']])
+    const exact = sheetToMarkdown(ws, 'S', OPTS)
+    ws['!ref'] = 'A1:AZ300000'
+    const t0 = Date.now()
+    const out = sheetToMarkdown(ws, 'S', OPTS)
+    expect(Date.now() - t0).toBeLessThan(1000) // trước đây ~12 s, ~400 MB heap
+    expect(out).toBe(exact)
+  })
+
+  it('fuzz 200 grid: !ref phình thêm dòng/cột trống không đổi output', () => {
+    let seed = 7
+    const rand = (n: number): number => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff
+      return seed % n
+    }
+    const pool = ['', '', '', 'No', '項目', 'x', '機能ID', '【sec】', '基本設計', '1', 'a\nb', '■n']
+    for (let k = 0; k < 200; k++) {
+      const rows = 1 + rand(10)
+      const cols = 1 + rand(6)
+      const aoa = Array.from({ length: rows }, () => Array.from({ length: cols }, () => pool[rand(pool.length)]))
+      // Merge nằm trong vùng dữ liệu (Excel luôn tính ô merge vào dimension)
+      const ms = rand(rows)
+      const merges = rand(2) === 0 ? [{ s: { r: ms, c: 0 }, e: { r: ms + rand(rows - ms), c: 0 } }] : []
+      const ws = makeWs(aoa, merges)
+      const exact = sheetToMarkdown(ws, 'S', OPTS)
+      ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows + 500, c: cols + 30 } })
+      expect(sheetToMarkdown(ws, 'S', OPTS)).toBe(exact)
+    }
+  })
+
+  it('góc trên-trái của !ref giữ nguyên: banner ở cột B khi !ref bắt đầu từ B', () => {
+    const ws: XLSX.WorkSheet = {
+      B2: { t: 's', v: '基本設計' },
+      C2: { t: 's', v: '画面定義書' },
+      '!ref': 'B2:Z9999',
+    }
+    expect(sheetToMarkdown(ws, 'S', { ...OPTS, includeSheetTitle: false })).toBe('> 基本設計：画面定義書')
+  })
+
+  it('merge dọc vượt ra ngoài !ref: không crash, chỉ lan trong vùng quét', () => {
+    const ws = makeWs([['No', 'A'], ['1', 'x'], ['2', '']], [{ s: { r: 1, c: 1 }, e: { r: 50, c: 1 } }])
+    const out = sheetToMarkdown(ws, 'S', { ...OPTS, includeSheetTitle: false })
+    expect(out).toContain('| 2 | x |')
+  })
+
+  it('listSheets đếm dòng theo nội dung thật, không theo !ref phình', () => {
+    const wb = XLSX.utils.book_new()
+    const ws = makeWs([['a'], ['b'], ['c']])
+    ws['!ref'] = 'A1:CZ40000'
+    XLSX.utils.book_append_sheet(wb, ws, 'S')
+    const p = path.join(os.tmpdir(), 'x2m-bigref-' + Date.now() + '.xlsx')
+    XLSX.writeFile(wb, p)
+    try {
+      expect(listSheets(p, true)).toEqual([{ name: 'S', rows: 3, hidden: false }])
+    } finally {
+      fs.unlinkSync(p)
+    }
+  })
+})
+
 describe('A14: continuation + detectTwoColTables', () => {
   it('dòng 2 cột (ô đầu rỗng) sau meta: tắt -> sub-bullet, bật -> mở bảng', () => {
     const rows: (string | null)[][] = [

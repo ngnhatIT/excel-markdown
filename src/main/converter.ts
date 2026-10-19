@@ -54,28 +54,46 @@ const nonEmptyCount = (row: string[]): number => {
   return n
 }
 
-/** Suy ra range từ các key cell khi !ref bị thiếu (file hỏng hoặc ws dựng tay). */
-function inferRange(ws: WorkSheet): XLSX.Range | null {
+/** Ô có nội dung thật (bỏ ô rỗng / chỉ khoảng trắng). Rẻ hơn format_cell. */
+function hasContent(cell: XLSX.CellObject | undefined): boolean {
+  if (!cell || cell.v === undefined || cell.v === null) return false
+  return typeof cell.v !== 'string' || cell.v.trim() !== ''
+}
+
+/** Range cần quét. Góc trên-trái giữ theo `!ref` (vị trí cột không đổi), góc dưới-phải
+ * cắt về ô có nội dung cuối cùng, kể cả vùng merge dọc từ ô có nội dung.
+ * Excel ghi `!ref` theo vùng có *định dạng* (kẻ viền, tô màu một ô lạc ở xa...), nên
+ * `!ref` có thể phình tới hàng triệu ô trống -> quét toàn bộ sẽ treo main process.
+ * Thiếu `!ref` (file hỏng / ws dựng tay) thì bắt đầu từ A1. Trả null nếu không có nội dung. */
+function effectiveRange(ws: WorkSheet): XLSX.Range | null {
+  const declared = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref'] as string) : null
+  const s = declared ? declared.s : { r: 0, c: 0 }
+  const limR = declared ? declared.e.r : Infinity
+  const limC = declared ? declared.e.c : Infinity
   let maxR = -1
   let maxC = -1
-  for (const k of Object.keys(ws)) {
-    if (k[0] === '!') continue
-    try {
-      const { r, c } = XLSX.utils.decode_cell(k)
-      if (r > maxR) maxR = r
-      if (c > maxC) maxC = c
-    } catch {
-      /* key không phải địa chỉ cell */
-    }
+  const take = (r: number, c: number): void => {
+    if (r < s.r || c < s.c) return
+    if (r > maxR) maxR = Math.min(r, limR)
+    if (c > maxC) maxC = Math.min(c, limC)
   }
-  if (maxR < 0 || maxC < 0) return null
-  return { s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } }
+  for (const k of Object.keys(ws)) {
+    if (k[0] === '!' || !hasContent(ws[k] as XLSX.CellObject)) continue
+    const { r, c } = XLSX.utils.decode_cell(k)
+    if (r >= 0 && c >= 0) take(r, c)
+  }
+  for (const m of ws['!merges'] || []) {
+    // Merge dọc lan giá trị ô gốc xuống tới m.e.r (xem sheetToGrid)
+    if (hasContent(ws[XLSX.utils.encode_cell(m.s)] as XLSX.CellObject)) take(m.e.r, m.s.c)
+  }
+  if (maxR < s.r || maxC < s.c) return null
+  return { s, e: { r: maxR, c: maxC } }
 }
 
 /** Dòng banner tiêu đề (基本設計 + merge 2D) phải được phát hiện trước khi lan merge dọc,
  * nếu không giá trị banner sẽ rò rỉ xuống các dòng dưới. */
 function sheetToGrid(ws: WorkSheet): string[][] {
-  const ref = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref'] as string) : inferRange(ws)
+  const ref = effectiveRange(ws)
   if (!ref) return []
   const merges = ws['!merges'] || []
   const grid: string[][] = []
@@ -94,12 +112,14 @@ function sheetToGrid(ws: WorkSheet): string[][] {
     const gr = m.s.r - ref.s.r
     const gc = m.s.c - ref.s.c
     if (gr === bannerIdx) continue
+    // Ô gốc nằm ngoài vùng quét (ô gốc rỗng hoặc ngoài !ref) -> không có gì để lan.
+    if (gr < 0 || gr >= grid.length || gc < 0 || gc >= grid[gr].length) continue
     // Chỉ lan giá trị merge theo chiều dọc (cùng cột, các dòng dưới ô gốc).
     // Merge ngang giữ nguyên tại ô gốc để markdown gọn.
     const v = grid[gr][gc]
     if (v) {
-      for (let r = m.s.r + 1; r <= m.e.r; r++) {
-        const rr = r - ref.s.r
+      const last = Math.min(m.e.r - ref.s.r, grid.length - 1)
+      for (let rr = gr + 1; rr <= last; rr++) {
         if (!grid[rr][gc]) grid[rr][gc] = v
       }
     }
@@ -367,12 +387,8 @@ export function listSheets(
 ): { name: string; rows: number; hidden: boolean }[] {
   const wb = XLSX.readFile(filePath, { cellDates: false, sheetRows: 0 })
   return wb.SheetNames.filter((sn) => !(skipDelSheets && /^DEL_/i.test(sn))).map((sn) => {
-    const ws = wb.Sheets[sn]
-    let rows = 0
-    if (ws['!ref']) {
-      const ref = XLSX.utils.decode_range(ws['!ref'] as string)
-      rows = ref.e.r - ref.s.r + 1
-    }
+    const ref = effectiveRange(wb.Sheets[sn])
+    const rows = ref ? ref.e.r - ref.s.r + 1 : 0
     const hidden = wb.Workbook?.Sheets?.[wb.SheetNames.indexOf(sn)]?.Hidden === 1
     return { name: sn, rows, hidden }
   })
