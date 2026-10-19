@@ -4,6 +4,34 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## 2.2.0 — 2026-10-19
+Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/golden/*.md` giữ nguyên byte).
+- Tính năng: chế độ **Markdown → Excel** (công tắc ở Header, nhớ chế độ cuối). Chọn file `.md`
+  bằng kéo-thả / `Ctrl+O`, ↑/↓ đổi thứ tự, xem trước Markdown + danh sách sheet, ô "Tên file
+  Excel" (mặc định theo tên chung trước `__`), `Ctrl+Enter` tạo file. **Mọi file trong danh sách
+  gộp thành một `.xlsx`**; có nút Hủy; file đích đã có thì hỏi `Ghi đè` / `Hủy`; ghi file tạm
+  `.partial` rồi đổi tên nên Hủy/lỗi không để lại `.xlsx` dở; một file `.md` lỗi thì không tạo
+  file.
+- Bố cục Excel: font 游ゴシック 10, ẩn gridline, A4 ngang vừa 1 trang rộng; banner 基本設計,
+  bảng 版数, meta merge ngang, bảng có header nền + viền, section, ghi chú, đoạn văn. Chữ trong
+  ô là chữ hiển thị (bỏ escape, `<br>` thành xuống dòng); số giữ đúng hiển thị (`0001` text,
+  `1.0` → `0.0`, `12.50%` → `0.00%`) và không có tam giác xanh (`ignoredErrors`).
+- Dependency: **exceljs 4.4.0 chỉ dùng để GHI** file do app tạo (không bao giờ đọc file ngoài),
+  thêm `jszip`; `npm audit` báo 2 moderate (`uuid`), chấp nhận vì chỉ ghi. Main process không
+  nạp exceljs: worker nạp bằng `import()` động khi có yêu cầu `mdToXlsx`.
+- Chiều cao dòng: Excel không tự giãn ô merge nên app tự tính, theo **16.5pt mỗi dòng** (đo bằng
+  Excel thật với 游ゴシック 10). Đoạn văn/ghi chú dài hoặc nhiều dòng trải ngang cả bề rộng
+  bảng; đoạn cao hơn 409.5pt (giới hạn một hàng Excel) được **tách thành nhiều hàng merge liền
+  nhau**.
+- Kiểm tra: `scripts/xlsx-snapshot.ps1` mở file bằng Excel thật (COM), báo `REPAIRED` nếu Excel
+  đòi sửa file và chụp PNG từng sheet; test golden + round-trip cho chiều mới; E2E mở rộng
+  (54 kiểm tra), 404 unit test.
+- Giới hạn round-trip đã biết (spec §11): `md → xlsx → md` chỉ ổn định với Markdown do app tạo;
+  label meta ngoài `META_LABELS` của engine Excel → Markdown (vd `**作成者**:`) và bảng 2 cột có
+  thể ra khác sau một vòng. Chỉ ghi chữ thuần (không giữ đậm/nghiêng giữa câu); link nội bộ `#…`
+  và scheme khác http/https/mailto thành chữ thuần; `---` trang trí trong Markdown viết tay tách
+  thêm sheet.
+
 ## 2.1.0 — 2026-10-19
 - Hiệu năng: đọc Excel trong tiến trình riêng (Electron utilityProcess). Cửa sổ không
   còn treo khi convert file lớn (E2E 3 file 60k dòng: IPC chậm nhất 1693 ms → ~5 ms);
