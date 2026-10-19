@@ -171,9 +171,10 @@ function tokenBlocks(t: Token, first: boolean, out: Block[]): void {
       return
     case 'paragraph':
     case 'text': {
-      // Đoạn chỉ có `<br>` inline (vd `<br><br>`) không còn chữ: bỏ như khối HTML chỉ có `<br>`.
+      // Đoạn chỉ có `<br>` inline (vd `<br><br>`) chỉ còn xuống dòng: bỏ như khối HTML chỉ có `<br>`.
+      // (Chỉ xét khoảng trắng ASCII: đoạn chỉ có khoảng trắng toàn角 vẫn giữ.)
       const text = inlineText(t)
-      if (text.trim() !== '') out.push({ kind: 'paragraph', text })
+      if (!/^[ \t\n]*$/.test(text)) out.push({ kind: 'paragraph', text })
       return
     }
     case 'code':

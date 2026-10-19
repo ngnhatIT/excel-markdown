@@ -256,6 +256,8 @@ describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
     ])
     expect(g('<BR/>\n<Br />\n<br>')).toEqual([])
     expect(g('<br><br>')).toEqual([])
+    // đoạn chỉ có khoảng trắng toàn角 không phải đoạn "chỉ có <br>": giữ
+    expect(g('　')).toEqual([{ kind: 'paragraph', text: '　' }])
     expect(g('<br>\n行1<br>行2<BR />行3')).toEqual([{ kind: 'paragraph', text: '行1\n行2\n行3' }])
     // HTML khác giữ nguyên chữ, chỉ <br> đổi
     expect(g('<div>a<br>b</div>')).toEqual([{ kind: 'paragraph', text: '<div>a\nb</div>' }])
