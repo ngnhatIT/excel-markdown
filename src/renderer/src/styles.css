@@ -1095,6 +1095,28 @@ input[type='color'].color-input {
   margin: 0 8px 8px; padding: 8px 10px; border-radius: 10px;
   background: var(--danger-soft); color: var(--danger); font-size: 12px;
 }
+/* cây thư mục chế độ Đọc Markdown */
+.x2m-tree-title { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.x2m-tree-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.x2m-tree { padding: 0 8px 16px; display: flex; flex-direction: column; }
+.x2m-tree-row {
+  display: flex; align-items: center; gap: 4px; padding-right: 4px; border-radius: 8px;
+  transition: background-color 150ms ease-out;
+}
+.x2m-tree-row:hover { background: var(--bg-hover); }
+.x2m-tree-row.selected { background: var(--accent-soft); }
+.x2m-tree-row.selected .x2m-tree-btn { color: var(--accent-text); }
+.x2m-tree-btn {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
+  background: none; border: none; color: var(--text); cursor: pointer;
+  font: inherit; font-size: 13px; text-align: left; padding: 5px 0;
+}
+.x2m-tree-dir { color: var(--text-dim); font-weight: 600; }
+.x2m-tree-btn svg { flex-shrink: 0; }
+.x2m-tree-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.x2m-tree-caret { display: flex; transition: transform 150ms ease-out; }
+.x2m-tree-caret.closed { transform: rotate(-90deg); }
+.x2m-tree-group { font-size: 11.5px; font-weight: 700; color: var(--text-faint); padding: 12px 8px 4px; }
 /* danh sách file Markdown */
 .x2m-md-count-err { color: var(--danger); }
 .x2m-md-sheets {
@@ -1181,6 +1203,8 @@ input[type='color'].color-input {
 .x2m-error { color: var(--danger); padding: 16px; }
 /* rendered markdown */
 .md-body { max-width: 960px; font-size: 14px; line-height: 1.75; }
+/* Đọc Markdown: giãn theo cửa sổ */
+.md-body.full { max-width: none; }
 .md-body h2 { font-size: 20px; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .md-body h3 { font-size: 16px; margin: 24px 0 8px; }
 .md-body p { margin: 8px 0; }
@@ -1201,6 +1225,17 @@ input[type='color'].color-input {
 .md-body tr:nth-child(even) td { background: var(--bg-soft); }
 .md-body hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
 .md-body code { font-family: 'Cascadia Code', Consolas, monospace; font-size: 12.5px; }
+/* phần tử thường gặp khi đọc file .md bất kỳ (bản convert từ Excel ít dùng) */
+.md-body h1 { font-size: 24px; margin: 0 0 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.md-body h4, .md-body h5, .md-body h6 { font-size: 14px; margin: 16px 0 8px; }
+.md-body ol { margin: 8px 0; padding-left: 24px; }
+.md-body a { color: var(--accent-text); }
+.md-body img { max-width: 100%; height: auto; border-radius: 6px; }
+.md-body :not(pre) > code { background: var(--bg-raised); padding: 1px 5px; border-radius: 4px; }
+.md-body pre {
+  background: var(--bg-raised); border: 1px solid var(--border); border-radius: 8px;
+  padding: 12px 14px; overflow-x: auto; line-height: 1.6;
+}
 /* results */
 .x2m-results {
   border-top: 1px solid var(--border); background: var(--bg-soft);
@@ -1223,6 +1258,19 @@ input[type='color'].color-input {
   width: 300px; min-width: 300px; border-left: 1px solid var(--border);
   background: var(--bg-soft); overflow-y: auto;
 }
+.x2m-side-head-actions { display: flex; align-items: center; gap: 4px; }
+/* chevron xoay: trỏ phải = ẩn panel, trỏ trái (.open) = hiện panel */
+.x2m-side-chevron { display: flex; transform: rotate(-90deg); }
+.x2m-side-chevron.open { transform: rotate(90deg); }
+/* panel thu gọn: dải hẹp, bấm vào để mở lại */
+.x2m-side.collapsed { width: 40px; min-width: 40px; overflow: hidden; }
+.x2m-side-strip {
+  width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 12px 0; background: none; border: none; color: var(--text-dim); cursor: pointer; font: inherit;
+  transition: color 150ms ease-out, background-color 150ms ease-out;
+}
+.x2m-side-strip:hover { color: var(--text); background: var(--bg-hover); }
+.x2m-side-vlabel { writing-mode: vertical-rl; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; }
 .x2m-opts { padding: 0 16px 24px; display: flex; flex-direction: column; gap: 16px; }
 .x2m-opt-group { display: flex; flex-direction: column; gap: 8px; }
 .x2m-opt-label { font-size: 12px; font-weight: 700; color: var(--text-dim); }

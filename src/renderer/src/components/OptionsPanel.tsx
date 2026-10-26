@@ -1,4 +1,5 @@
 import type { ConvertOptions, OutputMode } from '../../../types'
+import { SidePanel } from './SidePanel'
 
 interface Props {
   options: ConvertOptions
@@ -6,18 +7,30 @@ interface Props {
   onSetOption: <K extends keyof ConvertOptions>(key: K, value: ConvertOptions[K]) => void
   onSetMode: (mode: OutputMode) => void
   onReset: () => void
+  collapsed: boolean
+  onToggleCollapsed: () => void
 }
 
 /** Cột phải: chế độ xuất file và tùy chọn convert. */
-export function OptionsPanel({ options, outputMode, onSetOption, onSetMode, onReset }: Props): React.ReactElement {
+export function OptionsPanel({
+  options,
+  outputMode,
+  onSetOption,
+  onSetMode,
+  onReset,
+  collapsed,
+  onToggleCollapsed,
+}: Props): React.ReactElement {
   return (
-    <aside className="x2m-side">
-      <div className="x2m-pane-title">
-        Tùy chọn
+    <SidePanel
+      collapsed={collapsed}
+      onToggle={onToggleCollapsed}
+      actions={
         <button className="btn btn-sm btn-ghost" onClick={onReset} title="Khôi phục mặc định">
           Mặc định
         </button>
-      </div>
+      }
+    >
       <div className="x2m-opts">
         <div className="x2m-opt-group">
           <div className="x2m-opt-label">Chế độ xuất file</div>
@@ -123,6 +136,6 @@ export function OptionsPanel({ options, outputMode, onSetOption, onSetMode, onRe
           bảng No/№/項番, ô merge và công thức liên sheet. Phím tắt: Ctrl+O thêm file, Ctrl+Enter để convert.
         </div>
       </div>
-    </aside>
+    </SidePanel>
   )
 }

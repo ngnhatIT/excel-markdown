@@ -12,7 +12,24 @@ const ALLOWED_TAGS = new Set([
   'code', 'pre', 'strong', 'em', 'del', 'hr', 'br', 'a', 'span',
 ])
 
-const VOID_TAGS = new Set(['br', 'hr'])
+const VOID_TAGS = new Set(['br', 'hr', 'img'])
+
+export interface SanitizeOptions {
+  /** URL được phép hiển thị cho `src` của ảnh (đã giải mã entity), null = bỏ ảnh.
+   * Không truyền thì mọi `<img>` bị bỏ (preview Excel/Markdown → Excel không hiện ảnh). */
+  resolveImage?: (src: string) => string | null
+}
+
+/** Giá trị attribute `name` trong phần thân thẻ (bỏ dấu nháy); null nếu không có. */
+function attr(raw: string, name: string): string | null {
+  const m = new RegExp(`\\s${name}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, 'i').exec(raw)
+  return m ? m[1].replace(/^['"]|['"]$/g, '') : null
+}
+
+const decodeEntities = (s: string): string =>
+  s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+
+const escapeAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
 /** Chỉ giữ href http/https/mailto hoặc relative; chặn javascript:/data:. */
 function cleanHref(raw: string): string | null {
@@ -22,7 +39,7 @@ function cleanHref(raw: string): string | null {
   return v
 }
 
-export function sanitizeHtml(html: string): string {
+export function sanitizeHtml(html: string, opts: SanitizeOptions = {}): string {
   let out = ''
   let i = 0
   const len = html.length
@@ -42,6 +59,13 @@ export function sanitizeHtml(html: string): string {
     const m = /^\/?\s*([a-zA-Z][a-zA-Z0-9]*)/.exec(raw)
     const closing = raw.trimStart().startsWith('/')
     const tag = m ? m[1].toLowerCase() : ''
+    if (tag === 'img' && !closing && opts.resolveImage) {
+      const src = attr(raw, 'src')
+      const url = src ? opts.resolveImage(decodeEntities(src)) : null
+      if (url) out += `<img src="${escapeAttr(url)}" alt="${escapeAttr(decodeEntities(attr(raw, 'alt') ?? ''))}">`
+      i = gt + 1
+      continue
+    }
     if (!tag || !ALLOWED_TAGS.has(tag)) {
       // Thẻ lạ: bỏ thẻ, giữ nội dung text bên trong
       i = gt + 1

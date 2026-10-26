@@ -9,7 +9,8 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self'",
-  "img-src 'self' data:",
+  // x2m-img: ảnh cục bộ trong file .md (chế độ Đọc Markdown), main chỉ phục vụ file ảnh trong thư mục đã mở
+  "img-src 'self' data: x2m-img:",
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",

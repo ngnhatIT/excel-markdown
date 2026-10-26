@@ -1,16 +1,25 @@
+import { SidePanel } from './SidePanel'
+
 interface Props {
   /** Giá trị ô tên file (không đuôi .xlsx) */
   fileName: string
   /** Tên mặc định, hiện làm placeholder khi ô trống (để trống = dùng tên này) */
   defaultName: string
   onFileNameChange: (value: string) => void
+  collapsed: boolean
+  onToggleCollapsed: () => void
 }
 
 /** Cột phải chế độ Markdown → Excel: tên file Excel xuất ra. */
-export function MdOptionsPanel({ fileName, defaultName, onFileNameChange }: Props): React.ReactElement {
+export function MdOptionsPanel({
+  fileName,
+  defaultName,
+  onFileNameChange,
+  collapsed,
+  onToggleCollapsed,
+}: Props): React.ReactElement {
   return (
-    <aside className="x2m-side">
-      <div className="x2m-pane-title">Tùy chọn</div>
+    <SidePanel collapsed={collapsed} onToggle={onToggleCollapsed}>
       <div className="x2m-opts">
         <div className="x2m-opt-group">
           <label className="x2m-opt-label" htmlFor="x2m-xlsx-name">
@@ -36,6 +45,6 @@ export function MdOptionsPanel({ fileName, defaultName, onFileNameChange }: Prop
           trước khi ghi đè. Phím tắt: Ctrl+O thêm file, Ctrl+Enter để tạo file Excel.
         </div>
       </div>
-    </aside>
+    </SidePanel>
   )
 }

@@ -3,6 +3,7 @@ import type {
   ConvertOptions,
   ConvertResultItem,
   MdConvertResult,
+  MdFolderListing,
   MdInspectResult,
   OutputMode,
 } from '../../types'
@@ -40,6 +41,9 @@ export interface WindowApi {
   cancelConvert(): Promise<void>
   inspectMarkdown(path: string): Promise<MdInspectResult>
   convertMarkdown(payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult>
+  openMarkdownFolder(): Promise<string | null>
+  listMarkdownFolder(root: string): Promise<MdFolderListing>
+  readMarkdown(path: string): Promise<string>
 }
 
 declare global {

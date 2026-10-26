@@ -5,6 +5,7 @@ import type {
   ConvertOptions,
   ConvertResultItem,
   MdConvertResult,
+  MdFolderListing,
   MdInspectResult,
   OutputMode,
 } from '../types'
@@ -82,4 +83,12 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('md:inspect', path) as Promise<ApiResult<MdInspectResult>>),
   convertMarkdown: (payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult> =>
     unwrap(ipcRenderer.invoke('md:convert', payload) as Promise<ApiResult<MdConvertResult>>),
+
+  // Đọc Markdown
+  openMarkdownFolder: (): Promise<string | null> =>
+    unwrap(ipcRenderer.invoke('dialog:openMarkdownFolder') as Promise<ApiResult<string | null>>),
+  listMarkdownFolder: (root: string): Promise<MdFolderListing> =>
+    unwrap(ipcRenderer.invoke('mdv:list', root) as Promise<ApiResult<MdFolderListing>>),
+  readMarkdown: (path: string): Promise<string> =>
+    unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
 })

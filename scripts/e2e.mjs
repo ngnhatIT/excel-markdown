@@ -382,6 +382,46 @@ try {
   await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
   check('về Excel → Markdown: danh sách Excel còn nguyên', (await waitFor(`(document.querySelector('.x2m-pane-title')?.textContent ?? '').includes('File Excel (3)')`, 2000)) >= 0)
 
+  // ------------------------- Cột Tùy chọn ẩn/hiện -------------------------
+  const sideBtn = (label) => `document.querySelector('.x2m-side button[aria-label="${label}"]')`
+  await ev(`${sideBtn('Ẩn tùy chọn')}?.click(), 1`)
+  check(
+    'Tùy chọn: Ẩn -> cột thu gọn, không còn checkbox',
+    (await waitFor(`!!document.querySelector('.x2m-side.collapsed') && !document.querySelector('.x2m-side input')`, 2000)) >= 0
+  )
+  await ev(`${sideBtn('Hiện tùy chọn')}?.click(), 1`)
+  check('Tùy chọn: Hiện -> cột mở lại, có checkbox', (await waitFor(`!document.querySelector('.x2m-side.collapsed') && !!document.querySelector('.x2m-side input')`, 2000)) >= 0)
+
+  // ----------------------------- Đọc Markdown -----------------------------
+  const viewDir = join(tmp, 'view')
+  mkdirSync(join(viewDir, 'docs'), { recursive: true })
+  mkdirSync(join(viewDir, 'img'), { recursive: true })
+  writeFileSync(join(viewDir, 'README.md'), '# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n')
+  writeFileSync(join(viewDir, 'docs', 'b.md'), '# Trang B\n\n```js\nconst x = 1\n```\n')
+  writeFileSync(join(viewDir, 'img', 'a.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'))
+  const treeRow = (t) => `[...document.querySelectorAll('.x2m-tree-row')].find(r => r.textContent.trim() === ${JSON.stringify(t)})`
+
+  await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
+  check('Đọc Markdown: nút chế độ active, không có thanh convert, không có cột Tùy chọn',
+    (await waitFor(`!!(${modeBtn('Đọc Markdown')})?.classList.contains('active') && !document.querySelector('.x2m-footer') && !document.querySelector('.x2m-side')`, 2000)) >= 0)
+  await dropFiles([viewDir])
+  check('Đọc Markdown: thả thư mục -> cây có docs, README.md', (await waitFor(`!!(${treeRow('docs')}) && !!(${treeRow('README.md')}) && !!(${treeRow('b.md')})`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-files')?.innerText`).catch(() => null))
+  await ev(`(${treeRow('README.md')})?.querySelector('button')?.click(), 1`)
+  check('Đọc Markdown: bấm README.md -> render h1', (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang chính'`, 5000)) >= 0)
+  check('Đọc Markdown: ảnh tương đối hiện được (x2m-img)',
+    (await waitFor(`(() => { const i = document.querySelector('.md-body img'); return !!i && i.src.startsWith('x2m-img:') && i.complete && i.naturalWidth === 1 })()`, 5000)) >= 0,
+    await ev(`document.querySelector('.md-body img')?.outerHTML ?? null`).catch(() => null))
+  await ev(`[...document.querySelectorAll('.md-body a')].find(a => a.textContent === 'Sang trang B')?.click(), 1`)
+  check('Đọc Markdown: bấm link docs/b.md -> mở trang B, chọn b.md trên cây, không mở file lẻ',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B' && !!(${treeRow('b.md')})?.classList.contains('selected') && !document.querySelector('.x2m-tree-group')`, 5000)) >= 0)
+  check('Đọc Markdown: app không bị điều hướng khỏi trang', (await ev('location.href')) === startUrl)
+  check('Đọc Markdown: code block render <pre>', await ev(`!!document.querySelector('.md-body pre code')`))
+  await ev(`(${treeRow('docs')})?.querySelector('button')?.click(), 1`)
+  check('Đọc Markdown: thu gọn thư mục docs -> ẩn b.md', (await waitFor(`!(${treeRow('b.md')})`, 2000)) >= 0)
+  await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-footer')`, 2000)
+
   // Cuối cùng: không vi phạm CSP, không exception
   const csp = await ev('window.__csp.slice()')
   check('không vi phạm CSP', Array.isArray(csp) && csp.length === 0, csp)

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, shell, type MessageBoxOptions } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, shell, type MessageBoxOptions } from 'electron'
 import { join, dirname, basename, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { access, appendFile, constants, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
@@ -7,14 +7,27 @@ import type {
   ConvertFileSpec,
   ConvertResultItem,
   MdConvertResult,
+  MdFolderListing,
   MdInspectResult,
   OutputMode,
 } from '../types'
 import { dedupeFileName, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
 import { CancelledError, ConverterWorker } from './converterWorker'
 import { friendlyError } from './errors'
-import { isMarkdownPath, isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
+import {
+  imageMime,
+  isInsideDir,
+  isMarkdownPath,
+  isOpenableDirectory,
+  isSafeExternalUrl,
+  shouldAllowNavigation,
+} from './guards'
+import { listMarkdownFiles, readMarkdownFile } from './mdFolder'
 import { PARTIAL_SUFFIX } from './workerProtocol'
+import { IMG_SCHEME, imagePathFromUrl } from '../shared/mdView'
+
+// Ảnh cục bộ trong file .md (chế độ Đọc Markdown). Phải đăng ký trước app ready.
+protocol.registerSchemesAsPrivileged([{ scheme: IMG_SCHEME, privileges: { standard: true, secure: true } }])
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -443,6 +456,67 @@ ipcMain.handle(
   }
 )
 
+/* --------------------------- Đọc Markdown (mdv:*) --------------------------- */
+
+/** Thư mục người dùng đã mở để đọc (thư mục được liệt kê + thư mục chứa file đã đọc).
+ * Scheme ảnh chỉ phục vụ file ảnh nằm trong các thư mục này. */
+const viewerRoots = new Set<string>()
+
+ipcMain.handle('dialog:openMarkdownFolder', async () => {
+  try {
+    const res = await dialog.showOpenDialog({
+      title: 'Chọn thư mục chứa file Markdown',
+      properties: ['openDirectory'],
+    })
+    return { ok: true, data: res.canceled ? null : res.filePaths[0] ?? null }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+ipcMain.handle('mdv:list', async (_e, root: unknown) => {
+  if (!(await isOpenableDirectory(root))) {
+    return { ok: false, error: 'Không mở được: thư mục không tồn tại hoặc không hợp lệ.' }
+  }
+  try {
+    const { files, truncated } = await listMarkdownFiles(root as string)
+    viewerRoots.add(root as string)
+    const listing: MdFolderListing = { root: root as string, files, truncated }
+    return { ok: true, data: listing }
+  } catch (err) {
+    void logError('mdv:list', err)
+    return { ok: false, error: friendlyError(err) }
+  }
+})
+
+ipcMain.handle('mdv:read', async (_e, path: unknown) => {
+  if (!isMarkdownPath(path)) return { ok: false, error: 'Chỉ đọc được file Markdown (.md).' }
+  try {
+    const text = await readMarkdownFile(path as string)
+    viewerRoots.add(dirname(path as string))
+    return { ok: true, data: text }
+  } catch (err) {
+    void logError('mdv:read', err)
+    return { ok: false, error: friendlyError(err) }
+  }
+})
+
+/** Ảnh `x2m-img://f/<đường dẫn mã hóa>`: chỉ file ảnh, chỉ trong thư mục đã mở để đọc. */
+function registerImageProtocol(): void {
+  protocol.handle(IMG_SCHEME, async (req) => {
+    const p = imagePathFromUrl(req.url)
+    const mime = p ? imageMime(p) : null
+    if (!p || !mime || ![...viewerRoots].some((root) => isInsideDir(root, p))) {
+      return new Response(null, { status: 403 })
+    }
+    try {
+      return new Response(await readFile(p), { headers: { 'content-type': mime } })
+    } catch {
+      return new Response(null, { status: 404 })
+    }
+  })
+}
+
 /* ---------------------------------- App ----------------------------------- */
 
 const EXCEL_EXTS = ['.xlsx', '.xlsm', '.xls', '.xltx', '.xltm']
@@ -484,6 +558,7 @@ if (!gotLock) {
   })
 
   void app.whenReady().then(async () => {
+    registerImageProtocol()
     const store = await readStore()
     createWindow(store['windowBounds'] as WindowBounds | undefined)
     previewWorker.warmUp()

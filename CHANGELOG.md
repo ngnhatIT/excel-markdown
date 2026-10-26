@@ -4,6 +4,16 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## Chưa phát hành
+Minor: tính năng mới; **output Excel → Markdown và Markdown → Excel không đổi**.
+- Tính năng: chế độ **Đọc Markdown** (nút thứ ba ở Header). Mở thư mục (dialog / `Ctrl+O` /
+  kéo thả) -> cây file `.md` (đệ quy, bỏ `node_modules` + thư mục ẩn, tối đa 5 000 file), lọc,
+  thu gọn thư mục, ↑/↓; mở file lẻ; xem HTML hoặc mã Markdown. Ảnh tương đối qua scheme
+  `x2m-img:` (main chỉ phục vụ file ảnh nằm trong thư mục đã mở; CSP `img-src` thêm `x2m-img:`);
+  link `.md` tương đối mở trong app. Nhớ thư mục + file đang xem.
+- Tính năng: cột **Tùy chọn** thu gọn được thành dải hẹp, nhớ trạng thái (`sideCollapsed`).
+- IPC mới: `dialog:openMarkdownFolder`, `mdv:list` (chỉ thư mục tồn tại), `mdv:read` (chỉ `.md`/`.markdown`).
+
 ## 2.2.0 — 2026-10-19
 Minor: tính năng mới; **output Excel → Markdown không đổi** (`test/golden/*.md` giữ nguyên byte).
 - Tính năng: chế độ **Markdown → Excel** (công tắc ở Header, nhớ chế độ cuối). Chọn file `.md`

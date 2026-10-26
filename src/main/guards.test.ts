@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { mkdtempSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
-import { isMarkdownPath, isOpenableDirectory, isSafeExternalUrl, shouldAllowNavigation } from './guards'
+import { join, sep } from 'node:path'
+import {
+  imageMime,
+  isInsideDir,
+  isMarkdownPath,
+  isOpenableDirectory,
+  isSafeExternalUrl,
+  shouldAllowNavigation,
+} from './guards'
 
 describe('isSafeExternalUrl', () => {
   it('cho phép http/https/mailto', () => {
@@ -77,5 +84,34 @@ describe('isMarkdownPath', () => {
     expect(isMarkdownPath('b.md')).toBe(false)
     expect(isMarkdownPath('C:\\a\\b.xlsx')).toBe(false)
     expect(isMarkdownPath(1)).toBe(false)
+  })
+})
+
+describe('isInsideDir', () => {
+  const root = join(tmpdir(), 'docs')
+
+  it('file trong thư mục / thư mục con -> true', () => {
+    expect(isInsideDir(root, join(root, 'a.png'))).toBe(true)
+    expect(isInsideDir(root, join(root, 'img', 'sub', 'a.png'))).toBe(true)
+  })
+
+  it('chính thư mục, thoát ra bằng .., thư mục cùng tiền tố, đường dẫn tương đối -> false', () => {
+    expect(isInsideDir(root, root)).toBe(false)
+    expect(isInsideDir(root, join(root, '..', 'secret.png'))).toBe(false)
+    expect(isInsideDir(root, root + '-other' + sep + 'a.png')).toBe(false)
+    expect(isInsideDir(root, 'a.png')).toBe(false)
+    expect(isInsideDir('docs', join(root, 'a.png'))).toBe(false)
+  })
+})
+
+describe('imageMime', () => {
+  it('ảnh theo đuôi (không phân biệt hoa thường)', () => {
+    expect(imageMime('C:\a\b.PNG')).toBe('image/png')
+    expect(imageMime('/a/b.jpeg')).toBe('image/jpeg')
+    expect(imageMime('x.svg')).toBe('image/svg+xml')
+  })
+
+  it('không phải ảnh -> null', () => {
+    for (const p of ['a.md', 'a.exe', 'a.png.lnk', 'noext', '.png.txt']) expect(imageMime(p)).toBeNull()
   })
 })

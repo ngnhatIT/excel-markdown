@@ -7,6 +7,7 @@ import {
   type OutputMode,
 } from '../../types'
 import { defaultWorkbookName } from '../../shared/workbookName'
+import { imageUrl, resolveRelative } from '../../shared/mdView'
 import { errMsg, type ConvertProgress } from './api'
 import { baseName, copyText, toast } from './utils'
 import { FileList } from './components/FileList'
@@ -14,6 +15,7 @@ import { Footer } from './components/Footer'
 import { Header } from './components/Header'
 import { MdFileList } from './components/MdFileList'
 import { MdOptionsPanel } from './components/MdOptionsPanel'
+import { MdTreeList } from './components/MdTreeList'
 import { OptionsPanel } from './components/OptionsPanel'
 import { PreviewPane } from './components/PreviewPane'
 import { ResultsPanel } from './components/ResultsPanel'
@@ -21,6 +23,7 @@ import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
 import { EXCEL_EXT, useFiles } from './hooks/useFiles'
 import { MD_EXT, useMdFiles } from './hooks/useMdFiles'
+import { useMdViewer } from './hooks/useMdViewer'
 import { usePreview } from './hooks/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 
@@ -64,6 +67,8 @@ export default function App(): React.ReactElement {
   /** Tên file Excel người dùng gõ; null = chưa sửa (dùng tên mặc định theo danh sách file) */
   const [mdName, setMdName] = useState<string | null>(null)
   const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
+  /** Cột Tùy chọn bên phải đang thu gọn (dùng chung hai chế độ convert) */
+  const [sideCollapsed, setSideCollapsed] = useState(false)
 
   const persist = useCallback((key: string, value: unknown) => {
     window.api.storeSet(key, value).catch(() => undefined)
@@ -90,6 +95,8 @@ export default function App(): React.ReactElement {
     move: moveMdFile,
     select: selectMdFile,
   } = useMdFiles()
+
+  const viewer = useMdViewer(persist)
 
   /* ------------------------------- theme/store ------------------------------ */
   useEffect(() => {
@@ -120,7 +127,7 @@ export default function App(): React.ReactElement {
         if (o) setOptions({ ...DEFAULT_OPTIONS, ...o })
         if (m === 'per-sheet' || m === 'per-workbook') setOutputMode(m)
         if (sc && typeof sc === 'object') setSavedChecks(sc)
-        if (am === 'excel2md' || am === 'md2excel') setAppMode(am)
+        if (am === 'excel2md' || am === 'md2excel' || am === 'mdview') setAppMode(am)
       } catch {
         /* bỏ qua: dùng mặc định */
       }
@@ -130,6 +137,35 @@ export default function App(): React.ReactElement {
     }
     // chỉ nạp một lần khi mở app
   }, [])
+
+  // Cột Tùy chọn thu gọn + thư mục/file Đọc Markdown lần trước (thư mục đã mất thì bỏ qua, không báo lỗi)
+  const { openFolder: viewerOpenFolder, select: viewerSelect, openFiles: viewerOpenFiles } = viewer
+  useEffect(() => {
+    window.api
+      .storeGet<boolean>('sideCollapsed')
+      .then((c) => setSideCollapsed(c === true))
+      .catch(() => undefined)
+    ;(async () => {
+      try {
+        const [root, file] = await Promise.all([
+          window.api.storeGet<string>('viewerRoot'),
+          window.api.storeGet<string>('viewerFile'),
+        ])
+        if (typeof root !== 'string' || root === '') return
+        const files = await viewerOpenFolder(root, true)
+        if (files && typeof file === 'string' && files.includes(file)) void viewerSelect(file)
+      } catch {
+        /* bỏ qua: bắt đầu với chế độ đọc trống */
+      }
+    })()
+  }, [viewerOpenFolder, viewerSelect])
+
+  const toggleSide = useCallback(() => {
+    setSideCollapsed((c) => {
+      persist('sideCollapsed', !c)
+      return !c
+    })
+  }, [persist])
 
   useEffect(() => window.api.onProgress((pr) => setProgress(pr)), [])
 
@@ -142,7 +178,7 @@ export default function App(): React.ReactElement {
     () =>
       window.api.onOpenFiles((paths) => {
         void addPathsRef.current(paths)
-        if (appModeRef.current === 'md2excel') toast(HINT_EXCEL_FILE, 'err')
+        if (appModeRef.current !== 'excel2md') toast(HINT_EXCEL_FILE, 'err')
       }),
     []
   )
@@ -191,16 +227,41 @@ export default function App(): React.ReactElement {
     }
   }, [addMdPaths])
 
-  /** Thả file: chỉ nhận loại file của chế độ đang chọn, loại kia chỉ gợi ý chuyển chế độ. */
+  const pickViewerFolder = useCallback(async () => {
+    try {
+      const dir = await window.api.openMarkdownFolder()
+      if (dir) await viewerOpenFolder(dir)
+    } catch (err) {
+      toast(errMsg(err), 'err')
+    }
+  }, [viewerOpenFolder])
+
+  const pickViewerFiles = useCallback(async () => {
+    try {
+      viewerOpenFiles(await window.api.openMarkdownFiles())
+    } catch (err) {
+      toast(errMsg(err), 'err')
+    }
+  }, [viewerOpenFiles])
+
+  /** Thả file: chỉ nhận loại file của chế độ đang chọn, loại kia chỉ gợi ý chuyển chế độ.
+   * Chế độ Đọc Markdown: file .md mở để xem, thứ khác thử mở như thư mục. */
   const dropPaths = useCallback(
     (paths: string[]) => {
+      if (appMode === 'mdview') {
+        if (paths.some((p) => EXCEL_EXT.test(p))) toast(HINT_EXCEL_FILE, 'err')
+        viewerOpenFiles(paths.filter((p) => MD_EXT.test(p)))
+        const dir = paths.find((p) => !MD_EXT.test(p) && !EXCEL_EXT.test(p))
+        if (dir) void viewerOpenFolder(dir)
+        return
+      }
       const [foreign, hint, add] =
         appMode === 'md2excel' ? [EXCEL_EXT, HINT_EXCEL_FILE, addMdPaths] : [MD_EXT, HINT_MD_FILE, addPaths]
       if (paths.some((p) => foreign.test(p))) toast(hint, 'err')
       const rest = paths.filter((p) => !foreign.test(p))
       if (rest.length > 0) void add(rest)
     },
-    [appMode, addMdPaths, addPaths]
+    [appMode, addMdPaths, addPaths, viewerOpenFiles, viewerOpenFolder]
   )
 
   const removeFile = useCallback(
@@ -471,6 +532,42 @@ export default function App(): React.ReactElement {
   }, [converting, mdFiles, mdSheetCount, mdName, mdDefaultName, ensureOutDir])
 
   const isMd = appMode === 'md2excel'
+  const isView = appMode === 'mdview'
+
+  /* ----------------------------- Đọc Markdown ------------------------------ */
+  const viewerPath = viewer.doc?.path ?? null
+
+  /** Ảnh trong file đang xem: đường dẫn tương đối -> scheme ảnh cục bộ; data: ảnh raster giữ nguyên;
+   * ảnh từ mạng bị bỏ (CSP không cho tải mạng). */
+  const resolveViewerImage = useCallback(
+    (src: string): string | null => {
+      if (/^data:image\/(png|jpe?g|gif|webp);/i.test(src)) return src
+      const abs = viewerPath ? resolveRelative(viewerPath, src) : null
+      return abs ? imageUrl(abs) : null
+    },
+    [viewerPath]
+  )
+
+  /** Link tới file .md khác (tương đối): mở ngay trong app. Link http/mailto: để main mở bằng trình duyệt. */
+  const viewerLinkClick = useCallback(
+    (href: string): boolean => {
+      if (/^(https?:|mailto:)/i.test(href)) return false
+      if (href.startsWith('#')) return true
+      const abs = viewerPath ? resolveRelative(viewerPath, href) : null
+      if (abs && MD_EXT.test(abs)) viewerOpenFiles([abs])
+      else toast('Chỉ mở được link tới file Markdown hoặc link web', 'err')
+      return true
+    },
+    [viewerPath, viewerOpenFiles]
+  )
+
+  /** Thanh trên preview: đường dẫn tương đối trong thư mục đang mở, file lẻ thì tên file. */
+  const viewerRoot = viewer.root
+  const viewerTitle = useMemo(() => {
+    if (!viewerPath) return null
+    if (viewerRoot && viewerPath.startsWith(viewerRoot)) return viewerPath.slice(viewerRoot.length).replace(/^[\\/]+/, '')
+    return baseName(viewerPath)
+  }, [viewerPath, viewerRoot])
 
   const cancelConvert = useCallback(() => {
     window.api.cancelConvert().catch((err) => toast(errMsg(err), 'err'))
@@ -481,10 +578,12 @@ export default function App(): React.ReactElement {
       setResults(null)
       setMdResult(null)
       setSheetFilter('')
+      viewer.setFilter('')
     },
-    onMoveSheet: isMd ? moveMdSelection : moveSheet,
-    onConvert: () => void (isMd ? doMdConvert() : doConvert()),
-    onPickFiles: () => void (isMd ? pickMdFiles() : pickFiles()),
+    onMoveSheet: isView ? viewer.move : isMd ? moveMdSelection : moveSheet,
+    // Đọc Markdown không có convert
+    onConvert: () => void (isView ? undefined : isMd ? doMdConvert() : doConvert()),
+    onPickFiles: () => void (isView ? pickViewerFolder() : isMd ? pickMdFiles() : pickFiles()),
     onZoom: (a) =>
       setZoom((z) =>
         a === 'reset'
@@ -531,14 +630,19 @@ export default function App(): React.ReactElement {
       <Header
         theme={theme}
         onToggleTheme={toggleTheme}
-        onPickFiles={isMd ? pickMdFiles : pickFiles}
+        onPickFiles={isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
         mode={appMode}
         onModeChange={changeAppMode}
       />
 
       {showOnboarding && (
         <div className="x2m-onboarding">
-          {isMd ? (
+          {isView ? (
+            <span>
+              Kéo thả thư mục hoặc file Markdown vào đây để đọc — <b>Ctrl+O</b> mở thư mục,
+              <b> ↑/↓</b> chuyển file.
+            </span>
+          ) : isMd ? (
             <span>
               Kéo thả file Markdown vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
               <b> Ctrl+Enter</b> để tạo file Excel.
@@ -556,7 +660,46 @@ export default function App(): React.ReactElement {
       )}
 
       <div className="x2m-body">
-        {isMd ? (
+        {isView ? (
+          <>
+            <MdTreeList
+              root={viewer.root}
+              tree={viewer.tree}
+              relFiles={viewer.relFiles}
+              loose={viewer.loose}
+              collapsed={viewer.collapsed}
+              selectedPath={viewerPath}
+              listing={viewer.listing}
+              dragOver={dragOver}
+              filter={viewer.filter}
+              onFilterChange={viewer.setFilter}
+              onSelect={(p) => void viewerSelect(p)}
+              onToggleDir={viewer.toggleDir}
+              onOpenFolder={() => void pickViewerFolder()}
+              onOpenFiles={() => void pickViewerFiles()}
+              onRefresh={() => viewer.root && void viewerOpenFolder(viewer.root)}
+              onCloseFolder={viewer.closeFolder}
+              onRemoveLoose={viewer.removeLoose}
+            />
+
+            <main className="x2m-main">
+              <PreviewPane
+                title={viewerTitle}
+                md={viewer.doc?.markdown ?? ''}
+                loading={viewer.doc?.loading ?? false}
+                error={viewer.doc?.error ?? ''}
+                zoom={zoom}
+                onResetZoom={() => setZoom(1)}
+                noSelectionText="Chưa chọn file"
+                loadingText="Đang đọc..."
+                emptyText={viewer.doc ? 'File rỗng' : 'Chọn một file Markdown bên trái để đọc'}
+                resolveImage={resolveViewerImage}
+                onLinkClick={viewerLinkClick}
+                fullWidth
+              />
+            </main>
+          </>
+        ) : isMd ? (
           <>
             <MdFileList
               files={mdFiles}
@@ -595,7 +738,13 @@ export default function App(): React.ReactElement {
               )}
             </main>
 
-            <MdOptionsPanel fileName={mdName ?? mdDefaultName} defaultName={mdDefaultName} onFileNameChange={setMdName} />
+            <MdOptionsPanel
+              fileName={mdName ?? mdDefaultName}
+              defaultName={mdDefaultName}
+              onFileNameChange={setMdName}
+              collapsed={sideCollapsed}
+              onToggleCollapsed={toggleSide}
+            />
           </>
         ) : (
           <>
@@ -643,25 +792,30 @@ export default function App(): React.ReactElement {
               onSetOption={setOption}
               onSetMode={setMode}
               onReset={resetOptions}
+              collapsed={sideCollapsed}
+              onToggleCollapsed={toggleSide}
             />
           </>
         )}
       </div>
 
-      <Footer
-        outDir={outDir}
-        recentDirs={recentDirs}
-        onPickRecentDir={(dir) => applyOutDir(dir, false)}
-        onChooseDir={chooseOutDir}
-        onOpenDir={openOutDir}
-        converting={converting}
-        progress={progress}
-        onCancel={cancelConvert}
-        appVersion={appVersion}
-        lastConvertAt={lastConvertAt}
-        outDirPlaceholder={isMd ? 'Chưa chọn thư mục lưu file Excel' : undefined}
-        {...footerMode}
-      />
+      {/* Đọc Markdown không convert nên không có thanh thư mục lưu + nút convert */}
+      {!isView && (
+        <Footer
+          outDir={outDir}
+          recentDirs={recentDirs}
+          onPickRecentDir={(dir) => applyOutDir(dir, false)}
+          onChooseDir={chooseOutDir}
+          onOpenDir={openOutDir}
+          converting={converting}
+          progress={progress}
+          onCancel={cancelConvert}
+          appVersion={appVersion}
+          lastConvertAt={lastConvertAt}
+          outDirPlaceholder={isMd ? 'Chưa chọn thư mục lưu file Excel' : undefined}
+          {...footerMode}
+        />
+      )}
 
       <Toasts />
     </div>

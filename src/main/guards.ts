@@ -2,7 +2,7 @@
  * Thuần Node (không phụ thuộc Electron) để test trực tiếp bằng vitest.
  */
 import { stat } from 'node:fs/promises'
-import { isAbsolute } from 'node:path'
+import { isAbsolute, relative } from 'node:path'
 
 const EXTERNAL_PROTOCOLS = new Set(['http:', 'https:', 'mailto:'])
 
@@ -43,4 +43,28 @@ export async function isOpenableDirectory(target: unknown): Promise<boolean> {
  * IPC `md:*` không được thành đường đọc file bất kỳ nếu renderer bị chiếm quyền. */
 export function isMarkdownPath(p: unknown): boolean {
   return typeof p === 'string' && isAbsolute(p) && /\.(md|markdown)$/i.test(p)
+}
+
+/** `p` nằm hẳn bên trong thư mục `root` (không phải chính `root`, không thoát ra bằng `..`). */
+export function isInsideDir(root: string, p: string): boolean {
+  if (!isAbsolute(root) || !isAbsolute(p)) return false
+  const r = relative(root, p)
+  return r !== '' && !r.startsWith('..') && !isAbsolute(r)
+}
+
+const IMAGE_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+  ico: 'image/x-icon',
+}
+
+/** MIME của file ảnh theo đuôi; null nếu không phải ảnh (scheme ảnh không phục vụ file khác). */
+export function imageMime(p: string): string | null {
+  const m = /\.([a-z0-9]+)$/i.exec(p)
+  return m ? IMAGE_MIME[m[1].toLowerCase()] ?? null : null
 }

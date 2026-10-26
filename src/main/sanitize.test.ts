@@ -37,3 +37,21 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml('<svg onload="alert(1)"><circle/>')).toBe('')
   })
 })
+
+describe('sanitizeHtml + resolveImage (chế độ Đọc Markdown)', () => {
+  const resolveImage = (src: string): string | null => (src.startsWith('img/') ? 'x2m-img://f/' + encodeURIComponent(src) : null)
+
+  it('ảnh được resolve: chỉ giữ src (đã đổi) và alt, bỏ attribute khác', () => {
+    const out = sanitizeHtml('<p><img src="img/a b&amp;c.png" alt="Sơ đồ &quot;A&quot;" onerror="alert(1)" title="t"></p>', { resolveImage })
+    expect(out).toBe('<p><img src="x2m-img://f/img%2Fa%20b%26c.png" alt="Sơ đồ &quot;A&quot;"></p>')
+  })
+
+  it('resolveImage trả null -> bỏ ảnh', () => {
+    expect(sanitizeHtml('<img src="https://evil/x.png" alt="x">', { resolveImage })).toBe('')
+    expect(sanitizeHtml('<img alt="không src">', { resolveImage })).toBe('')
+  })
+
+  it('không truyền resolveImage -> bỏ mọi ảnh (như cũ)', () => {
+    expect(sanitizeHtml('<img src="img/a.png" alt="x">')).toBe('')
+  })
+})

@@ -64,8 +64,18 @@ export interface ApiResult<T> {
   error?: string
 }
 
-/** Chế độ làm việc của app: Excel → Markdown (mặc định) hoặc Markdown → Excel. */
-export type AppMode = 'excel2md' | 'md2excel'
+/** Chế độ làm việc của app: Excel → Markdown (mặc định), Markdown → Excel hoặc Đọc Markdown. */
+export type AppMode = 'excel2md' | 'md2excel' | 'mdview'
+
+/** Các file Markdown trong một thư mục (chế độ Đọc Markdown). */
+export interface MdFolderListing {
+  /** Thư mục gốc (đường dẫn tuyệt đối) */
+  root: string
+  /** Đường dẫn tương đối từ `root`, phân cách `/` */
+  files: string[]
+  /** Quá nhiều file nên dừng quét giữa chừng */
+  truncated: boolean
+}
 
 /** Kết quả đọc nhanh một file Markdown (preview + danh sách sheet sẽ tạo). */
 export interface MdInspectResult {

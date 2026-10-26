@@ -1,6 +1,6 @@
 import type { AppMode } from '../../../types'
 import { cn } from '../utils'
-import { IconMarkdown, IconMoon, IconPlus, IconSun } from './icons'
+import { IconFolder, IconMarkdown, IconMoon, IconPlus, IconSun } from './icons'
 
 interface Props {
   theme: 'dark' | 'light'
@@ -13,7 +13,14 @@ interface Props {
 const MODES: { value: AppMode; label: string }[] = [
   { value: 'excel2md', label: 'Excel → Markdown' },
   { value: 'md2excel', label: 'Markdown → Excel' },
+  { value: 'mdview', label: 'Đọc Markdown' },
 ]
+
+const PICK_LABEL: Record<AppMode, string> = {
+  excel2md: 'Thêm file Excel',
+  md2excel: 'Thêm file Markdown',
+  mdview: 'Mở thư mục',
+}
 
 export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange }: Props): React.ReactElement {
   const themeLabel = theme === 'dark' ? 'Chuyển sang nền sáng' : 'Chuyển sang nền tối'
@@ -45,7 +52,7 @@ export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange }
           {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
         </button>
         <button className="btn btn-primary btn-sm" onClick={onPickFiles}>
-          <IconPlus size={16} /> {mode === 'md2excel' ? 'Thêm file Markdown' : 'Thêm file Excel'}
+          {mode === 'mdview' ? <IconFolder size={16} /> : <IconPlus size={16} />} {PICK_LABEL[mode]}
         </button>
       </div>
     </header>

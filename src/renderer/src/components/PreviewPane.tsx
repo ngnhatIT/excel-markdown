@@ -21,6 +21,12 @@ interface Props {
   loadingText?: string
   /** Chữ vùng trống khi chưa có nội dung */
   emptyText?: string
+  /** Hiện ảnh: URL cho `src` của ảnh, null = bỏ ảnh. Không truyền thì không hiện ảnh. */
+  resolveImage?: (src: string) => string | null
+  /** Bấm link trong bản render; trả true nếu đã xử lý (không cho trình duyệt điều hướng). */
+  onLinkClick?: (href: string) => boolean
+  /** Bản render giãn hết chiều rộng vùng xem (mặc định giới hạn 960px) */
+  fullWidth?: boolean
 }
 
 /** Thanh tab + vùng xem trước (Markdown đã render hoặc mã nguồn). */
@@ -34,6 +40,9 @@ export function PreviewPane({
   noSelectionText = 'Chưa chọn sheet',
   loadingText = 'Đang convert...',
   emptyText = 'Chọn một sheet để xem trước kết quả convert',
+  resolveImage,
+  onLinkClick,
+  fullWidth = false,
 }: Props): React.ReactElement {
   const [tab, setTab] = useState<'rendered' | 'source'>('rendered')
   const [expanded, setExpanded] = useState(false)
@@ -57,11 +66,21 @@ export function PreviewPane({
   const html = useMemo(() => {
     if (!display.md) return ''
     try {
-      return sanitizeHtml(marked.parse(display.md, { breaks: false }) as string)
+      return sanitizeHtml(marked.parse(display.md, { breaks: false }) as string, { resolveImage })
     } catch {
       return ''
     }
-  }, [display])
+  }, [display, resolveImage])
+
+  const clickBody = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      if (!onLinkClick) return
+      const a = (e.target as HTMLElement).closest('a')
+      const href = a?.getAttribute('href')
+      if (href && onLinkClick(href)) e.preventDefault()
+    },
+    [onLinkClick]
+  )
 
   const stats = useMemo(() => {
     if (!md) return null
@@ -125,7 +144,7 @@ export function PreviewPane({
             <pre className="x2m-source">{display.md}</pre>
           </div>
         ) : (
-          <div className="md-body" dangerouslySetInnerHTML={{ __html: html }} />
+          <div className={cn('md-body', fullWidth && 'full')} onClick={clickBody} dangerouslySetInnerHTML={{ __html: html }} />
         )}
       </div>
       {display.truncated && (

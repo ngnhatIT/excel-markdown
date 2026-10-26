@@ -11,8 +11,9 @@ Xây dựng bằng **Electron + TypeScript + React 18**.
 
 ## Tính năng
 
-- **Hai chế độ** (công tắc ở Header, nhớ chế độ cuối): Excel → Markdown và Markdown → Excel
-  (xem mục "Chế độ Markdown → Excel")
+- **Ba chế độ** (công tắc ở Header, nhớ chế độ cuối): Excel → Markdown, Markdown → Excel
+  (xem mục "Chế độ Markdown → Excel") và Đọc Markdown (xem mục "Chế độ Đọc Markdown")
+- Cột Tùy chọn bên phải thu gọn được thành dải hẹp (nút `›` ở tiêu đề, bấm dải để mở lại; nhớ giữa các lần mở app)
 - Kéo thả hoặc chọn nhiều file `.xlsx` / `.xlsm` / `.xls` cùng lúc
 - Phát hiện sheet ẩn trong Excel (gắn tag "ẩn", mặc định không tick)
 - Nhớ sheet đã chọn theo từng file (mở lại file cũ tự khôi phục)
@@ -103,6 +104,20 @@ Giới hạn đã biết:
 - Nội dung ô dài hơn 32 767 ký tự bị cắt (ký tự cuối là `…`).
 - File `.md` phải lưu dạng UTF-8; file mã khác (vd Shift_JIS) bị từ chối, thông báo nêu tên file.
 
+## Chế độ Đọc Markdown
+
+Xem file `.md` dạng HTML (heading, bảng, code, ảnh, link), chỉ đọc, không sửa file.
+
+- **Mở thư mục** (nút ở Header / `Ctrl+O` / kéo thả thư mục): cột trái hiện cây mọi file
+  `.md`/`.markdown` trong thư mục và thư mục con (bỏ `node_modules`, thư mục ẩn `.git`...;
+  tối đa 5 000 file). Bấm thư mục để thu gọn/mở; ô lọc theo đường dẫn; ↑/↓ chuyển file.
+  Nút quét lại khi có file mới. Nhớ thư mục + file đang xem cho lần mở app sau.
+- **Mở file lẻ** (nút file ở cột trái / kéo thả file `.md`): hiện dưới nhóm "File đã mở".
+- Mỗi lần chọn file đều đọc lại từ đĩa (luôn là nội dung mới nhất). File > 20 MB không mở.
+- Ảnh đường dẫn tương đối (`![](img/a.png)`) hiện được; ảnh từ mạng không tải (CSP chặn mạng).
+- Link tới file `.md` khác (tương đối) mở ngay trong app; link `http`/`https`/`mailto` mở trình duyệt.
+- Không có cột Tùy chọn và thanh convert.
+
 ## Chạy dev
 
 ```bash
@@ -140,17 +155,19 @@ src/
     converter.ts        # engine xlsx -> markdown
     output.ts           # escape Markdown, tên file, ghép file
     guards.ts, errors.ts
+    mdFolder.ts         # Đọc Markdown: liệt kê / đọc file .md trong thư mục
     md2xlsx/            # engine Markdown -> Excel: parse, inline, cellValue, names, layout, write, mdHandler
   shared/
     workbookName.ts     # tên file Excel mặc định (dùng chung renderer + main)
+    mdView.ts           # Đọc Markdown: cây file, đường dẫn tương đối, URL ảnh x2m-img
   preload/
     index.ts            # bridge an toàn cho renderer (window.api)
   types.ts              # type dùng chung
   renderer/src/
     App.tsx             # state chính + ghép component
     components/         # Header (công tắc chế độ), FileList, PreviewPane, ResultsPanel, OptionsPanel,
-                        # MdFileList, MdOptionsPanel, Footer...
-    hooks/              # useFiles, useMdFiles, usePreview, useShortcuts
+                        # MdFileList, MdOptionsPanel, MdTreeList, SidePanel, Footer...
+    hooks/              # useFiles, useMdFiles, useMdViewer, usePreview, useShortcuts
     api.ts, sanitize.ts, utils.ts, styles.css
 test/fixtures, test/golden  # file Excel mẫu + output Excel -> Markdown đã duyệt
 test/golden-md2xlsx         # output Markdown -> Excel (JSON đọc lại bằng SheetJS) đã duyệt
@@ -162,10 +179,10 @@ Chi tiết: ARCHITECTURE.md.
 
 | Phím | Tác dụng |
 |---|---|
-| `Ctrl+O` | Thêm file Excel (chế độ Markdown → Excel: thêm file `.md`) |
+| `Ctrl+O` | Thêm file Excel (chế độ Markdown → Excel: thêm file `.md`; Đọc Markdown: mở thư mục) |
 | `Ctrl+Enter` | Convert sang Markdown (chế độ Markdown → Excel: tạo file Excel) |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Phóng to / thu nhỏ / reset cỡ chữ preview |
-| `↑` / `↓` | Chuyển sheet trước / sau |
+| `↑` / `↓` | Chuyển sheet trước / sau (Đọc Markdown: file trước / sau) |
 
 ## FAQ
 
