@@ -479,9 +479,9 @@ ipcMain.handle('mdv:list', async (_e, root: unknown) => {
     return { ok: false, error: 'Không mở được: thư mục không tồn tại hoặc không hợp lệ.' }
   }
   try {
-    const { files, truncated } = await listMarkdownFiles(root as string)
+    const { files, mtimes, truncated } = await listMarkdownFiles(root as string)
     viewerRoots.add(root as string)
-    const listing: MdFolderListing = { root: root as string, files, truncated }
+    const listing: MdFolderListing = { root: root as string, files, mtimes, truncated }
     return { ok: true, data: listing }
   } catch (err) {
     void logError('mdv:list', err)

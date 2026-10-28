@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { listMarkdownFiles, readMarkdownFile } from './mdFolder'
@@ -17,6 +17,15 @@ describe('listMarkdownFiles', () => {
     const res = await listMarkdownFiles(makeTree())
     expect(res.truncated).toBe(false)
     expect(res.files.sort()).toEqual(['README.md', 'docs/a.md', 'docs/sub/b.MARKDOWN'])
+  })
+
+  it('trả mtimeMs của từng file', async () => {
+    const root = makeTree()
+    const old = new Date(2020, 0, 1)
+    utimesSync(join(root, 'docs/a.md'), old, old)
+    const res = await listMarkdownFiles(root)
+    expect(res.mtimes['docs/a.md']).toBe(old.getTime())
+    expect(Object.keys(res.mtimes).sort()).toEqual([...res.files].sort())
   })
 
   it('vượt giới hạn -> dừng, truncated', async () => {

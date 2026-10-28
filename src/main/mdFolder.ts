@@ -12,12 +12,29 @@ export const MD_READ_MAX_BYTES = 20 * 1024 * 1024
 /** Thư mục không quét: thư viện cài đặt, thư mục ẩn (.git, .vscode...). */
 const SKIP_DIRS = new Set(['node_modules', 'bower_components', '$RECYCLE.BIN', 'System Volume Information'])
 
-/** Mọi file .md/.markdown dưới `root` (đệ quy, không theo symlink), đường dẫn tương đối phân cách `/`.
- * Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw. */
+/** mtime (ms) của từng file trong `files` (tương đối so với `root`); file stat lỗi thì không có khóa. */
+async function statMtimes(root: string, files: string[]): Promise<Record<string, number>> {
+  const mtimes: Record<string, number> = {}
+  for (let i = 0; i < files.length; i += 64) {
+    await Promise.all(
+      files.slice(i, i + 64).map(async (rel) => {
+        try {
+          mtimes[rel] = (await stat(join(root, rel))).mtimeMs
+        } catch {
+          /* file vừa bị xóa/không đọc được: bỏ qua, không có ngày sửa */
+        }
+      })
+    )
+  }
+  return mtimes
+}
+
+/** Mọi file .md/.markdown dưới `root` (đệ quy, không theo symlink), đường dẫn tương đối phân cách `/`,
+ * kèm mtime từng file. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw. */
 export async function listMarkdownFiles(
   root: string,
   limit = MD_LIST_LIMIT
-): Promise<{ files: string[]; truncated: boolean }> {
+): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
   const files: string[] = []
   const queue: string[] = ['']
   while (queue.length > 0) {
@@ -34,12 +51,12 @@ export async function listMarkdownFiles(
       if (e.isDirectory()) {
         if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) queue.push(childRel)
       } else if (e.isFile() && /\.(md|markdown)$/i.test(e.name)) {
-        if (files.length >= limit) return { files, truncated: true }
+        if (files.length >= limit) return { files, mtimes: await statMtimes(root, files), truncated: true }
         files.push(childRel)
       }
     }
   }
-  return { files, truncated: false }
+  return { files, mtimes: await statMtimes(root, files), truncated: false }
 }
 
 /** Nội dung file Markdown (UTF-8, bỏ BOM). Throw lỗi tiếng Việt nếu file quá lớn. */

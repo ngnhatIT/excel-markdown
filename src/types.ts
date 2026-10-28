@@ -73,6 +73,8 @@ export interface MdFolderListing {
   root: string
   /** Đường dẫn tương đối từ `root`, phân cách `/` */
   files: string[]
+  /** mtime (ms) theo đường dẫn tương đối trong `files`; file không stat được thì thiếu khóa */
+  mtimes: Record<string, number>
   /** Quá nhiều file nên dừng quét giữa chừng */
   truncated: boolean
 }
