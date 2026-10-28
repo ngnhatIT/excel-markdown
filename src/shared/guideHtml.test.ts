@@ -30,6 +30,12 @@ describe('buildGuideHtml', () => {
     expect(out).toContain("default-src 'none'")
     expect(out.match(/<script/g)).toHaveLength(1)
   })
+  it('có nút rộng/đọc, mục lục, cỡ chữ; mặc định full width', () => {
+    const out = buildGuideHtml('T', '<p>x</p>')
+    for (const id of ['wide', 'tocb', 'fsm', 'fsp', 'theme']) expect(out).toContain(`id="${id}"`)
+    expect(out).toContain("store('x2m-w')||'full'")
+    expect(out).not.toMatch(/\.layout\{[^}]*max-width/)
+  })
   it('script của trang cú pháp hợp lệ', () => {
     const js = /<script>([\s\S]*)<\/script>/.exec(buildGuideHtml('T', '<p>x</p>'))![1]
     expect(() => new Function(js)).not.toThrow()

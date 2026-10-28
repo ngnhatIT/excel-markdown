@@ -29,17 +29,23 @@ const CSS = `
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1117;--surface:#151a23;--text:#e6e9f0;--dim:#98a2b3;--border:#2a3140;--accent:#8b93ff;--accent-soft:#1c2142;--code:#1b2130;--th:#1b2130;--zebra:#12171f;--shadow:0 1px 2px rgba(0,0,0,.4)}}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--text);font:16px/1.8 system-ui,"Segoe UI","Yu Gothic UI","Meiryo","Noto Sans JP",sans-serif}
+body{margin:0;background:var(--bg);color:var(--text);font:var(--fs,16px)/1.8 system-ui,"Segoe UI","Yu Gothic UI","Meiryo","Noto Sans JP",sans-serif}
 #bar{position:fixed;inset:0 0 auto 0;height:3px;width:0;background:var(--accent);z-index:20}
 header.hero{border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--accent-soft),transparent 70%)}
-.hero-in{max-width:1180px;margin:0 auto;padding:36px 24px 28px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
+.hero-in{padding:32px 32px 24px;display:flex;gap:16px;align-items:flex-start;justify-content:space-between}
 .hero h1{margin:0 0 10px;font-size:2rem;line-height:1.25}
 .meta{display:flex;flex-wrap:wrap;gap:8px}
 .meta span{padding:2px 10px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--dim);font-size:13px}
 button{font:inherit;cursor:pointer}
 .tbtn{padding:6px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-size:13px}
 .tbtn:hover{border-color:var(--accent);color:var(--accent)}
-.layout{display:flex;gap:44px;max-width:1180px;margin:0 auto;padding:28px 24px 80px}
+.layout{display:flex;gap:44px;padding:28px 32px 80px}
+:root[data-w=read] .layout,:root[data-w=read] .hero-in{max-width:1180px;margin:0 auto}
+:root[data-w=read] main{max-width:860px}
+main>p,main>ul,main>ol,main>blockquote,main>h1,main>h2,main>h3,main>h4{max-width:100ch}
+:root[data-w=read] main>*{max-width:none}
+:root[data-toc=off] nav{display:none}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 nav{flex:0 0 250px;position:sticky;top:20px;align-self:flex-start;max-height:calc(100vh - 40px);overflow:auto;font-size:14px}
 nav b{display:block;margin-bottom:8px;color:var(--dim);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
 nav input{width:100%;margin-bottom:10px;padding:6px 10px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;font-size:13px}
@@ -80,7 +86,7 @@ pre code{padding:0;background:none}
 hr{border:0;border-top:1px solid var(--border);margin:2.4em 0}
 #top{position:fixed;right:20px;bottom:20px;display:none;width:40px;height:40px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--text);box-shadow:var(--shadow)}
 @media (max-width:900px){.layout{display:block}nav{position:static;max-height:none;margin-bottom:24px}.hero-in{flex-direction:column}}
-@media print{#bar,#top,nav,.tbtn,.cp,.tw-bar,.a{display:none!important}.layout{display:block;padding:0}.tw{box-shadow:none}.tw-scroll{max-height:none;overflow:visible}tr{break-inside:avoid}}
+@media print{.tools{display:none!important}#bar,#top,nav,.tbtn,.cp,.tw-bar,.a{display:none!important}.layout{display:block;padding:0}.tw{box-shadow:none}.tw-scroll{max-height:none;overflow:visible}tr{break-inside:avoid}}
 `
 
 /** Chạy trong trang xuất (không dùng cú pháp cần build). Mọi truy cập storage bọc try/catch. */
@@ -88,6 +94,11 @@ const JS = `(function(){
 var d=document,R=d.documentElement,$=function(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s))};
 function store(k,v){try{if(v===undefined)return localStorage.getItem(k);localStorage.setItem(k,v)}catch(e){return null}}
 var t=store('x2m-theme');if(t)R.setAttribute('data-theme',t);
+R.setAttribute('data-w',store('x2m-w')||'full');if(store('x2m-toc')==='off')R.setAttribute('data-toc','off');var fs=parseInt(store('x2m-fs'))||16;function setFs(n){fs=Math.max(12,Math.min(24,n));R.style.setProperty('--fs',fs+'px');store('x2m-fs',String(fs))}setFs(fs);
+function on(id,f){var e=d.getElementById(id);if(e)e.onclick=f}
+on('wide',function(){var n=R.getAttribute('data-w')==='full'?'read':'full';R.setAttribute('data-w',n);store('x2m-w',n)});
+on('tocb',function(){var off=R.getAttribute('data-toc')==='off';if(off)R.removeAttribute('data-toc');else R.setAttribute('data-toc','off');store('x2m-toc',off?'on':'off')});
+on('fsm',function(){setFs(fs-1)});on('fsp',function(){setFs(fs+1)});
 var tb=d.getElementById('theme');if(tb)tb.onclick=function(){var dark=R.getAttribute('data-theme')==='dark'||(!R.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme:dark)').matches);var n=dark?'light':'dark';R.setAttribute('data-theme',n);store('x2m-theme',n)};
 var bar=d.getElementById('bar'),top=d.getElementById('top'),links=$('nav a[href^="#"]'),heads=links.map(function(a){return d.getElementById(a.getAttribute('href').slice(1))});
 function spy(){var h=d.body.scrollHeight-innerHeight,y=scrollY;bar.style.width=(h>0?y/h*100:0)+'%';top.style.display=y>600?'block':'none';var cur=-1;for(var i=0;i<heads.length;i++){if(heads[i]&&heads[i].getBoundingClientRect().top<=80)cur=i}links.forEach(function(a,i){a.classList.toggle('on',i===cur)})}
@@ -146,7 +157,12 @@ export function buildGuideHtml(title: string, bodyHtml: string, meta: GuideMeta 
     '<div id="bar"></div>' +
     `<header class="hero"><div class="hero-in"><div><h1>${escapeHtml(title)}</h1>` +
     `<div class="meta">${chips.map((c) => `<span>${c}</span>`).join('')}</div></div>` +
-    '<button class="tbtn" id="theme" type="button">Sáng / Tối</button></div></header>' +
+    '<div class="tools">' +
+    '<button class="tbtn" id="wide" type="button" title="Rộng toàn màn hình / cột đọc">Rộng / Đọc</button>' +
+    '<button class="tbtn" id="tocb" type="button">Mục lục</button>' +
+    '<button class="tbtn" id="fsm" type="button" aria-label="Giảm cỡ chữ">A−</button>' +
+    '<button class="tbtn" id="fsp" type="button" aria-label="Tăng cỡ chữ">A+</button>' +
+    '<button class="tbtn" id="theme" type="button">Sáng / Tối</button></div></div></header>' +
     `<div class="layout">${nav}<main>${body}</main></div>` +
     '<button id="top" type="button" aria-label="Lên đầu trang">↑</button>' +
     `<script>${JS}</script></body></html>\n`

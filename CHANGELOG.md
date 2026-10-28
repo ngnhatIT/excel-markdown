@@ -9,7 +9,7 @@ Minor: tính năng mới; **output Excel → Markdown và Markdown → Excel kh�
 - Tính năng: nhóm **Nâng cao** ở cột Tùy chọn (mặc định tắt, output cũ không đổi): vùng ô
   (`A1:F40`), hiện công thức (`` `=SUM(..)` `` cạnh giá trị), front-matter YAML (file nguồn, sheet),
   tách bảng mỗi N dòng (lặp header, cho RAG/LLM).
-- Tính năng: nút **Xuất HTML**: trang đứng riêng (hero + chip, mục lục scrollspy + tìm mục, callout `> [!NOTE]`, copy code, lọc/sắp xếp bảng, đổi sáng/tối, thanh tiến độ, in), một script inline cố định, CSP chặn mạng, `src/shared/guideHtml.ts`.
+- Tính năng: nút **Xuất HTML**: trang đứng riêng, mặc định full width (nút Rộng/Đọc, ẩn mục lục, cỡ chữ A−/A+, nhớ lựa chọn; (hero + chip, mục lục scrollspy + tìm mục, callout `> [!NOTE]`, copy code, lọc/sắp xếp bảng, đổi sáng/tối, thanh tiến độ, in), một script inline cố định, CSP chặn mạng, `src/shared/guideHtml.ts`.
 - Tính năng: nút **In / PDF** ở khung xem trước (`window.print`, CSS `@media print` chỉ in nội dung).
 - Tính năng: **CLI headless** `node out/main/cli.js a.xlsx -o out [--per-workbook --range A1:F40
   --formulas --front-matter --chunk N]`, cùng engine với app (`src/main/cliCore.ts`).
