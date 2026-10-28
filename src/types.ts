@@ -14,6 +14,14 @@ export interface ConvertOptions {
   /** Escape ký tự Markdown/HTML trong ô (`<null>`, `*x*`, `# x`...) để bản render
    * hiển thị đúng nội dung ô. Tắt khi ô Excel cố ý chứa cú pháp Markdown. */
   escapeMarkdown: boolean
+  /** Chỉ convert vùng này của mỗi sheet (vd `A1:F40`); rỗng/không hợp lệ = cả sheet */
+  range: string
+  /** Ô công thức: thêm `=công thức` dạng code cạnh giá trị cache */
+  showFormulas: boolean
+  /** Thêm YAML front-matter (file nguồn, sheet) đầu file .md — tiện cho RAG/LLM */
+  frontMatter: boolean
+  /** Bảng dài hơn N dòng thì tách khối, lặp lại header (0 = tắt) */
+  chunkRows: number
 }
 
 export const DEFAULT_OPTIONS: ConvertOptions = {
@@ -23,6 +31,10 @@ export const DEFAULT_OPTIONS: ConvertOptions = {
   multiline: 'br',
   detectTwoColTables: false,
   escapeMarkdown: true,
+  range: '',
+  showFormulas: false,
+  frontMatter: false,
+  chunkRows: 0,
 }
 
 export type OutputMode = 'per-sheet' | 'per-workbook'

@@ -11,7 +11,7 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../types'
-import { dedupeFileName, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
+import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
 import { CancelledError, ConverterWorker } from './converterWorker'
 import { friendlyError } from './errors'
 import {
@@ -313,7 +313,8 @@ ipcMain.handle(
           })
           const written: string[] = []
           if (payload.outputMode === 'per-workbook') {
-            const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false)
+            const src = payload.options.frontMatter ? basename(spec.path) : undefined
+            const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false, src)
             if (sheets.some((s) => s.markdown.trim() !== '')) {
               const fileName = dedupeFileName(safeFileName(base) + '.md', usedNames)
               await writeFile(join(payload.outDir, fileName), md, 'utf-8')
@@ -322,7 +323,8 @@ ipcMain.handle(
           } else {
             for (const s of sheets) {
               const fileName = dedupeFileName(safeFileName(base + '__' + s.sheet) + '.md', usedNames)
-              await writeFile(join(payload.outDir, fileName), s.markdown + '\n', 'utf-8')
+              const fm = payload.options.frontMatter ? frontMatter({ source: basename(spec.path), sheet: s.sheet }) : ''
+              await writeFile(join(payload.outDir, fileName), fm + s.markdown + '\n', 'utf-8')
               written.push(fileName)
             }
           }

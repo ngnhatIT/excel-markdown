@@ -22,6 +22,10 @@ const OPTS: ConvertOptions = {
   multiline: 'br',
   detectTwoColTables: false,
   escapeMarkdown: true,
+  range: '',
+  showFormulas: false,
+  frontMatter: false,
+  chunkRows: 0,
 }
 
 /** Tạo worksheet từ mảng 2D, kèm merge ranges (zero-based, dạng SheetJS). */

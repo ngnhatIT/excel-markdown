@@ -40,11 +40,24 @@ function escapeBlockStart(s: string): string {
   return s.replace(/^(\d{1,9})([.)])(?=\s|$)/, '$1\\$2')
 }
 
-function getCell(ws: WorkSheet, r: number, c: number, esc: boolean): string {
+/** Parse `A1:F40` / `B2` (không phân biệt hoa thường); chuỗi lạ -> null (= cả sheet). */
+export function parseRange(s: string | undefined): XLSX.Range | null {
+  const t = (s ?? '').trim()
+  if (!/^[A-Za-z]{1,3}\d{1,7}(:[A-Za-z]{1,3}\d{1,7})?$/.test(t)) return null
+  const r = XLSX.utils.decode_range(t.toUpperCase())
+  return r.s.r >= 0 && r.s.r <= r.e.r && r.s.c <= r.e.c ? r : null
+}
+
+function getCell(ws: WorkSheet, r: number, c: number, esc: boolean, formulas = false): string {
   const cell = ws[XLSX.utils.encode_cell({ r, c })]
   if (!cell) return ''
   try {
     const text = XLSX.utils.format_cell(cell).trim()
+    if (formulas && typeof cell.f === 'string' && cell.f !== '') {
+      // shortcut: công thức chứa backtick/xuống dòng bị làm phẳng, đủ cho đọc hiểu
+      const f = '`=' + cell.f.replace(/[`\r\n]+/g, ' ') + '`'
+      return text ? (esc ? escapeMarkdownInline(text) : text) + ' ' + f : f
+    }
     const target = cell.l?.Target?.trim()
     if (target && text && text !== target) {
       if (!esc) return '[' + text + '](' + target + ')'
@@ -76,15 +89,17 @@ function hasContent(cell: XLSX.CellObject | undefined): boolean {
  * Excel ghi `!ref` theo vùng có *định dạng* (kẻ viền, tô màu một ô lạc ở xa...), nên
  * `!ref` có thể phình tới hàng triệu ô trống -> quét toàn bộ sẽ treo main process.
  * Thiếu `!ref` (file hỏng / ws dựng tay) thì bắt đầu từ A1. Trả null nếu không có nội dung. */
-function effectiveRange(ws: WorkSheet): XLSX.Range | null {
+function effectiveRange(ws: WorkSheet, clip: XLSX.Range | null = null): XLSX.Range | null {
   const declared = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref'] as string) : null
-  const s = declared ? declared.s : { r: 0, c: 0 }
-  const limR = declared ? declared.e.r : Infinity
-  const limC = declared ? declared.e.c : Infinity
+  const s0 = declared ? declared.s : { r: 0, c: 0 }
+  const s = clip ? { r: Math.max(s0.r, clip.s.r), c: Math.max(s0.c, clip.s.c) } : s0
+  const limR = Math.min(declared ? declared.e.r : Infinity, clip ? clip.e.r : Infinity)
+  const limC = Math.min(declared ? declared.e.c : Infinity, clip ? clip.e.c : Infinity)
   let maxR = -1
   let maxC = -1
   const take = (r: number, c: number): void => {
     if (r < s.r || c < s.c) return
+    if (clip && (r > limR || c > limC)) return
     if (r > maxR) maxR = Math.min(r, limR)
     if (c > maxC) maxC = Math.min(c, limC)
   }
@@ -103,14 +118,14 @@ function effectiveRange(ws: WorkSheet): XLSX.Range | null {
 
 /** Dòng banner tiêu đề (基本設計 + merge 2D) phải được phát hiện trước khi lan merge dọc,
  * nếu không giá trị banner sẽ rò rỉ xuống các dòng dưới. */
-function sheetToGrid(ws: WorkSheet, esc: boolean): string[][] {
-  const ref = effectiveRange(ws)
+function sheetToGrid(ws: WorkSheet, esc: boolean, clip: XLSX.Range | null = null, formulas = false): string[][] {
+  const ref = effectiveRange(ws, clip)
   if (!ref) return []
   const merges = ws['!merges'] || []
   const grid: string[][] = []
   for (let r = ref.s.r; r <= ref.e.r; r++) {
     const row: string[] = []
-    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c, esc))
+    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c, esc, formulas))
     grid.push(row)
   }
   let bannerIdx = -1
@@ -178,11 +193,14 @@ function renderTable(header: string[], rows: string[][], opts: ConvertOptions): 
   })
   if (keptIdx.length === 0) return ''
   const h = keptIdx.map((i) => escCell(header[i], opts.multiline))
-  const lines = ['| ' + h.join(' | ') + ' |', '|' + h.map(() => '---').join('|') + '|']
-  for (const r of rows) {
-    lines.push('| ' + keptIdx.map((i) => escCell(r[i] ?? '', opts.multiline)).join(' | ') + ' |')
-  }
-  return lines.join('\n')
+  const head = ['| ' + h.join(' | ') + ' |', '|' + h.map(() => '---').join('|') + '|']
+  const body = rows.map((r) => '| ' + keptIdx.map((i) => escCell(r[i] ?? '', opts.multiline)).join(' | ') + ' |')
+  const n = opts.chunkRows > 0 ? Math.floor(opts.chunkRows) : 0
+  if (n === 0 || body.length <= n) return [...head, ...body].join('\n')
+  // Mỗi khối tự đủ nghĩa (header lặp lại) để chia nhỏ cho RAG/LLM.
+  const chunks: string[] = []
+  for (let i = 0; i < body.length; i += n) chunks.push([...head, ...body.slice(i, i + n)].join('\n'))
+  return chunks.join('\n\n')
 }
 
 /** Convert một worksheet thành Markdown, hiểu định dạng tài liệu 基本設計. */
@@ -192,7 +210,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   /** Text do người dùng nhập đứng đầu dòng (đoạn văn, quote, sub-bullet). */
   const blk = (s: string): string => (esc ? escapeBlockStart(s) : s)
   const title = esc ? escapeMarkdownInline(sheetName) : sheetName
-  const grid = sheetToGrid(ws, esc)
+  const grid = sheetToGrid(ws, esc, parseRange(opts.range), opts.showFormulas === true)
   const out: string[] = []
   if (opts.includeSheetTitle) out.push('## ' + title, '')
 

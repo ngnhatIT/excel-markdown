@@ -26,11 +26,18 @@ export function escapeMarkdownInline(s: string): string {
   return out.replace(/\](?=[([:])/g, '\\]')
 }
 
+/** YAML front-matter cho RAG/LLM. Giá trị là chuỗi JSON (hợp lệ YAML, không cần escape riêng). */
+export function frontMatter(fields: Record<string, string | string[]>): string {
+  const line = ([k, v]: [string, string | string[]]): string => k + ': ' + JSON.stringify(v)
+  return '---\n' + Object.entries(fields).map(line).join('\n') + '\n---\n\n'
+}
+
 /** Gộp markdown các sheet cho per-workbook mode: bỏ sheet rỗng để không
- * tạo separator `---` thừa giữa các khoảng trống. */
-export function joinWorkbookMarkdown(base: string, sheets: SheetResult[], escape = true): string {
+ * tạo separator `---` thừa giữa các khoảng trống. `source` có thì thêm front-matter. */
+export function joinWorkbookMarkdown(base: string, sheets: SheetResult[], escape = true, source?: string): string {
   const parts = sheets.map((s) => s.markdown.trim()).filter((m) => m !== '')
-  return '# ' + (escape ? escapeMarkdownInline(base) : base) + '\n\n' + parts.join('\n\n---\n\n') + '\n'
+  const fm = source ? frontMatter({ source, sheets: sheets.map((s) => s.sheet) }) : ''
+  return fm + '# ' + (escape ? escapeMarkdownInline(base) : base) + '\n\n' + parts.join('\n\n---\n\n') + '\n'
 }
 
 /** Tên file an toàn trên Windows: thay ký tự cấm, cắt ngắn, bỏ dấu chấm /

@@ -6,6 +6,11 @@
 
 ## Chưa phát hành
 Minor: tính năng mới; **output Excel → Markdown và Markdown → Excel không đổi**.
+- Tính năng: nhóm **Nâng cao** ở cột Tùy chọn (mặc định tắt, output cũ không đổi): vùng ô
+  (`A1:F40`), hiện công thức (`` `=SUM(..)` `` cạnh giá trị), front-matter YAML (file nguồn, sheet),
+  tách bảng mỗi N dòng (lặp header, cho RAG/LLM).
+- Tính năng: **CLI headless** `node out/main/cli.js a.xlsx -o out [--per-workbook --range A1:F40
+  --formulas --front-matter --chunk N]`, cùng engine với app (`src/main/cliCore.ts`).
 - Tính năng: chế độ **Đọc Markdown** (nút thứ ba ở Header). Mở thư mục (dialog / `Ctrl+O` /
   kéo thả) -> cây file `.md` (đệ quy, bỏ `node_modules` + thư mục ẩn, tối đa 5 000 file), lọc,
   thu gọn thư mục, ↑/↓; mở file lẻ; xem HTML hoặc mã Markdown. Ảnh tương đối qua scheme

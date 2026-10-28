@@ -111,6 +111,53 @@ export function OptionsPanel({
           </label>
         </div>
         <div className="x2m-opt-group">
+          <div className="x2m-opt-label">Nâng cao</div>
+          <label className="x2m-check">
+            <input
+              type="checkbox"
+              className="chk"
+              checked={options.showFormulas}
+              onChange={(e) => onSetOption('showFormulas', e.target.checked)}
+            />
+            <span>
+              Hiện công thức
+              <span className="dim">Giá trị kèm `=công thức`</span>
+            </span>
+          </label>
+          <label className="x2m-check">
+            <input
+              type="checkbox"
+              className="chk"
+              checked={options.frontMatter}
+              onChange={(e) => onSetOption('frontMatter', e.target.checked)}
+            />
+            <span>
+              Front-matter YAML
+              <span className="dim">File nguồn + sheet, dùng cho RAG/LLM</span>
+            </span>
+          </label>
+          <label className="x2m-field">
+            Vùng ô (vd A1:F40)
+            <input
+              type="text"
+              className="input"
+              value={options.range}
+              placeholder="Cả sheet"
+              onChange={(e) => onSetOption('range', e.target.value)}
+            />
+          </label>
+          <label className="x2m-field">
+            Tách bảng mỗi N dòng (0 = tắt)
+            <input
+              type="number"
+              className="input"
+              min={0}
+              value={options.chunkRows}
+              onChange={(e) => onSetOption('chunkRows', Math.max(0, Math.floor(Number(e.target.value)) || 0))}
+            />
+          </label>
+        </div>
+        <div className="x2m-opt-group">
           <div className="x2m-opt-label">Ô nhiều dòng</div>
           <label className="x2m-radio">
             <input

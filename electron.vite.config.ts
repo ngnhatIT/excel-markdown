@@ -33,7 +33,12 @@ export default defineConfig({
     build: {
       rollupOptions: {
         // worker.js: utilityProcess đọc Excel (xem src/main/worker.ts)
-        input: { index: resolve('src/main/index.ts'), worker: resolve('src/main/worker.ts') },
+        // cli.js: bản headless (`node out/main/cli.js ...`), cùng engine với app
+        input: {
+          index: resolve('src/main/index.ts'),
+          worker: resolve('src/main/worker.ts'),
+          cli: resolve('src/main/cli.ts'),
+        },
       },
     },
   },
