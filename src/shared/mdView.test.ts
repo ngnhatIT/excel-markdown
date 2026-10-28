@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { buildMdTree, imagePathFromUrl, imageUrl, resolveRelative, visibleTreeFiles } from './mdView'
+import {
+  buildMdTree,
+  formatRelativeTime,
+  imagePathFromUrl,
+  imageUrl,
+  recentMdFiles,
+  resolveRelative,
+  visibleTreeFiles,
+} from './mdView'
 
 describe('imageUrl / imagePathFromUrl', () => {
   it('khứ hồi đường dẫn Windows có dấu cách, ký tự Nhật, #, %', () => {
@@ -65,5 +73,62 @@ describe('buildMdTree / visibleTreeFiles', () => {
 
   it('danh sách rỗng -> cây rỗng', () => {
     expect(buildMdTree([])).toEqual([])
+  })
+})
+
+describe('buildMdTree sort theo ngày sửa', () => {
+  const names = (nodes: ReturnType<typeof buildMdTree>): string[] => nodes.map((n) => n.name)
+
+  it('thư mục trước theo tên, file giảm dần theo mtime', () => {
+    const tree = buildMdTree(['a.md', 'b.md', 'd/x.md'], 'date', { 'a.md': 1, 'b.md': 2, 'd/x.md': 3 })
+    expect(names(tree)).toEqual(['d', 'b.md', 'a.md'])
+  })
+
+  it('mtime bằng nhau hoặc thiếu -> theo tên tăng dần (số theo giá trị)', () => {
+    const tree = buildMdTree(['file10.md', 'file2.md', 'z.md'], 'date', { 'file10.md': 5, 'file2.md': 5 })
+    expect(names(tree)).toEqual(['file2.md', 'file10.md', 'z.md'])
+  })
+
+  it('mặc định vẫn sort theo tên', () => {
+    expect(names(buildMdTree(['b.md', 'a.md']))).toEqual(['a.md', 'b.md'])
+  })
+})
+
+describe('recentMdFiles', () => {
+  it('lấy n file mới nhất, bỏ file không có mtime, trùng thì theo tên', () => {
+    const m = { 'a.md': 10, 'b.md': 30, 'c.md': 30, 'd/e.md': 20 }
+    expect(recentMdFiles(['a.md', 'b.md', 'c.md', 'd/e.md', 'x.md'], m, 3)).toEqual(['b.md', 'c.md', 'd/e.md'])
+  })
+
+  it('không có file nào có mtime -> rỗng', () => {
+    expect(recentMdFiles(['a.md'], {})).toEqual([])
+  })
+})
+
+describe('formatRelativeTime', () => {
+  const now = new Date(2026, 9, 28, 15, 0, 0).getTime()
+  const ago = (ms: number): number => now - ms
+  const MIN = 60_000
+  const HOUR = 60 * MIN
+  const DAY = 24 * HOUR
+
+  it('vừa xong: dưới 1 phút và tương lai', () => {
+    expect(formatRelativeTime(ago(30_000), now)).toBe('vừa xong')
+    expect(formatRelativeTime(now + HOUR, now)).toBe('vừa xong')
+  })
+
+  it('phút, giờ', () => {
+    expect(formatRelativeTime(ago(5 * MIN), now)).toBe('5 phút')
+    expect(formatRelativeTime(ago(3 * HOUR), now)).toBe('3 giờ')
+  })
+
+  it('dưới 24 giờ luôn tính giờ; từ 24 giờ: hôm qua theo ngày lịch, rồi N ngày', () => {
+    expect(formatRelativeTime(new Date(2026, 9, 27, 23, 0, 0).getTime(), now)).toBe('16 giờ')
+    expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now)).toBe('hôm qua')
+    expect(formatRelativeTime(ago(4 * DAY), now)).toBe('4 ngày')
+  })
+
+  it('quá 30 ngày -> dd/MM/yyyy', () => {
+    expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now)).toBe('05/09/2026')
   })
 })

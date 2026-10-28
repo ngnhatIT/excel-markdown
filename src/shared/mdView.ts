@@ -64,11 +64,22 @@ export interface MdTreeDir {
 
 export type MdTreeNode = MdTreeFile | MdTreeDir
 
-const byName = (a: MdTreeNode, b: MdTreeNode): number =>
-  a.kind !== b.kind ? (a.kind === 'dir' ? -1 : 1) : a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+export type MdSort = 'name' | 'date'
 
-/** Cây thư mục từ danh sách đường dẫn tương đối (`a/b.md`). Thư mục trước file, sắp theo tên (số theo giá trị). */
-export function buildMdTree(relPaths: string[]): MdTreeNode[] {
+const cmpName = (a: string, b: string): number => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+
+const byName = (a: MdTreeNode, b: MdTreeNode): number =>
+  a.kind !== b.kind ? (a.kind === 'dir' ? -1 : 1) : cmpName(a.name, b.name)
+
+/** Thư mục trước (theo tên); file giảm dần theo mtime (thiếu mtime xếp cuối), trùng thì theo tên. */
+const byDate =
+  (mtimes: Record<string, number>) =>
+  (a: MdTreeNode, b: MdTreeNode): number =>
+    a.kind !== b.kind || a.kind === 'dir' ? byName(a, b) : (mtimes[b.path] ?? 0) - (mtimes[a.path] ?? 0) || byName(a, b)
+
+/** Cây thư mục từ danh sách đường dẫn tương đối (`a/b.md`). Thư mục trước file; file sắp theo tên (số theo giá trị)
+ * hoặc, với `sort = 'date'`, theo ngày sửa giảm dần. */
+export function buildMdTree(relPaths: string[], sort: MdSort = 'name', mtimes: Record<string, number> = {}): MdTreeNode[] {
   const root: MdTreeDir = { kind: 'dir', name: '', path: '', children: [] }
   const dirs = new Map<string, MdTreeDir>([['', root]])
   for (const rel of relPaths) {
@@ -87,7 +98,8 @@ export function buildMdTree(relPaths: string[]): MdTreeNode[] {
     }
     parent.children.push({ kind: 'file', name: segs[segs.length - 1], path: segs.join('/') })
   }
-  for (const d of dirs.values()) d.children.sort(byName)
+  const cmp = sort === 'date' ? byDate(mtimes) : byName
+  for (const d of dirs.values()) d.children.sort(cmp)
   return root.children
 }
 
@@ -102,4 +114,28 @@ export function visibleTreeFiles(nodes: MdTreeNode[], collapsed: ReadonlySet<str
   }
   walk(nodes)
   return out
+}
+
+/** `n` file sửa gần nhất (đường dẫn tương đối); bỏ file không có mtime, trùng mtime thì theo tên. */
+export function recentMdFiles(relPaths: string[], mtimes: Record<string, number>, n = 6): string[] {
+  return relPaths
+    .filter((r) => mtimes[r] !== undefined)
+    .sort((a, b) => mtimes[b] - mtimes[a] || cmpName(a, b))
+    .slice(0, n)
+}
+
+/** Ngày sửa dạng ngắn: "vừa xong", "N phút", "N giờ", "hôm qua", "N ngày" (≤ 30 ngày), rồi dd/MM/yyyy. */
+export function formatRelativeTime(mtimeMs: number, nowMs: number): string {
+  const diff = nowMs - mtimeMs
+  if (diff < 60_000) return 'vừa xong'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} phút`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} giờ`
+  const d = new Date(mtimeMs)
+  const yesterday = new Date(nowMs)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'hôm qua'
+  const days = Math.floor(diff / 86_400_000)
+  if (days <= 30) return `${days} ngày`
+  const pad = (v: number): string => String(v).padStart(2, '0')
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
