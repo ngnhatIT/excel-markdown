@@ -439,6 +439,14 @@ try {
   await ev(`navigator.clipboard.readText = async () => '# Bản dán\\n'; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
   check('Đọc Markdown: dán Markdown -> render, không chọn hàng nào, tiêu đề Dán từ clipboard',
     (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Bản dán' && !document.querySelector('.x2m-tree-row.selected, .x2m-recent-row.selected') && document.querySelector('.x2m-preview-bar')?.textContent.includes('Dán từ clipboard')`, 3000)) >= 0)
+  check('Đọc Markdown: bản dán có hàng "Dán từ clipboard" đang chọn',
+    await ev(`!!document.querySelector('.x2m-paste-row.selected')`))
+  await ev(`(${treeRow('README.md')})?.querySelector('button')?.click(), 1`)
+  check('Đọc Markdown: chọn file khác -> hàng dán hết chọn, vẫn còn',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang chính' && !!document.querySelector('.x2m-paste-row') && !document.querySelector('.x2m-paste-row.selected')`, 3000)) >= 0)
+  await ev(`document.querySelector('.x2m-paste-row .x2m-tree-btn')?.click(), 1`)
+  check('Đọc Markdown: bấm hàng dán -> quay lại bản dán không cần dán lại',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)
   await ev(`navigator.clipboard.readText = async () => '  '; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
   check('Đọc Markdown: clipboard rỗng -> toast lỗi, giữ nguyên bản đang xem',
     (await waitFor(`document.body.innerText.includes('Clipboard trống') && document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)

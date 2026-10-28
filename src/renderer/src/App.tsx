@@ -683,7 +683,10 @@ export default function App(): React.ReactElement {
               mtimes={viewer.mtimes}
               sort={viewer.sort}
               onSortChange={viewer.setSort}
+              pasted={viewer.pasted !== null}
               onPaste={() => void pasteViewer()}
+              onShowPaste={viewer.showPaste}
+              onClosePaste={viewer.closePaste}
               loose={viewer.loose}
               collapsed={viewer.collapsed}
               selectedPath={viewerPath}

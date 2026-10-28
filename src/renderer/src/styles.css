@@ -1103,16 +1103,20 @@ input[type='color'].color-input {
 .x2m-tree-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .x2m-tree { padding: 0 8px 16px; display: flex; flex-direction: column; }
 .x2m-tree-row,
-.x2m-recent-row {
+.x2m-recent-row,
+.x2m-paste-row {
   display: flex; align-items: center; gap: 4px; padding-right: 4px; border-radius: 6px;
   transition: background-color 150ms ease-out;
 }
 .x2m-tree-row:hover,
-.x2m-recent-row:hover { background: var(--bg-hover); }
+.x2m-recent-row:hover,
+.x2m-paste-row:hover { background: var(--bg-hover); }
 .x2m-tree-row.selected,
-.x2m-recent-row.selected { background: var(--accent-soft); }
+.x2m-recent-row.selected,
+.x2m-paste-row.selected { background: var(--accent-soft); }
 .x2m-tree-row.selected .x2m-tree-btn,
-.x2m-recent-row.selected .x2m-tree-btn { color: var(--accent-text); }
+.x2m-recent-row.selected .x2m-tree-btn,
+.x2m-paste-row.selected .x2m-tree-btn { color: var(--accent-text); }
 .x2m-tree-btn {
   flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px;
   background: none; border: none; color: var(--text); cursor: pointer;

@@ -30,6 +30,8 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   const [loose, setLoose] = useState<string[]>([])
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const [doc, setDoc] = useState<MdViewerDoc | null>(null)
+  /** Bản dán gần nhất; giữ lại để quay về sau khi chọn file khác. */
+  const [pasted, setPasted] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
   const readSeq = useRef(0)
 
@@ -69,7 +71,20 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   /** Xem đoạn Markdown dán từ clipboard (không đọc file, không lưu vào store). */
   const pasteText = useCallback((text: string) => {
     ++readSeq.current
+    setPasted(text)
     setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: text })
+  }, [])
+
+  /** Quay lại bản dán đã có. */
+  const showPaste = useCallback(() => {
+    if (pasted === null) return
+    ++readSeq.current
+    setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: pasted })
+  }, [pasted])
+
+  const closePaste = useCallback(() => {
+    setPasted(null)
+    setDoc((d) => (d?.path === PASTE_PATH ? null : d))
   }, [])
 
   /** Mở (hoặc quét lại) thư mục; trả danh sách file tuyệt đối, null nếu lỗi.
@@ -156,7 +171,10 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     filter,
     setFilter,
     select,
+    pasted,
     pasteText,
+    showPaste,
+    closePaste,
     openFolder,
     closeFolder,
     openFiles,

@@ -1,5 +1,5 @@
 import { formatRelativeTime, type MdSort, type MdTreeNode } from '../../../shared/mdView'
-import { joinRoot } from '../hooks/useMdViewer'
+import { joinRoot, PASTE_PATH } from '../hooks/useMdViewer'
 import { baseName, cn } from '../utils'
 import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from './icons'
 
@@ -21,7 +21,10 @@ interface Props {
   onSelect: (absPath: string) => void
   onSortChange: (s: MdSort) => void
   onToggleDir: (rel: string) => void
+  pasted: boolean
   onPaste: () => void
+  onShowPaste: () => void
+  onClosePaste: () => void
   onOpenFolder: () => void
   onOpenFiles: () => void
   onRefresh: () => void
@@ -34,7 +37,7 @@ const INDENT = 14
 /** Cột trái chế độ Đọc Markdown: cây file .md của thư mục đang mở + các file mở lẻ. */
 export function MdTreeList(p: Props): React.ReactElement {
   const q = p.filter.trim().toLowerCase()
-  const empty = !p.root && p.loose.length === 0
+  const empty = !p.root && p.loose.length === 0 && !p.pasted
 
   const now = Date.now()
 
@@ -149,6 +152,17 @@ export function MdTreeList(p: Props): React.ReactElement {
         </div>
       ) : (
         <div className="x2m-tree" role="tree">
+          {p.pasted && (
+            <div className={cn('x2m-paste-row', p.selectedPath === PASTE_PATH && 'selected')}>
+              <button className="x2m-tree-btn x2m-tree-file" onClick={p.onShowPaste} title="Bản Markdown đã dán">
+                <IconCopy size={14} />
+                <span className="x2m-tree-name">Dán từ clipboard</span>
+              </button>
+              <button className="icon-btn" onClick={p.onClosePaste} title="Đóng bản dán" aria-label="Đóng bản dán">
+                <IconX size={12} />
+              </button>
+            </div>
+          )}
           {p.root && p.recent.length > 0 && (
             <>
               <div className="x2m-tree-section">Mới sửa</div>
