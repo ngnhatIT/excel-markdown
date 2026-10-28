@@ -151,12 +151,12 @@ export function MdTreeList(p: Props): React.ReactElement {
         <div className="x2m-tree" role="tree">
           {p.root && p.recent.length > 0 && (
             <>
-              <div className="x2m-tree-group">Mới sửa</div>
+              <div className="x2m-tree-section">Mới sửa</div>
               {p.recent.map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r], 'x2m-recent-row'))}
             </>
           )}
           {p.root && (
-            <div className="x2m-tree-group x2m-tree-group-bar">
+            <div className="x2m-tree-section x2m-tree-section-bar">
               <span>Tất cả</span>
               <span className="x2m-sort">
                 <button className="x2m-sort-btn" aria-pressed={p.sort === 'name'} onClick={() => p.onSortChange('name')}>

@@ -3,7 +3,7 @@
 // Chạy: npm run e2e  (= build + node scripts/e2e.mjs). Cần màn hình (không chạy headless CI).
 import { spawn } from 'node:child_process'
 import { createRequire } from 'node:module'
-import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -397,9 +397,11 @@ try {
   mkdirSync(join(viewDir, 'docs'), { recursive: true })
   mkdirSync(join(viewDir, 'img'), { recursive: true })
   writeFileSync(join(viewDir, 'README.md'), '# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n')
+  writeFileSync(join(viewDir, 'alpha.md'), '# Alpha\n')
+  utimesSync(join(viewDir, 'alpha.md'), new Date(2020, 0, 1), new Date(2020, 0, 1))
   writeFileSync(join(viewDir, 'docs', 'b.md'), '# Trang B\n\n```js\nconst x = 1\n```\n')
   writeFileSync(join(viewDir, 'img', 'a.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'))
-  const treeRow = (t) => `[...document.querySelectorAll('.x2m-tree-row')].find(r => r.textContent.trim() === ${JSON.stringify(t)})`
+  const treeRow = (t) => `[...document.querySelectorAll('.x2m-tree-row')].find(r => r.querySelector('.x2m-tree-name')?.textContent.trim() === ${JSON.stringify(t)})`
 
   await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
   check('Đọc Markdown: nút chế độ active, không có thanh convert, không có cột Tùy chọn',
@@ -417,6 +419,29 @@ try {
     (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B' && !!(${treeRow('b.md')})?.classList.contains('selected') && !document.querySelector('.x2m-tree-group')`, 5000)) >= 0)
   check('Đọc Markdown: app không bị điều hướng khỏi trang', (await ev('location.href')) === startUrl)
   check('Đọc Markdown: code block render <pre>', await ev(`!!document.querySelector('.md-body pre code')`))
+  // Mới sửa, ngày sửa, sort, lọc, dán
+  const setFilter = (v) => ev(`(() => { const i = document.querySelector('.x2m-filter-input'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, ${JSON.stringify(v)}); i.dispatchEvent(new Event('input', { bubbles: true })); return 1 })()`)
+  const sectionShown = (t) => `[...document.querySelectorAll('.x2m-tree-section')].some(g => g.textContent.trim() === ${JSON.stringify(t)})`
+  const rootFileOrder = `[...document.querySelectorAll('.x2m-tree .x2m-tree-row .x2m-tree-name')].map(n => n.textContent.trim())`
+  check('Đọc Markdown: có mục Mới sửa và ngày sửa trên từng file',
+    await ev(`${sectionShown('Mới sửa')} && document.querySelectorAll('.x2m-recent-row .x2m-tree-date').length >= 3 && !!document.querySelector('.x2m-tree-row .x2m-tree-date')`))
+  check('Đọc Markdown: Mới sửa xếp file mới trước (alpha.md cũ 2020 ở cuối)',
+    await ev(`(() => { const n = [...document.querySelectorAll('.x2m-recent-row .x2m-tree-name')].map(x => x.textContent.trim()); return n.length === 3 && n[2] === 'alpha.md' })()`))
+  check('Đọc Markdown: sort Tên (mặc định): alpha.md trước README.md',
+    await ev(`(() => { const n = ${rootFileOrder}; return n.indexOf('alpha.md') < n.indexOf('README.md') })()`))
+  await ev(`[...document.querySelectorAll('.x2m-sort-btn')].find(b => b.textContent === 'Ngày sửa')?.click(), 1`)
+  check('Đọc Markdown: sort Ngày sửa: README.md (mới) trước alpha.md (2020)',
+    (await waitFor(`(() => { const n = ${rootFileOrder}; return n.indexOf('README.md') >= 0 && n.indexOf('README.md') < n.indexOf('alpha.md') })()`, 2000)) >= 0)
+  await setFilter('zzz-khong-co')
+  check('Đọc Markdown: lọc không khớp -> ẩn mục Mới sửa', (await waitFor(`!(${sectionShown('Mới sửa')})`, 2000)) >= 0)
+  await setFilter('')
+  check('Đọc Markdown: xóa lọc -> Mới sửa hiện lại', (await waitFor(sectionShown('Mới sửa'), 2000)) >= 0)
+  await ev(`navigator.clipboard.readText = async () => '# Bản dán\\n'; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  check('Đọc Markdown: dán Markdown -> render, không chọn hàng nào, tiêu đề Dán từ clipboard',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Bản dán' && !document.querySelector('.x2m-tree-row.selected, .x2m-recent-row.selected') && document.querySelector('.x2m-preview-bar')?.textContent.includes('Dán từ clipboard')`, 3000)) >= 0)
+  await ev(`navigator.clipboard.readText = async () => '  '; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  check('Đọc Markdown: clipboard rỗng -> toast lỗi, giữ nguyên bản đang xem',
+    (await waitFor(`document.body.innerText.includes('Clipboard trống') && document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)
   await ev(`(${treeRow('docs')})?.querySelector('button')?.click(), 1`)
   check('Đọc Markdown: thu gọn thư mục docs -> ẩn b.md', (await waitFor(`!(${treeRow('b.md')})`, 2000)) >= 0)
   await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
