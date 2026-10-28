@@ -82,7 +82,7 @@ export function PreviewPane({
         resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
       })
       const name = title ?? 'ghi-chu'
-      const saved = await window.api.saveHtml(name, buildGuideHtml(name, body))
+      const saved = await window.api.saveHtml(name, buildGuideHtml(name, body, { date: new Date().toLocaleDateString('vi-VN') }))
       if (saved) toast('Đã lưu HTML: ' + saved, 'ok')
     } catch (err) {
       toast('Xuất HTML thất bại: ' + errMsg(err), 'err')
