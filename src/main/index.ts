@@ -211,6 +211,26 @@ ipcMain.handle('dialog:openDirectory', async () => {
   }
 })
 
+/** Lưu trang HTML xuất từ khung xem trước. Người dùng chọn nơi lưu; trả đường dẫn, null nếu hủy. */
+ipcMain.handle('export:html', async (_e, defaultName: unknown, html: unknown) => {
+  try {
+    if (typeof defaultName !== 'string' || typeof html !== 'string' || html.length > 20_000_000) {
+      return { ok: false, error: 'Dữ liệu xuất HTML không hợp lệ.' }
+    }
+    const res = await dialog.showSaveDialog({
+      title: 'Lưu trang HTML',
+      defaultPath: safeFileName(defaultName) + '.html',
+      filters: [{ name: 'HTML', extensions: ['html'] }],
+    })
+    if (res.canceled || !res.filePath) return { ok: true, data: null }
+    await writeFile(res.filePath, html, 'utf-8')
+    return { ok: true, data: res.filePath }
+  } catch (err) {
+    void logError('export:html', err)
+    return { ok: false, error: friendlyError(err) }
+  }
+})
+
 ipcMain.handle('shell:openPath', async (_e, target: unknown) => {
   try {
     // Chỉ mở thư mục (thư mục xuất); không bao giờ mở/chạy file.

@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('dialog:openMarkdownFiles') as Promise<ApiResult<string[]>>),
   openDirectory: (): Promise<string | null> =>
     unwrap(ipcRenderer.invoke('dialog:openDirectory') as Promise<ApiResult<string | null>>),
+  saveHtml: (defaultName: string, html: string): Promise<string | null> =>
+    unwrap(ipcRenderer.invoke('export:html', defaultName, html) as Promise<ApiResult<string | null>>),
   openPath: (target: string): Promise<void> =>
     unwrap(ipcRenderer.invoke('shell:openPath', target) as Promise<ApiResult<null>>).then(() => undefined),
   getVersion: (): Promise<string> =>

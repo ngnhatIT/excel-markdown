@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { marked } from 'marked'
+import { buildGuideHtml } from '../../../shared/guideHtml'
+import { errMsg } from '../api'
 import { sanitizeHtml } from '../sanitize'
 import { cn, copyText, toast } from '../utils'
 import { IconCopy, IconEye, IconMarkdown } from './icons'
@@ -72,6 +74,21 @@ export function PreviewPane({
     }
   }, [display, resolveImage])
 
+  const exportHtml = useCallback(async () => {
+    if (!md) return
+    try {
+      // Bản xuất đứng riêng: chỉ ảnh data: còn dùng được, ảnh cục bộ không đi theo file.
+      const body = sanitizeHtml(marked.parse(md, { breaks: false }) as string, {
+        resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
+      })
+      const name = title ?? 'ghi-chu'
+      const saved = await window.api.saveHtml(name, buildGuideHtml(name, body))
+      if (saved) toast('Đã lưu HTML: ' + saved, 'ok')
+    } catch (err) {
+      toast('Xuất HTML thất bại: ' + errMsg(err), 'err')
+    }
+  }, [md, title])
+
   const clickBody = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
       if (!onLinkClick) return
@@ -121,6 +138,14 @@ export function PreviewPane({
           )}
           <button className="btn btn-sm btn-ghost" onClick={copy} disabled={!md || loading} title="Copy Markdown">
             <IconCopy size={14} /> Copy
+          </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => void exportHtml()}
+            disabled={!md || loading}
+            title="Xuất trang HTML đứng riêng có mục lục (ghi chú hướng dẫn)"
+          >
+            Xuất HTML
           </button>
           <button
             className="btn btn-sm btn-ghost"
