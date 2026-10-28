@@ -23,7 +23,7 @@ import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
 import { EXCEL_EXT, useFiles } from './hooks/useFiles'
 import { MD_EXT, useMdFiles } from './hooks/useMdFiles'
-import { useMdViewer } from './hooks/useMdViewer'
+import { PASTE_PATH, useMdViewer } from './hooks/useMdViewer'
 import { usePreview } from './hooks/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 
@@ -542,7 +542,7 @@ export default function App(): React.ReactElement {
   const resolveViewerImage = useCallback(
     (src: string): string | null => {
       if (/^data:image\/(png|jpe?g|gif|webp);/i.test(src)) return src
-      const abs = viewerPath ? resolveRelative(viewerPath, src) : null
+      const abs = viewerPath && viewerPath !== PASTE_PATH ? resolveRelative(viewerPath, src) : null
       return abs ? imageUrl(abs) : null
     },
     [viewerPath]
@@ -553,7 +553,7 @@ export default function App(): React.ReactElement {
     (href: string): boolean => {
       if (/^(https?:|mailto:)/i.test(href)) return false
       if (href.startsWith('#')) return true
-      const abs = viewerPath ? resolveRelative(viewerPath, href) : null
+      const abs = viewerPath && viewerPath !== PASTE_PATH ? resolveRelative(viewerPath, href) : null
       if (abs && MD_EXT.test(abs)) viewerOpenFiles([abs])
       else toast('Chỉ mở được link tới file Markdown hoặc link web', 'err')
       return true
@@ -565,9 +565,22 @@ export default function App(): React.ReactElement {
   const viewerRoot = viewer.root
   const viewerTitle = useMemo(() => {
     if (!viewerPath) return null
+    if (viewerPath === PASTE_PATH) return 'Dán từ clipboard'
     if (viewerRoot && viewerPath.startsWith(viewerRoot)) return viewerPath.slice(viewerRoot.length).replace(/^[\\/]+/, '')
     return baseName(viewerPath)
   }, [viewerPath, viewerRoot])
+
+  /** Dán Markdown từ clipboard để xem; clipboard rỗng hoặc bị từ chối thì báo lỗi, giữ nguyên tài liệu đang xem. */
+  const pasteViewer = useCallback(async () => {
+    let text = ''
+    try {
+      text = await navigator.clipboard.readText()
+    } catch {
+      /* bị từ chối quyền: xử lý như clipboard rỗng */
+    }
+    if (text.trim() === '') toast('Clipboard trống hoặc không đọc được', 'err')
+    else viewer.pasteText(text)
+  }, [viewer.pasteText])
 
   const cancelConvert = useCallback(() => {
     window.api.cancelConvert().catch((err) => toast(errMsg(err), 'err'))
@@ -666,6 +679,11 @@ export default function App(): React.ReactElement {
               root={viewer.root}
               tree={viewer.tree}
               relFiles={viewer.relFiles}
+              recent={viewer.recent}
+              mtimes={viewer.mtimes}
+              sort={viewer.sort}
+              onSortChange={viewer.setSort}
+              onPaste={() => void pasteViewer()}
               loose={viewer.loose}
               collapsed={viewer.collapsed}
               selectedPath={viewerPath}

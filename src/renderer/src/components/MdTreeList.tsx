@@ -1,12 +1,16 @@
-import type { MdTreeNode } from '../../../shared/mdView'
+import { formatRelativeTime, type MdSort, type MdTreeNode } from '../../../shared/mdView'
 import { joinRoot } from '../hooks/useMdViewer'
 import { baseName, cn } from '../utils'
-import { IconChevronDown, IconFile, IconFolder, IconRefresh, IconX } from './icons'
+import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from './icons'
 
 interface Props {
   root: string | null
   tree: MdTreeNode[]
   relFiles: string[]
+  /** "Mới sửa": đường dẫn tương đối, đã áp ô lọc */
+  recent: string[]
+  mtimes: Record<string, number>
+  sort: MdSort
   loose: string[]
   collapsed: ReadonlySet<string>
   selectedPath: string | null
@@ -15,7 +19,9 @@ interface Props {
   filter: string
   onFilterChange: (v: string) => void
   onSelect: (absPath: string) => void
+  onSortChange: (s: MdSort) => void
   onToggleDir: (rel: string) => void
+  onPaste: () => void
   onOpenFolder: () => void
   onOpenFiles: () => void
   onRefresh: () => void
@@ -30,11 +36,26 @@ export function MdTreeList(p: Props): React.ReactElement {
   const q = p.filter.trim().toLowerCase()
   const empty = !p.root && p.loose.length === 0
 
-  const fileRow = (abs: string, label: string, depth: number, title: string, onRemove?: () => void): React.ReactElement => (
-    <div key={abs} className={cn('x2m-tree-row', p.selectedPath === abs && 'selected')} style={{ paddingLeft: 8 + depth * INDENT }}>
+  const now = Date.now()
+
+  const fileRow = (
+    abs: string,
+    label: string,
+    depth: number,
+    title: string,
+    onRemove?: () => void,
+    mtime?: number,
+    rowClass = 'x2m-tree-row'
+  ): React.ReactElement => (
+    <div key={abs} className={cn(rowClass, p.selectedPath === abs && 'selected')} style={{ paddingLeft: 8 + depth * INDENT }}>
       <button className="x2m-tree-btn x2m-tree-file" onClick={() => p.onSelect(abs)} title={title}>
         <IconFile size={14} />
         <span className="x2m-tree-name">{label}</span>
+        {mtime !== undefined && (
+          <span className="x2m-tree-date dim" title={new Date(mtime).toLocaleString('vi-VN')}>
+            {formatRelativeTime(mtime, now)}
+          </span>
+        )}
       </button>
       {onRemove && (
         <button className="icon-btn" onClick={onRemove} title="Đóng file" aria-label="Đóng file">
@@ -46,7 +67,7 @@ export function MdTreeList(p: Props): React.ReactElement {
 
   const renderNodes = (nodes: MdTreeNode[], depth: number): React.ReactNode =>
     nodes.map((n) => {
-      if (n.kind === 'file') return p.root ? fileRow(joinRoot(p.root, n.path), n.name, depth, n.path) : null
+      if (n.kind === 'file') return p.root ? fileRow(joinRoot(p.root, n.path), n.name, depth, n.path, undefined, p.mtimes[n.path]) : null
       const open = !p.collapsed.has(n.path)
       return (
         <div key={'d:' + n.path}>
@@ -79,6 +100,14 @@ export function MdTreeList(p: Props): React.ReactElement {
           </button>
           <button className="x2m-move-btn x2m-reload-btn" onClick={p.onOpenFiles} title="Mở file Markdown" aria-label="Mở file">
             <IconFile size={14} />
+          </button>
+          <button
+            className="x2m-move-btn x2m-reload-btn"
+            onClick={p.onPaste}
+            title="Dán Markdown từ clipboard để xem"
+            aria-label="Dán Markdown"
+          >
+            <IconCopy size={14} />
           </button>
           {p.root && (
             <>
@@ -120,11 +149,30 @@ export function MdTreeList(p: Props): React.ReactElement {
         </div>
       ) : (
         <div className="x2m-tree" role="tree">
+          {p.root && p.recent.length > 0 && (
+            <>
+              <div className="x2m-tree-group">Mới sửa</div>
+              {p.recent.map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r], 'x2m-recent-row'))}
+            </>
+          )}
+          {p.root && (
+            <div className="x2m-tree-group x2m-tree-group-bar">
+              <span>Tất cả</span>
+              <span className="x2m-sort">
+                <button className="x2m-sort-btn" aria-pressed={p.sort === 'name'} onClick={() => p.onSortChange('name')}>
+                  Tên
+                </button>
+                <button className="x2m-sort-btn" aria-pressed={p.sort === 'date'} onClick={() => p.onSortChange('date')}>
+                  Ngày sửa
+                </button>
+              </span>
+            </div>
+          )}
           {q
             ? p.root &&
               p.relFiles
                 .filter((r) => r.toLowerCase().includes(q))
-                .map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r))
+                .map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r]))
             : renderNodes(p.tree, 0)}
           {p.root && p.relFiles.length === 0 && !p.listing && <div className="x2m-loading">Không có file Markdown nào</div>}
           {p.loose.length > 0 && (
