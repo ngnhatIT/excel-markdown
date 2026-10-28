@@ -1382,3 +1382,16 @@ input[type='color'].color-input {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* In / lưu PDF (window.print): chỉ in vùng xem trước, bỏ toàn bộ khung app */
+@media print {
+  .x2m-header, .x2m-footer, .x2m-side, .x2m-preview-bar, .x2m-show-more, .x2m-body > :not(.x2m-main),
+  .x2m-main > :not(.x2m-preview) { display: none !important; }
+  html, body, #root, .x2m-app, .x2m-body, .x2m-main, .x2m-preview {
+    display: block !important; height: auto !important; overflow: visible !important; position: static !important;
+  }
+  .x2m-preview { padding: 0 !important; zoom: 1 !important; }
+  .md-body { max-width: none !important; color: #000; }
+  .md-body table { page-break-inside: auto; }
+  .md-body tr { page-break-inside: avoid; }
+}

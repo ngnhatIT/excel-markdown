@@ -122,6 +122,14 @@ export function PreviewPane({
           <button className="btn btn-sm btn-ghost" onClick={copy} disabled={!md || loading} title="Copy Markdown">
             <IconCopy size={14} /> Copy
           </button>
+          <button
+            className="btn btn-sm btn-ghost"
+            onClick={() => window.print()}
+            disabled={!md || loading}
+            title="In hoặc lưu PDF (chọn 'Lưu dưới dạng PDF')"
+          >
+            In / PDF
+          </button>
         </div>
       </div>
       <div className="x2m-preview" style={{ zoom }}>
