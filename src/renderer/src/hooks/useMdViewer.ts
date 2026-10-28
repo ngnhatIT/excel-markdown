@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { buildMdTree, visibleTreeFiles } from '../../../shared/mdView'
+import { buildMdTree, recentMdFiles, visibleTreeFiles, type MdSort } from '../../../shared/mdView'
 import { errMsg } from '../api'
 import { toast } from '../utils'
 
@@ -9,6 +9,9 @@ export interface MdViewerDoc {
   error: string
   markdown: string
 }
+
+/** Đường dẫn giả của bản Markdown dán từ clipboard (không phải file trên đĩa, không lưu vào `viewerFile`). */
+export const PASTE_PATH = 'clipboard:paste'
 
 /** Đường dẫn tuyệt đối của file `rel` (phân cách `/`) trong thư mục `root`, theo kiểu phân cách của `root`. */
 export function joinRoot(root: string, rel: string): string {
@@ -20,6 +23,8 @@ export function joinRoot(root: string, rel: string): string {
 export function useMdViewer(persist: (key: string, value: unknown) => void) {
   const [root, setRoot] = useState<string | null>(null)
   const [relFiles, setRelFiles] = useState<string[]>([])
+  const [mtimes, setMtimes] = useState<Record<string, number>>({})
+  const [sort, setSort] = useState<MdSort>('name')
   const [truncated, setTruncated] = useState(false)
   const [listing, setListing] = useState(false)
   const [loose, setLoose] = useState<string[]>([])
@@ -28,7 +33,13 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   const [filter, setFilter] = useState('')
   const readSeq = useRef(0)
 
-  const tree = useMemo(() => buildMdTree(relFiles), [relFiles])
+  const tree = useMemo(() => buildMdTree(relFiles, sort, mtimes), [relFiles, sort, mtimes])
+
+  /** "Mới sửa": file sửa gần nhất của thư mục, đã áp ô lọc. */
+  const recent = useMemo(() => {
+    const q = filter.trim().toLowerCase()
+    return recentMdFiles(relFiles, mtimes).filter((r) => !q || r.toLowerCase().includes(q))
+  }, [relFiles, mtimes, filter])
 
   /** Mọi file đang hiện theo thứ tự (cây hoặc kết quả lọc, rồi file lẻ), đường dẫn tuyệt đối — dùng cho ↑/↓. */
   const visible = useMemo(() => {
@@ -55,6 +66,12 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     [persist]
   )
 
+  /** Xem đoạn Markdown dán từ clipboard (không đọc file, không lưu vào store). */
+  const pasteText = useCallback((text: string) => {
+    ++readSeq.current
+    setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: text })
+  }, [])
+
   /** Mở (hoặc quét lại) thư mục; trả danh sách file tuyệt đối, null nếu lỗi.
    * `quiet`: không báo lỗi (thư mục nhớ từ lần trước đã bị xóa). */
   const openFolder = useCallback(
@@ -64,6 +81,7 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
         const res = await window.api.listMarkdownFolder(dir)
         setRoot(res.root)
         setRelFiles(res.files)
+        setMtimes(res.mtimes ?? {})
         setTruncated(res.truncated)
         persist('viewerRoot', res.root)
         if (res.truncated) toast(`Thư mục có quá nhiều file, chỉ hiện ${res.files.length} file đầu`, 'err')
@@ -82,6 +100,7 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   const closeFolder = useCallback(() => {
     setRoot(null)
     setRelFiles([])
+    setMtimes({})
     setTruncated(false)
     setCollapsed(new Set())
     persist('viewerRoot', null)
@@ -125,6 +144,10 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     root,
     tree,
     relFiles,
+    mtimes,
+    sort,
+    setSort,
+    recent,
     truncated,
     listing,
     loose,
@@ -133,6 +156,7 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     filter,
     setFilter,
     select,
+    pasteText,
     openFolder,
     closeFolder,
     openFiles,
