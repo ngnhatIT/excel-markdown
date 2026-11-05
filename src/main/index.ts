@@ -151,6 +151,7 @@ let convertRunning = false
 let convertCancelRequested = false
 
 ipcMain.handle('store:get', async (_e, key: string) => {
+  if (key === 'aiApiKeyEnc') return { ok: true, data: null }
   try {
     const store = await readStore()
     return { ok: true, data: (key in store ? store[key] : null) as unknown }
@@ -163,6 +164,7 @@ ipcMain.handle('store:get', async (_e, key: string) => {
 let storeWriteChain: Promise<void> = Promise.resolve()
 
 ipcMain.handle('store:set', async (_e, key: string, value: unknown) => {
+  if (key === 'aiApiKeyEnc') return { ok: false, error: 'Forbidden store key' }
   const task = storeWriteChain.then(async () => {
     const store = await readStore()
     store[key] = value
@@ -602,6 +604,9 @@ ipcMain.handle('ai:cancel', async () => {
 
 ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
   let rawKey = ''
+  if (aiAbort) aiAbort.abort()
+  const controller = new AbortController()
+  aiAbort = controller
   try {
     const question = (req?.question ?? '').trim()
     if (!question) return { ok: false, error: 'Câu hỏi không được để trống.' }
@@ -610,10 +615,18 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     rawKey = decryptApiKey(store['aiApiKeyEnc'])
     const model = normalizeAiModel(req.model ?? store['aiModel'])
 
+    const isPasteActive = req.activeFilePath === 'clipboard:paste' || req.activeFilePath === '__paste__'
+    const pasteText =
+      typeof req.pastedMarkdown === 'string' && req.pastedMarkdown.trim() !== ''
+        ? req.pastedMarkdown
+        : isPasteActive && typeof req.activeMarkdown === 'string'
+          ? req.activeMarkdown
+          : ''
+
     const docs: RagDocument[] = []
     if (req.scope === 'active') {
-      if (req.activeFilePath === 'clipboard:paste' && typeof req.activeMarkdown === 'string') {
-        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', req.activeMarkdown, Date.now()))
+      if (isPasteActive && pasteText.trim() !== '') {
+        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', pasteText, Date.now()))
       } else if (req.activeFilePath && isMarkdownPath(req.activeFilePath)) {
         const rel =
           req.rootDir && req.activeFilePath.startsWith(req.rootDir)
@@ -629,7 +642,10 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
       const relFiles = Array.isArray(req.relFiles) ? req.relFiles.slice(0, RAG_CACHE_MAX) : []
       if (rootDir && relFiles.length > 0) {
         const loaded = await Promise.all(
-          relFiles.map((rel) => loadRagDocumentCached(join(rootDir, ...rel.split('/')), rel))
+          relFiles.map((rel) => {
+            const abs = join(rootDir, ...rel.split('/'))
+            return isInsideDir(rootDir, abs) ? loadRagDocumentCached(abs, rel) : Promise.resolve(null)
+          })
         )
         for (const d of loaded) if (d) docs.push(d)
       }
@@ -640,8 +656,8 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
         )
         for (const d of loadedLoose) if (d) docs.push(d)
       }
-      if (req.activeFilePath === 'clipboard:paste' && typeof req.activeMarkdown === 'string') {
-        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', req.activeMarkdown, Date.now()))
+      if (pasteText.trim() !== '') {
+        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', pasteText, Date.now()))
       }
     }
 
@@ -651,12 +667,8 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
 
     const ragCtx = buildRagContext(docs, question, {
       scope: req.scope,
-      activeFilePath: req.activeFilePath ?? undefined,
+      activeFilePath: isPasteActive ? 'clipboard:paste' : (req.activeFilePath ?? undefined),
     })
-
-    if (aiAbort) aiAbort.abort()
-    const controller = new AbortController()
-    aiAbort = controller
 
     const apiRes = await callGeminiApi({
       apiKey: rawKey,
@@ -681,7 +693,7 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     void logError('ai:ask', new Error(safeMsg))
     return { ok: false, error: safeMsg }
   } finally {
-    aiAbort = null
+    if (aiAbort === controller) aiAbort = null
   }
 })
 

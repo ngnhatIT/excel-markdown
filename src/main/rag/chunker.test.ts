@@ -34,11 +34,14 @@ describe('compressMarkdownLossless', () => {
 })
 
 describe('parseMarkdownForRag', () => {
-  it('trích xuất metaHeader, outline và tách các RagSection theo ## / ### mà không cắt bảng', () => {
+  it('trích xuất metaHeader (kể cả từ YAML front-matter), outline và tách các RagSection theo ## / ### mà không cắt bảng', () => {
     const md = [
       '---',
       'source: "spec.xlsx"',
       'sheet: "SC001"',
+      'title: "画面項目定義書"',
+      'meta:',
+      '  "サブシステム名": "受注管理"',
       '---',
       '## SC001_顧客一覧',
       '> 基本設計：画面項目定義書',
@@ -58,6 +61,7 @@ describe('parseMarkdownForRag', () => {
     expect(doc.metaHeader).toContain('SC001.md')
     expect(doc.metaHeader).toContain('機能ID: FN01')
     expect(doc.metaHeader).toContain('画面ID: SC001')
+    expect(doc.metaHeader).toContain('サブシステム名: 受注管理')
     expect(doc.outline).toEqual(['SC001_顧客一覧', '【項目定義】', '【イベント定義】'])
     expect(doc.sections.map((s) => s.sectionTitle)).toEqual(['Tổng quan', '【項目定義】', '【イベント定義】'])
     expect(doc.sections[1].content).toContain('| 1 | 顧客コード |')

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
 import type { AiAskResponse, AiChatTurn, AiConfigInfo, RagCitation } from '../../../types'
 import { errMsg } from '../api'
+import { PASTE_PATH } from '../hooks/useMdViewer'
 import { sanitizeHtml } from '../sanitize'
 import { cn, copyText, toast, uid } from '../utils'
 import { SidePanel } from './SidePanel'
@@ -26,6 +27,7 @@ interface Props {
   looseFiles: Array<{ path: string; name: string }>
   activeFilePath: string | null
   activeMarkdown: string
+  pastedMarkdown?: string | null
   onJumpToCitation: (citation: RagCitation) => void
 }
 
@@ -56,6 +58,7 @@ export function AiChatPanel({
   looseFiles,
   activeFilePath,
   activeMarkdown,
+  pastedMarkdown,
   onJumpToCitation,
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AiConfigInfo>({
@@ -102,6 +105,17 @@ export function AiChatPanel({
     }
   }, [apiKeyInput, config.model])
 
+  const clearKey = useCallback(async () => {
+    try {
+      const next = await window.api.aiSetConfig({ apiKey: '' })
+      setConfig(next)
+      setApiKeyInput('')
+      toast('Đã xóa Gemini API Key', 'ok')
+    } catch (e) {
+      toast('Xóa key thất bại: ' + errMsg(e), 'err')
+    }
+  }, [])
+
   const changeModel = useCallback(async (model: 'gemini-2.5-flash' | 'gemini-2.5-pro') => {
     try {
       const next = await window.api.aiSetConfig({ model })
@@ -137,7 +151,8 @@ export function AiChatPanel({
           relFiles,
           looseFiles: looseFiles.map((f) => f.path),
           activeFilePath,
-          activeMarkdown: activeFilePath === '__paste__' ? activeMarkdown : undefined,
+          activeMarkdown: activeFilePath === PASTE_PATH ? activeMarkdown : undefined,
+          pastedMarkdown: pastedMarkdown ?? (activeFilePath === PASTE_PATH ? activeMarkdown : null),
           history,
         })
         const modelEntry: ChatEntry = {
@@ -159,7 +174,7 @@ export function AiChatPanel({
         setBusy(false)
       }
     },
-    [busy, config.hasKey, scope, entries, rootDir, relFiles, looseFiles, activeFilePath, activeMarkdown]
+    [busy, config.hasKey, scope, entries, rootDir, relFiles, looseFiles, activeFilePath, activeMarkdown, pastedMarkdown]
   )
 
   const stopAsk = useCallback(async () => {
@@ -167,7 +182,8 @@ export function AiChatPanel({
     setBusy(false)
   }, [])
 
-  const totalFiles = relFiles.length + looseFiles.length + (activeFilePath === '__paste__' ? 1 : 0)
+  const hasPaste = Boolean((pastedMarkdown && pastedMarkdown.trim() !== '') || activeFilePath === PASTE_PATH)
+  const totalFiles = relFiles.length + looseFiles.length + (hasPaste ? 1 : 0)
 
   return (
     <SidePanel
@@ -222,6 +238,11 @@ export function AiChatPanel({
               <button className="btn btn-sm btn-primary" onClick={() => void saveKey()}>
                 Lưu
               </button>
+              {config.hasKey && (
+                <button className="btn btn-sm btn-ghost" onClick={() => void clearKey()} title="Xóa API Key đã lưu">
+                  Xóa key
+                </button>
+              )}
             </div>
             <div className="x2m-ai-hint">
               Key được mã hóa cục bộ bằng OS SafeStorage, chỉ gọi trực tiếp tới Google Gemini API.

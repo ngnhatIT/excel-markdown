@@ -807,8 +807,9 @@ export default function App(): React.ReactElement {
               rootDir={viewer.root}
               relFiles={viewer.relFiles}
               looseFiles={viewerLooseItems}
-              activeFilePath={viewerPath === PASTE_PATH ? '__paste__' : viewerPath}
+              activeFilePath={viewerPath}
               activeMarkdown={viewer.doc?.markdown ?? ''}
+              pastedMarkdown={viewer.pasted}
               onJumpToCitation={(c) => void handleJumpToCitation(c)}
             />
           </>

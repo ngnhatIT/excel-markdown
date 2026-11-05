@@ -1,5 +1,5 @@
 /* Bộ tìm kiếm lai BM25 + CJK 2-gram + Từ điển chuyên ngành Việt-Nhật & Chọn ngữ cảnh Ưu tiên Chất lượng.
- * - Khi scope = 'active': nạp 100% toàn văn file đang xem.
+ * - Khi scope = 'active': nạp 100% toàn văn file đang xem (trừ khi > 60.000 tokens thì lọc theo RagSection + outline).
  * - Khi scope = 'folder' và tổng token <= maxContextTokens (32.000): nạp 100% toàn bộ các file.
  * - Khi scope = 'folder' và vượt ngưỡng: đính kèm Sơ đồ thư mục + nạp nguyên file (Parent-Document) khớp nhất.
  */
@@ -22,6 +22,7 @@ export interface RagContextResult {
 }
 
 export const DEFAULT_MAX_CONTEXT_TOKENS = 32_000
+export const MAX_ACTIVE_FILE_TOKENS = 60_000
 
 const CJK_RUN_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/g
 const WORD_RE = /[\p{L}\p{N}_-]+/gu
@@ -150,10 +151,48 @@ export function buildRagContext(
     return { mode: 'full-folder', contextText: '', citations: [], tokensEst: 0, docCount: 0 }
   }
 
-  // 1. Chế độ "Chỉ file đang xem": ưu tiên 100% toàn văn file đó
+  // 1. Chế độ "Chỉ file đang xem": ưu tiên 100% toàn văn file đó (trừ khi vượt 60_000 tokens thì lọc theo RagSection + outline)
   if (opts.scope === 'active') {
     const target =
       nonEmptyDocs.find((d) => d.filePath === opts.activeFilePath) ?? nonEmptyDocs[0]
+
+    if (target.tokensEst > MAX_ACTIVE_FILE_TOKENS && target.sections.length > 1) {
+      const outlineBlock = `=== MỤC LỤC FILE ĐANG XEM: ${target.relPath} ===\n${target.metaHeader}\nMục: ${target.outline.join(', ')}`
+      let usedTokens = estimateTokens(outlineBlock)
+      const queryTerms = buildWeightedQueryTerms(query)
+      const secScores = scoreItemsBm25(
+        target.sections.map((s) => ({ body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })),
+        queryTerms,
+        query
+      )
+      const rankedSecs = target.sections
+        .map((sec, idx) => ({ sec, score: secScores[idx] }))
+        .sort((a, b) => b.score - a.score)
+
+      const blocks: string[] = [outlineBlock]
+      const citations: RagCitation[] = []
+      for (const { sec } of rankedSecs) {
+        if (usedTokens + sec.tokensEst > MAX_ACTIVE_FILE_TOKENS && citations.length > 0) continue
+        blocks.push(formatSectionBlock(sec))
+        usedTokens += sec.tokensEst + 8
+        citations.push({
+          filePath: sec.filePath,
+          relPath: sec.relPath,
+          sheetName: sec.sheetName,
+          sectionTitle: sec.sectionTitle,
+        })
+        if (citations.length >= 8) break
+      }
+      const contextText = blocks.join('\n\n')
+      return {
+        mode: 'full-active',
+        contextText,
+        citations,
+        tokensEst: estimateTokens(contextText),
+        docCount: 1,
+      }
+    }
+
     const citations: RagCitation[] = (target.sections.length > 0
       ? target.sections
       : [

@@ -35,6 +35,28 @@ describe('buildRagContext (Quality-First)', () => {
     expect(res.citations[0].relPath).toBe('SC001.md')
   })
 
+  it('scope = active khi file đơn lẻ vượt 60_000 tokens: lọc theo RagSection ưu tiên mục khớp câu hỏi + toàn bộ outline', () => {
+    const filler = 'あ'.repeat(110_000) // ~36,667 tokens per section
+    const hugeMd = [
+      '## 巨大仕様書',
+      '### 【セクションA】',
+      filler,
+      '### 【エラーメッセージ一覧】',
+      'ERR-999: システムエラーが発生しました',
+      filler,
+    ].join('\n')
+    const hugeDoc = parseMarkdownForRag('/dir/HUGE.md', 'HUGE.md', hugeMd)
+    expect(hugeDoc.tokensEst).toBeGreaterThan(60_000)
+
+    const res = buildRagContext([hugeDoc], 'Tìm mã lỗi ERR-999 trong bảng lỗi', {
+      scope: 'active',
+      activeFilePath: '/dir/HUGE.md',
+    })
+    expect(res.contextText).toContain('ERR-999')
+    expect(res.contextText).toContain('【セクションA】') // có trong outline
+    expect(res.citations.some((c) => c.sectionTitle === '【エラーメッセージ一覧】')).toBe(true)
+  })
+
   it('scope = folder khi tổng token <= maxContextTokens: nạp 100% toàn bộ các file (full-folder)', () => {
     const res = buildRagContext([doc1, doc2], 'Có những bảng và màn hình nào?', {
       scope: 'folder',

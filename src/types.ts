@@ -163,6 +163,7 @@ export interface AiAskRequest {
   looseFiles?: string[]
   activeFilePath?: string | null
   activeMarkdown?: string
+  pastedMarkdown?: string | null
   history?: AiChatTurn[]
 }
 

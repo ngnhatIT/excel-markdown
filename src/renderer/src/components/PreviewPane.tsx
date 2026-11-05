@@ -157,6 +157,10 @@ export function PreviewPane({
 
   useEffect(() => {
     if (loading || !html || !scrollTarget?.heading) return
+    if (tab === 'source') {
+      setTab('rendered')
+      return
+    }
     if (display.truncated) {
       setExpanded(true)
       return
@@ -175,7 +179,7 @@ export function PreviewPane({
     if (matched) {
       matched.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
-  }, [scrollTarget, loading, html, display.truncated])
+  }, [scrollTarget, loading, html, display.truncated, tab])
 
   const outline = useMemo(() => extractOutline(display.md), [display.md])
   const tablesInOutline = useMemo(() => outline.filter((x) => x.kind === 'table'), [outline])

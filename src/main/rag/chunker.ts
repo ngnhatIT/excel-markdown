@@ -71,6 +71,8 @@ function stripFrontMatter(md: string): { fmLines: string[]; body: string } {
   return { fmLines: fmBlock ? fmBlock.split('\n') : [], body }
 }
 
+const unquoteYaml = (s: string): string => s.trim().replace(/^"(.*)"$/, '$1').replace(/\\"/g, '"')
+
 /** Phân tích một file Markdown thành RagDocument kèm danh sách các RagSection theo ## / ###. */
 export function parseMarkdownForRag(
   filePath: string,
@@ -92,19 +94,40 @@ export function parseMarkdownForRag(
     }
   }
 
-  const { body } = stripFrontMatter(fullContent)
+  const { fmLines, body } = stripFrontMatter(fullContent)
   const lines = body.split('\n')
   const metaParts: string[] = [relPath]
+  const seenMeta = new Set<string>([relPath])
+  const addMeta = (part: string): void => {
+    const p = part.trim()
+    if (p && !seenMeta.has(p) && metaParts.length < 8) {
+      seenMeta.add(p)
+      metaParts.push(p)
+    }
+  }
+
+  for (const fmLine of fmLines) {
+    const titleMatch = /^title:\s*(.+)$/.exec(fmLine.trim())
+    if (titleMatch) {
+      addMeta(unquoteYaml(titleMatch[1]))
+      continue
+    }
+    const metaKv = /^\s{2}"?([^":]+)"?:\s*(.+)$/.exec(fmLine)
+    if (metaKv) {
+      addMeta(`${unquoteYaml(metaKv[1])}: ${unquoteYaml(metaKv[2])}`)
+    }
+  }
+
   const outline: string[] = []
 
   for (const line of lines) {
     if (line.startsWith('> 基本設計：')) {
       const docTitle = line.slice('> 基本設計：'.length).trim()
-      if (docTitle && metaParts.length < 6) metaParts.push(docTitle)
+      addMeta(docTitle)
     } else if (line.startsWith('- **')) {
       const m = /^-\s+\*\*([^*]+)\*\*:\s*(.+)$/.exec(line)
-      if (m && metaParts.length < 7) {
-        metaParts.push(`${m[1].trim()}: ${m[2].trim()}`)
+      if (m) {
+        addMeta(`${m[1].trim()}: ${m[2].trim()}`)
       }
     }
     const hMatch = /^(#{2,3})\s+(.+)$/.exec(line)
