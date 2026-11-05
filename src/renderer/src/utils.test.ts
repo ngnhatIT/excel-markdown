@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { moveItem } from './utils'
+import { matchHeadingText, moveItem } from './utils'
 
 describe('moveItem', () => {
   it('đổi chỗ với phần tử phía trước', () => {
@@ -26,5 +26,14 @@ describe('moveItem', () => {
     const same = moveItem(list, 5, 1)
     expect(same).toEqual(list)
     expect(same).not.toBe(list)
+  })
+})
+
+describe('matchHeadingText', () => {
+  it('matches exact and substring heading titles case-insensitively', () => {
+    expect(matchHeadingText('画面項目定義', '画面項目定義')).toBe(true)
+    expect(matchHeadingText('2. 画面項目定義 (一覧)', '画面項目定義')).toBe(true)
+    expect(matchHeadingText('エラー一覧', '画面項目定義')).toBe(false)
+    expect(matchHeadingText('', '画面項目定義')).toBe(false)
   })
 })

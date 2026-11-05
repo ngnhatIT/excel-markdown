@@ -1,6 +1,6 @@
 import type { FileItem } from '../../../types'
 import { cn } from '../utils'
-import { IconChevronDown, IconFile, IconX } from './icons'
+import { IconChevronDown, IconFile, IconTrash, IconX } from './icons'
 
 interface Props {
   files: FileItem[]
@@ -15,15 +15,88 @@ interface Props {
   onToggleSheet: (fileId: string, sheetName: string, checked: boolean) => void
   onSelectSheet: (fileId: string, sheetName: string) => void
   onRemoveFile: (fileId: string) => void
+  onClearAll?: () => void
   onReloadSheets: (file: FileItem) => void
+  collapsed?: boolean
+  onToggleCollapsed?: () => void
+  width?: number
 }
 
-/** Cột trái: danh sách file Excel, sheet của từng file, ô lọc sheet. */
+/** Cột trái: danh sách file Excel, sheet của từng file, ô lọc sheet và thao tác hàng loạt. */
 export function FileList(p: Props): React.ReactElement {
   const { files, expanded, selFileId, selSheet, sheetFilter } = p
+
+  if (p.collapsed && p.onToggleCollapsed) {
+    return (
+      <aside className="x2m-files collapsed">
+        <button
+          className="x2m-side-strip"
+          onClick={p.onToggleCollapsed}
+          title="Hiện danh sách file Excel"
+          aria-label="Hiện danh sách file"
+          aria-expanded={false}
+        >
+          <span className="x2m-left-chevron">
+            <IconChevronDown size={14} />
+          </span>
+          <IconFile size={16} />
+          <span className="x2m-side-vlabel">File Excel ({files.length})</span>
+        </button>
+      </aside>
+    )
+  }
+
+  const totalSheets = files.reduce((acc, f) => acc + f.sheets.length, 0)
+  const totalChecked = files.reduce((acc, f) => acc + f.sheets.filter((s) => s.checked).length, 0)
+  const allChecked = totalSheets > 0 && totalChecked === totalSheets
+
+  const toggleAllFiles = (): void => {
+    const next = !allChecked
+    for (const f of files) p.onToggleFileSheets(f.id, next)
+  }
+
   return (
-    <aside className={cn('x2m-files', p.dragOver && 'drag-over')}>
-      <div className="x2m-pane-title">File Excel ({files.length})</div>
+    <aside
+      className={cn('x2m-files', p.dragOver && 'drag-over')}
+      style={p.width ? { width: p.width, minWidth: p.width } : undefined}
+    >
+      <div className="x2m-pane-title">
+        <span>File Excel ({files.length})</span>
+        <span className="x2m-side-head-actions">
+          {files.length > 0 && totalSheets > 0 && (
+            <button
+              className="btn btn-sm btn-ghost x2m-mini-btn"
+              onClick={toggleAllFiles}
+              title={allChecked ? 'Bỏ chọn tất cả sheet' : 'Chọn tất cả sheet của mọi file'}
+            >
+              {allChecked ? 'Bỏ chọn hết' : 'Chọn hết'}
+            </button>
+          )}
+          {files.length > 1 && p.onClearAll && (
+            <button
+              className="x2m-move-btn x2m-reload-btn"
+              onClick={p.onClearAll}
+              title="Xóa toàn bộ danh sách file"
+              aria-label="Xóa toàn bộ danh sách"
+            >
+              <IconTrash size={13} />
+            </button>
+          )}
+          {p.onToggleCollapsed && (
+            <button
+              className="x2m-move-btn x2m-reload-btn"
+              onClick={p.onToggleCollapsed}
+              title="Thu gọn cột danh sách file"
+              aria-label="Thu gọn danh sách file"
+              aria-expanded
+            >
+              <span className="x2m-left-chevron open">
+                <IconChevronDown size={14} />
+              </span>
+            </button>
+          )}
+        </span>
+      </div>
       {files.length > 0 && (
         <div className="x2m-filter">
           <input
@@ -120,8 +193,9 @@ export function FileList(p: Props): React.ReactElement {
                             }}
                             title={`${s.rows} dòng${s.hidden ? ' (sheet ẩn trong Excel)' : ''}`}
                           >
-                            {s.name}
+                            <span className="x2m-sheet-label">{s.name}</span>
                             {s.hidden && <span className="x2m-tag">ẩn</span>}
+                            <span className="x2m-sheet-rows">{s.rows}d</span>
                           </button>
                         </label>
                       ))

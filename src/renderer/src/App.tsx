@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_OPTIONS,
+  type RagCitation,
   type AppMode,
   type ConvertOptions,
   type ConvertResultItem,
@@ -10,6 +11,7 @@ import { defaultWorkbookName } from '../../shared/workbookName'
 import { imageUrl, resolveRelative } from '../../shared/mdView'
 import { errMsg, type ConvertProgress } from './api'
 import { baseName, copyText, toast } from './utils'
+import { AiChatPanel } from './components/AiChatPanel'
 import { FileList } from './components/FileList'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
@@ -67,8 +69,12 @@ export default function App(): React.ReactElement {
   /** Tên file Excel người dùng gõ; null = chưa sửa (dùng tên mặc định theo danh sách file) */
   const [mdName, setMdName] = useState<string | null>(null)
   const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
-  /** Cột Tùy chọn bên phải đang thu gọn (dùng chung hai chế độ convert) */
+  /** Cột Tùy chọn bên phải và cột File bên trái (thu gọn & độ rộng kéo giãn) */
   const [sideCollapsed, setSideCollapsed] = useState(false)
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(300)
+  const [rightWidth, setRightWidth] = useState(304)
+  const [scrollTarget, setScrollTarget] = useState<{ heading: string; seq: number } | null>(null)
 
   const persist = useCallback((key: string, value: unknown) => {
     window.api.storeSet(key, value).catch(() => undefined)
@@ -166,6 +172,35 @@ export default function App(): React.ReactElement {
       return !c
     })
   }, [persist])
+
+  const toggleLeft = useCallback(() => {
+    setLeftCollapsed((c) => !c)
+  }, [])
+
+  const startResize = useCallback(
+    (side: 'left' | 'right', e: React.MouseEvent<HTMLDivElement>) => {
+      e.preventDefault()
+      const startX = e.clientX
+      const startW = side === 'left' ? leftWidth : rightWidth
+      const onMove = (ev: MouseEvent): void => {
+        const delta = ev.clientX - startX
+        if (side === 'left') {
+          setLeftWidth(Math.min(520, Math.max(220, startW + delta)))
+        } else {
+          setRightWidth(Math.min(500, Math.max(240, startW - delta)))
+        }
+      }
+      const onUp = (): void => {
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onUp)
+        document.body.style.cursor = ''
+      }
+      document.body.style.cursor = 'col-resize'
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onUp)
+    },
+    [leftWidth, rightWidth]
+  )
 
   useEffect(() => window.api.onProgress((pr) => setProgress(pr)), [])
 
@@ -275,6 +310,13 @@ export default function App(): React.ReactElement {
     [dropFile, selFileId]
   )
 
+  const clearAllFiles = useCallback(() => {
+    for (const f of files) dropFile(f.id)
+    setSelFileId(null)
+    setSelSheet(null)
+    setResults(null)
+  }, [files, dropFile])
+
   const toggleExpanded = useCallback((id: string) => {
     setExpanded((p) => ({ ...p, [id]: !(p[id] ?? false) }))
   }, [])
@@ -321,6 +363,18 @@ export default function App(): React.ReactElement {
       })
       // đổi skipDelSheets thì nạp lại danh sách sheet
       if (key === 'skipDelSheets') void relistAll(value as boolean)
+    },
+    [relistAll, persist]
+  )
+
+  const applyPreset = useCallback(
+    (patch: Partial<ConvertOptions>) => {
+      setOptions((prev) => {
+        const next = { ...prev, ...patch }
+        persist('options', next)
+        return next
+      })
+      if (patch.skipDelSheets !== undefined) void relistAll(patch.skipDelSheets)
     },
     [relistAll, persist]
   )
@@ -582,6 +636,23 @@ export default function App(): React.ReactElement {
     else viewer.pasteText(text)
   }, [viewer.pasteText])
 
+  const viewerLooseItems = useMemo(
+    () => viewer.loose.map((p) => ({ path: p, name: baseName(p) })),
+    [viewer.loose]
+  )
+
+  const handleJumpToCitation = useCallback(
+    async (c: RagCitation) => {
+      if (c.filePath === '__paste__' || c.filePath === PASTE_PATH) {
+        if (viewerPath !== PASTE_PATH) viewer.showPaste()
+      } else if (c.filePath !== viewerPath) {
+        await viewerSelect(c.filePath)
+      }
+      setScrollTarget({ heading: c.sectionTitle, seq: Date.now() })
+    },
+    [viewerPath, viewer.showPaste, viewerSelect]
+  )
+
   const cancelConvert = useCallback(() => {
     window.api.cancelConvert().catch((err) => toast(errMsg(err), 'err'))
   }, [])
@@ -717,8 +788,29 @@ export default function App(): React.ReactElement {
                 resolveImage={resolveViewerImage}
                 onLinkClick={viewerLinkClick}
                 fullWidth
+                scrollTarget={scrollTarget}
               />
             </main>
+
+            {!sideCollapsed && (
+              <div
+                className="x2m-resizer"
+                onMouseDown={(e) => startResize('right', e)}
+                title="Kéo để thay đổi độ rộng cột Trợ lý AI"
+              />
+            )}
+
+            <AiChatPanel
+              collapsed={sideCollapsed}
+              onToggleCollapsed={toggleSide}
+              width={rightWidth}
+              rootDir={viewer.root}
+              relFiles={viewer.relFiles}
+              looseFiles={viewerLooseItems}
+              activeFilePath={viewerPath === PASTE_PATH ? '__paste__' : viewerPath}
+              activeMarkdown={viewer.doc?.markdown ?? ''}
+              onJumpToCitation={(c) => void handleJumpToCitation(c)}
+            />
           </>
         ) : isMd ? (
           <>
@@ -759,12 +851,21 @@ export default function App(): React.ReactElement {
               )}
             </main>
 
+            {!sideCollapsed && (
+              <div
+                className="x2m-resizer"
+                onMouseDown={(e) => startResize('right', e)}
+                title="Kéo để thay đổi độ rộng cột Tùy chọn"
+              />
+            )}
+
             <MdOptionsPanel
               fileName={mdName ?? mdDefaultName}
               defaultName={mdDefaultName}
               onFileNameChange={setMdName}
               collapsed={sideCollapsed}
               onToggleCollapsed={toggleSide}
+              width={rightWidth}
             />
           </>
         ) : (
@@ -782,8 +883,20 @@ export default function App(): React.ReactElement {
               onToggleSheet={toggleSheet}
               onSelectSheet={selectSheet}
               onRemoveFile={removeFile}
+              onClearAll={clearAllFiles}
               onReloadSheets={reloadSheets}
+              collapsed={leftCollapsed}
+              onToggleCollapsed={toggleLeft}
+              width={leftWidth}
             />
+
+            {!leftCollapsed && (
+              <div
+                className="x2m-resizer"
+                onMouseDown={(e) => startResize('left', e)}
+                title="Kéo để thay đổi độ rộng cột File Excel"
+              />
+            )}
 
             <main className="x2m-main">
               <PreviewPane
@@ -807,14 +920,24 @@ export default function App(): React.ReactElement {
               )}
             </main>
 
+            {!sideCollapsed && (
+              <div
+                className="x2m-resizer"
+                onMouseDown={(e) => startResize('right', e)}
+                title="Kéo để thay đổi độ rộng cột Tùy chọn"
+              />
+            )}
+
             <OptionsPanel
               options={options}
               outputMode={outputMode}
               onSetOption={setOption}
+              onApplyPreset={applyPreset}
               onSetMode={setMode}
               onReset={resetOptions}
               collapsed={sideCollapsed}
               onToggleCollapsed={toggleSide}
+              width={rightWidth}
             />
           </>
         )}

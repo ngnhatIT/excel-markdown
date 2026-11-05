@@ -39,6 +39,14 @@ export function moveItem<T>(list: T[], index: number, dir: -1 | 1): T[] {
   return next
 }
 
+/** So khớp tiêu đề heading trong DOM với sectionTitle của citation AI. */
+export function matchHeadingText(candidate: string, targetHeading: string): boolean {
+  const c = candidate.trim().toLowerCase()
+  const t = targetHeading.trim().toLowerCase()
+  if (!c || !t) return false
+  return c === t || c.includes(t) || t.includes(c)
+}
+
 export function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -57,4 +65,3 @@ export function onToast(fn: ToastListener): () => void {
 export function toast(msg: string, kind: 'ok' | 'err' = 'ok'): void {
   listeners.forEach((fn) => fn(msg, kind))
 }
-

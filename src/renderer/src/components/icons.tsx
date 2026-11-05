@@ -299,3 +299,26 @@ export const IconOpen = (p: { size?: number }) => (
     <path d="M10 14 21 3" />
   </Svg>
 )
+
+export const IconSplit = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M12 4v16" />
+  </Svg>
+)
+
+export const IconWrap = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M3 6h18" />
+    <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
+    <path d="m16 16-2 2 2 2" />
+    <path d="M3 18h7" />
+  </Svg>
+)
+
+export const IconTable = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="M3 9h18M3 15h18M9 3v18" />
+  </Svg>
+)

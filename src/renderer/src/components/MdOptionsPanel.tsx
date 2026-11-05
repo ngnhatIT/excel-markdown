@@ -8,6 +8,7 @@ interface Props {
   onFileNameChange: (value: string) => void
   collapsed: boolean
   onToggleCollapsed: () => void
+  width?: number
 }
 
 /** Cột phải chế độ Markdown → Excel: tên file Excel xuất ra. */
@@ -17,9 +18,10 @@ export function MdOptionsPanel({
   onFileNameChange,
   collapsed,
   onToggleCollapsed,
+  width,
 }: Props): React.ReactElement {
   return (
-    <SidePanel collapsed={collapsed} onToggle={onToggleCollapsed}>
+    <SidePanel collapsed={collapsed} onToggle={onToggleCollapsed} width={width}>
       <div className="x2m-opts">
         <div className="x2m-opt-group">
           <label className="x2m-opt-label" htmlFor="x2m-xlsx-name">
