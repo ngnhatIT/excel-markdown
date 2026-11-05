@@ -52,6 +52,7 @@ export interface WindowApi {
   aiGetConfig(): Promise<AiConfigInfo>
   aiSetConfig(payload: { apiKey?: string; model?: AiModelId }): Promise<AiConfigInfo>
   aiAsk(req: AiAskRequest): Promise<AiAskResponse>
+  aiListModels(): Promise<string[]>
   aiCancel(): Promise<void>
 }
 

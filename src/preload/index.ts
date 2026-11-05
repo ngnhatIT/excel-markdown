@@ -105,6 +105,8 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('ai:setConfig', payload) as Promise<ApiResult<AiConfigInfo>>),
   aiAsk: (req: AiAskRequest): Promise<AiAskResponse> =>
     unwrap(ipcRenderer.invoke('ai:ask', req) as Promise<ApiResult<AiAskResponse>>),
+  aiListModels: (): Promise<string[]> =>
+    unwrap(ipcRenderer.invoke('ai:listModels') as Promise<ApiResult<string[]>>),
   aiCancel: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

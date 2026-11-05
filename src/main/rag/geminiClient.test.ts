@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildGeminiRequestBody,
   extractCitationsFromAnswer,
+  filterGeminiModels,
   maskApiKey,
   redactApiKey,
 } from './geminiClient'
@@ -44,5 +45,20 @@ describe('buildGeminiRequestBody & extractCitationsFromAnswer', () => {
     const ans = 'Trường này bắt buộc nhập [[SC001.md | 【項目定義】]].'
     const res = extractCitationsFromAnswer(ans, pool)
     expect(res.citations).toEqual([pool[0]])
+  })
+})
+
+describe('filterGeminiModels', () => {
+  it('chỉ giữ model gemini hỗ trợ generateContent, bỏ image/tts/embedding, mới nhất lên đầu', () => {
+    const gc = ['generateContent']
+    const ids = filterGeminiModels([
+      { name: 'models/gemini-2.5-flash', supportedGenerationMethods: gc },
+      { name: 'models/gemini-3.1-pro-preview', supportedGenerationMethods: gc },
+      { name: 'models/gemini-2.5-flash-image', supportedGenerationMethods: gc },
+      { name: 'models/gemini-2.5-flash-preview-tts', supportedGenerationMethods: gc },
+      { name: 'models/gemini-embedding-001', supportedGenerationMethods: ['embedContent'] },
+      { name: 'models/text-bison', supportedGenerationMethods: gc },
+    ])
+    expect(ids).toEqual(['gemini-3.1-pro-preview', 'gemini-2.5-flash'])
   })
 })

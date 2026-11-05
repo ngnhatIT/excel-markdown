@@ -133,7 +133,8 @@ export type MdConvertResult =
 
 /* --------------------------- Trợ lý AI (Gemini RAG) --------------------------- */
 
-export type AiModelId = 'gemini-2.5-flash' | 'gemini-2.5-pro'
+export type AiModelId = string
+export const DEFAULT_AI_MODEL: AiModelId = 'gemini-2.5-flash'
 export type AiScope = 'folder' | 'active'
 
 export interface RagCitation {

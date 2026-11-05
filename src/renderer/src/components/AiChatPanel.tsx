@@ -67,6 +67,7 @@ export function AiChatPanel({
     model: 'gemini-2.5-flash',
   })
   const [showKeyBox, setShowKeyBox] = useState(false)
+  const [models, setModels] = useState<string[]>(['gemini-2.5-flash', 'gemini-2.5-pro'])
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [scope, setScope] = useState<'folder' | 'active'>('folder')
   const [entries, setEntries] = useState<ChatEntry[]>([])
@@ -116,7 +117,7 @@ export function AiChatPanel({
     }
   }, [])
 
-  const changeModel = useCallback(async (model: 'gemini-2.5-flash' | 'gemini-2.5-pro') => {
+  const changeModel = useCallback(async (model: string) => {
     try {
       const next = await window.api.aiSetConfig({ model })
       setConfig(next)
@@ -124,6 +125,25 @@ export function AiChatPanel({
       toast(errMsg(e), 'err')
     }
   }, [])
+
+  const refreshModels = useCallback(async () => {
+    try {
+      const ids = await window.api.aiListModels()
+      setModels(ids)
+      toast(`Key dùng được ${ids.length} model Gemini`, 'ok')
+    } catch (e) {
+      toast(errMsg(e), 'err')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (config.hasKey) {
+      window.api
+        .aiListModels()
+        .then(setModels)
+        .catch(() => {})
+    }
+  }, [config.hasKey])
 
   const sendQuestion = useCallback(
     async (questionText: string, forceScope?: 'folder' | 'active') => {
@@ -221,11 +241,19 @@ export function AiChatPanel({
               <select
                 className="x2m-select"
                 value={config.model}
-                onChange={(e) => void changeModel(e.target.value as 'gemini-2.5-flash' | 'gemini-2.5-pro')}
+                onChange={(e) => void changeModel(e.target.value)}
               >
-                <option value="gemini-2.5-flash">Gemini 2.5 Flash (Nhanh, tiết kiệm)</option>
-                <option value="gemini-2.5-pro">Gemini 2.5 Pro (Suy luận sâu)</option>
+                {Array.from(new Set([config.model, ...models])).map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
               </select>
+              {config.hasKey && (
+                <button className="btn btn-sm btn-ghost" onClick={() => void refreshModels()} title="Lấy lại danh sách model mới nhất mà key này dùng được">
+                  ↻
+                </button>
+              )}
             </div>
             <div className="x2m-ai-keybox-row">
               <input

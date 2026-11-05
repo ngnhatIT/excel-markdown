@@ -216,3 +216,43 @@ export async function callGeminiApi(opts: {
 
   return { answer: cleanAnswer, citations, usage }
 }
+
+/** Lọc & sắp xếp danh sách model từ `GET /v1beta/models`: chỉ giữ model `gemini-*` hỗ trợ
+ * generateContent, bỏ biến thể không dùng để hỏi đáp văn bản (image/tts/embedding/live...). */
+export function filterGeminiModels(
+  raw: Array<{ name?: string; supportedGenerationMethods?: string[] }>
+): string[] {
+  const skip = /(image|tts|embedding|live|audio|robotics|computer-use|aqa|vision|imagen|veo|learnlm)/i
+  const ids = new Set<string>()
+  for (const m of raw) {
+    const id = (m.name ?? '').replace(/^models\//, '')
+    if (!/^gemini-[\w.-]+$/.test(id) || skip.test(id)) continue
+    if (!m.supportedGenerationMethods?.includes('generateContent')) continue
+    ids.add(id)
+  }
+  return Array.from(ids).sort((a, b) => b.localeCompare(a, 'en', { numeric: true }))
+}
+
+/** Hỏi Google những model mà API key này dùng được (không gửi key trên URL). */
+export async function listGeminiModels(apiKey: string): Promise<string[]> {
+  const key = apiKey.trim()
+  if (!key) throw new Error('Chưa cấu hình Gemini API Key.')
+  let res: Response
+  try {
+    res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
+      headers: { 'x-goog-api-key': key },
+    })
+  } catch (err) {
+    throw new Error('Không kết nối được tới Gemini API: ' + redactApiKey(String(err), key))
+  }
+  let data: { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>; error?: { message?: string } } = {}
+  try {
+    data = await res.json()
+  } catch {
+    /* không phải JSON */
+  }
+  if (!res.ok) {
+    throw new Error(`Không lấy được danh sách model (${res.status}): ` + redactApiKey(data.error?.message ?? res.statusText, key))
+  }
+  return filterGeminiModels(data.models ?? [])
+}

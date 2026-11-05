@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, safeStorage, shell, type MessageBoxOptions } from 'electron'
 import type { AiAskRequest, AiAskResponse, AiConfigInfo, AiModelId } from '../types'
 import { parseMarkdownForRag, type RagDocument } from './rag/chunker'
-import { callGeminiApi, maskApiKey, redactApiKey } from './rag/geminiClient'
+import { callGeminiApi, listGeminiModels, maskApiKey, redactApiKey } from './rag/geminiClient'
 import { buildRagContext } from './rag/retriever'
 import { join, dirname, basename, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -525,8 +525,19 @@ function decryptApiKey(stored: unknown): string {
 }
 
 function normalizeAiModel(m: unknown): AiModelId {
-  return m === 'gemini-2.5-pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash'
+  return typeof m === 'string' && /^gemini-[\w.-]{1,60}$/.test(m) ? m : 'gemini-2.5-flash'
 }
+
+ipcMain.handle('ai:listModels', async () => {
+  let rawKey = ''
+  try {
+    const store = await readStore()
+    rawKey = decryptApiKey(store['aiApiKeyEnc'])
+    return { ok: true, data: await listGeminiModels(rawKey) }
+  } catch (err) {
+    return { ok: false, error: redactApiKey(err instanceof Error ? err.message : String(err), rawKey) }
+  }
+})
 
 async function loadRagDocumentCached(absPath: string, relPath: string): Promise<RagDocument | null> {
   if (!isMarkdownPath(absPath)) return null
