@@ -274,6 +274,7 @@ export function AiChatPanel({
             </div>
             <div className="x2m-ai-hint">
               Key được mã hóa cục bộ bằng OS SafeStorage, chỉ gọi trực tiếp tới Google Gemini API.
+              {!config.hasKey && ' Lưu key xong, danh sách model mới nhất sẽ tự tải về.'}
             </div>
           </div>
         )}
