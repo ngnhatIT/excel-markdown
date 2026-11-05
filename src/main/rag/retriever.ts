@@ -1,0 +1,290 @@
+/* Bộ tìm kiếm lai BM25 + CJK 2-gram + Từ điển chuyên ngành Việt-Nhật & Chọn ngữ cảnh Ưu tiên Chất lượng.
+ * - Khi scope = 'active': nạp 100% toàn văn file đang xem.
+ * - Khi scope = 'folder' và tổng token <= maxContextTokens (32.000): nạp 100% toàn bộ các file.
+ * - Khi scope = 'folder' và vượt ngưỡng: đính kèm Sơ đồ thư mục + nạp nguyên file (Parent-Document) khớp nhất.
+ */
+import { estimateTokens, type RagDocument, type RagSection } from './chunker'
+import { expandViJaQueryTerms } from './glossary'
+
+export interface RagCitation {
+  filePath: string
+  relPath: string
+  sheetName: string
+  sectionTitle: string
+}
+
+export interface RagContextResult {
+  mode: 'full-active' | 'full-folder' | 'parent-rag'
+  contextText: string
+  citations: RagCitation[]
+  tokensEst: number
+  docCount: number
+}
+
+export const DEFAULT_MAX_CONTEXT_TOKENS = 32_000
+
+const CJK_RUN_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]+/g
+const WORD_RE = /[\p{L}\p{N}_-]+/gu
+
+/** Tách từ đa ngôn ngữ: từ Latin/Việt chữ thường + unigram & bigram (2-gram) cho chuỗi chữ Nhật/CJK. */
+export function tokenizeMultiLang(text: string): string[] {
+  const lower = text.toLowerCase()
+  const tokens: string[] = []
+
+  const words = lower.match(WORD_RE) ?? []
+  for (const w of words) {
+    if (!CJK_RUN_RE.test(w)) {
+      if (w.length > 0) tokens.push(w)
+    }
+    CJK_RUN_RE.lastIndex = 0
+  }
+
+  const cjkRuns = lower.match(CJK_RUN_RE) ?? []
+  for (const run of cjkRuns) {
+    const chars = Array.from(run)
+    for (let i = 0; i < chars.length; i++) {
+      tokens.push(chars[i])
+      if (i + 1 < chars.length) {
+        tokens.push(chars[i] + chars[i + 1])
+      }
+    }
+  }
+
+  return tokens
+}
+
+interface WeightedTerm {
+  term: string
+  weight: number
+}
+
+function buildWeightedQueryTerms(query: string): WeightedTerm[] {
+  const baseTokens = tokenizeMultiLang(query)
+  const map = new Map<string, number>()
+  for (const t of baseTokens) {
+    map.set(t, Math.max(map.get(t) ?? 0, 1.0))
+  }
+  for (const jaPhrase of expandViJaQueryTerms(query)) {
+    for (const t of tokenizeMultiLang(jaPhrase)) {
+      if (!map.has(t)) map.set(t, 0.8)
+    }
+  }
+  return Array.from(map.entries()).map(([term, weight]) => ({ term, weight }))
+}
+
+/** Chấm điểm BM25 cho một danh sách các văn bản, có cộng điểm thưởng khi khớp mã định danh chính xác. */
+function scoreItemsBm25(
+  texts: { body: string; header: string }[],
+  queryTerms: WeightedTerm[],
+  rawQuery: string
+): number[] {
+  if (texts.length === 0 || queryTerms.length === 0) return texts.map(() => 0)
+  const k1 = 1.5
+  const b = 0.75
+
+  const docTokenMaps: Map<string, number>[] = []
+  const docLengths: number[] = []
+  const df = new Map<string, number>()
+
+  for (const item of texts) {
+    const tokens = tokenizeMultiLang(item.body + ' ' + item.header)
+    docLengths.push(Math.max(1, tokens.length))
+    const tf = new Map<string, number>()
+    for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1)
+    docTokenMaps.push(tf)
+    for (const t of tf.keys()) df.set(t, (df.get(t) ?? 0) + 1)
+  }
+
+  const avgDl = docLengths.reduce((a, c) => a + c, 0) / texts.length
+  const idCodes = (rawQuery.match(/[A-Za-z]{2,6}[-_]?\d{1,5}|[A-Za-z]+_[A-Za-z0-9_]+/g) ?? []).map((x) =>
+    x.toLowerCase()
+  )
+
+  return texts.map((item, idx) => {
+    const tfMap = docTokenMaps[idx]
+    const dl = docLengths[idx]
+    const headerLower = item.header.toLowerCase()
+    const bodyLower = item.body.toLowerCase()
+    let score = 0
+
+    for (const { term, weight } of queryTerms) {
+      const f = tfMap.get(term) ?? 0
+      if (f === 0) continue
+      const n = df.get(term) ?? 0
+      const idf = Math.log(1 + (texts.length - n + 0.5) / (n + 0.5))
+      const num = f * (k1 + 1)
+      const den = f + k1 * (1 - b + b * (dl / avgDl))
+      let termScore = idf * (num / den) * weight
+      if (headerLower.includes(term)) termScore *= 1.8
+      score += termScore
+    }
+
+    for (const code of idCodes) {
+      if (headerLower.includes(code)) score += 6.0
+      else if (bodyLower.includes(code)) score += 3.5
+    }
+
+    return score
+  })
+}
+
+function formatFullDocBlock(doc: RagDocument): string {
+  const firstSection = doc.sections[0]?.sectionTitle ?? 'Tổng quan'
+  return `=== TÀI LIỆU: ${doc.relPath} | MỤC: ${firstSection} ===\n${doc.metaHeader}\n${doc.fullContent}`
+}
+
+function formatSectionBlock(sec: RagSection): string {
+  return `=== TÀI LIỆU: ${sec.relPath} | MỤC: ${sec.sectionTitle} ===\n${sec.metaHeader}\n${sec.content}`
+}
+
+/** Xây dựng ngữ cảnh gửi cho Gemini theo chiến lược Ưu tiên Chất lượng (Quality-First). */
+export function buildRagContext(
+  docs: RagDocument[],
+  query: string,
+  opts: { scope: 'folder' | 'active'; activeFilePath?: string; maxContextTokens?: number }
+): RagContextResult {
+  const maxTokens = opts.maxContextTokens ?? DEFAULT_MAX_CONTEXT_TOKENS
+  const nonEmptyDocs = docs.filter((d) => d.tokensEst > 0)
+
+  if (nonEmptyDocs.length === 0) {
+    return { mode: 'full-folder', contextText: '', citations: [], tokensEst: 0, docCount: 0 }
+  }
+
+  // 1. Chế độ "Chỉ file đang xem": ưu tiên 100% toàn văn file đó
+  if (opts.scope === 'active') {
+    const target =
+      nonEmptyDocs.find((d) => d.filePath === opts.activeFilePath) ?? nonEmptyDocs[0]
+    const citations: RagCitation[] = (target.sections.length > 0
+      ? target.sections
+      : [
+          {
+            filePath: target.filePath,
+            relPath: target.relPath,
+            sheetName: target.relPath,
+            sectionTitle: 'Tổng quan',
+          },
+        ]
+    ).map((s) => ({
+      filePath: s.filePath,
+      relPath: s.relPath,
+      sheetName: s.sheetName,
+      sectionTitle: s.sectionTitle,
+    }))
+    const contextText = formatFullDocBlock(target)
+    return {
+      mode: 'full-active',
+      contextText,
+      citations: citations.slice(0, 8),
+      tokensEst: estimateTokens(contextText),
+      docCount: 1,
+    }
+  }
+
+  // 2. Chế độ "Cả thư mục": nếu tổng token <= maxTokens thì nạp 100% toàn văn mọi file
+  const totalTokens = nonEmptyDocs.reduce((sum, d) => sum + d.tokensEst + 12, 0)
+  if (totalTokens <= maxTokens) {
+    const blocks = nonEmptyDocs.map(formatFullDocBlock)
+    const citations: RagCitation[] = nonEmptyDocs.map((d) => ({
+      filePath: d.filePath,
+      relPath: d.relPath,
+      sheetName: d.sections[0]?.sheetName ?? d.relPath,
+      sectionTitle: d.sections[0]?.sectionTitle ?? 'Tổng quan',
+    }))
+    const contextText = blocks.join('\n\n')
+    return {
+      mode: 'full-folder',
+      contextText,
+      citations,
+      tokensEst: estimateTokens(contextText),
+      docCount: nonEmptyDocs.length,
+    }
+  }
+
+  // 3. Thư mục lớn (> maxTokens): Parent-Document RAG kết hợp Sơ đồ thư mục
+  const catalogLines = [
+    '=== SƠ ĐỒ TỔNG QUAN THƯ MỤC ===',
+    ...nonEmptyDocs.map(
+      (d) => `- ${d.metaHeader}${d.outline.length > 0 ? ' · Mục: ' + d.outline.join(', ') : ''}`
+    ),
+  ]
+  const catalogBlock = catalogLines.join('\n')
+  let usedTokens = estimateTokens(catalogBlock)
+  const budget = Math.max(500, maxTokens)
+
+  const queryTerms = buildWeightedQueryTerms(query)
+  const docScores = scoreItemsBm25(
+    nonEmptyDocs.map((d) => ({ body: d.fullContent, header: d.metaHeader + ' ' + d.outline.join(' ') })),
+    queryTerms,
+    query
+  )
+
+  const rankedDocs = nonEmptyDocs
+    .map((doc, idx) => ({ doc, score: docScores[idx] }))
+    .sort((a, b) => b.score - a.score)
+
+  const blocks: string[] = [catalogBlock]
+  const citations: RagCitation[] = []
+  const includedDocPaths = new Set<string>()
+  let docCount = 0
+
+  // Ưu tiên nạp NGUYÊN FILE (Parent-Document) cho các file khớp cao nhất
+  for (const { doc } of rankedDocs) {
+    if (usedTokens + doc.tokensEst <= budget || blocks.length === 1) {
+      if (doc.tokensEst <= budget) {
+        blocks.push(formatFullDocBlock(doc))
+        usedTokens += doc.tokensEst + 10
+        includedDocPaths.add(doc.filePath)
+        docCount++
+        citations.push({
+          filePath: doc.filePath,
+          relPath: doc.relPath,
+          sheetName: doc.sections[0]?.sheetName ?? doc.relPath,
+          sectionTitle: doc.sections[0]?.sectionTitle ?? 'Tổng quan',
+        })
+      }
+    }
+  }
+
+  // Phần ngân sách còn lại nạp các RagSection điểm cao từ các file chưa được nạp nguyên văn
+  const remainingSections = nonEmptyDocs
+    .filter((d) => !includedDocPaths.has(d.filePath))
+    .flatMap((d) => d.sections)
+
+  if (remainingSections.length > 0 && usedTokens < budget) {
+    const secScores = scoreItemsBm25(
+      remainingSections.map((s) => ({ body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })),
+      queryTerms,
+      query
+    )
+    const rankedSecs = remainingSections
+      .map((sec, idx) => ({ sec, score: secScores[idx] }))
+      .sort((a, b) => b.score - a.score)
+
+    for (const { sec, score } of rankedSecs) {
+      if (score <= 0 && citations.length > 0) break
+      if (usedTokens + sec.tokensEst > budget && citations.length > 0) continue
+      blocks.push(formatSectionBlock(sec))
+      usedTokens += sec.tokensEst + 8
+      if (!includedDocPaths.has(sec.filePath)) {
+        includedDocPaths.add(sec.filePath)
+        docCount++
+      }
+      citations.push({
+        filePath: sec.filePath,
+        relPath: sec.relPath,
+        sheetName: sec.sheetName,
+        sectionTitle: sec.sectionTitle,
+      })
+      if (citations.length >= 12) break
+    }
+  }
+
+  const contextText = blocks.join('\n\n')
+  return {
+    mode: 'parent-rag',
+    contextText,
+    citations,
+    tokensEst: estimateTokens(contextText),
+    docCount: Math.max(1, docCount),
+  }
+}
