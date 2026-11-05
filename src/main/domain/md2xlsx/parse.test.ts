@@ -5,7 +5,7 @@ import type { Block, ParsedFile } from './model'
 import { parseMarkdownFile } from './parse'
 
 const golden = readFileSync(
-  fileURLToPath(new URL('../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)),
+  fileURLToPath(new URL('../../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)),
   'utf8'
 )
 const g = (md: string) => parseMarkdownFile(md, 's.md').sheets[0].blocks

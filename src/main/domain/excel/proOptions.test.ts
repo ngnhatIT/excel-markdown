@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
-import { DEFAULT_OPTIONS, type ConvertOptions } from '../types'
+import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../types'
 import { extractSheetMeta, parseRange, sheetToMarkdown } from './converter'
 import { frontMatter, joinWorkbookMarkdown } from './output'
 

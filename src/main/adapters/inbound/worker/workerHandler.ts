@@ -6,9 +6,9 @@ import {
   extractSheetMeta,
   listSheetsInWorkbook,
   type WorkBook,
-} from './converter'
-import { frontMatter } from './output'
-import type { WorkerRequest, WorkerResponse } from './workerProtocol'
+} from '../../../domain/excel/converter'
+import { frontMatter } from '../../../domain/excel/output'
+import type { WorkerRequest, WorkerResponse } from '../../../application/ports/workerProtocol'
 
 export interface WorkbookSource {
   get(path: string): WorkBook

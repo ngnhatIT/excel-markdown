@@ -13,7 +13,7 @@ import {
   dedupeFileName,
   joinWorkbookMarkdown,
 } from './converter'
-import type { ConvertOptions } from '../types'
+import type { ConvertOptions } from '../../../types'
 
 const OPTS: ConvertOptions = {
   skipDelSheets: true,

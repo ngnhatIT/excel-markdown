@@ -1,8 +1,8 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, safeStorage, shell, type MessageBoxOptions } from 'electron'
 import type { AiAskRequest, AiAskResponse, AiConfigInfo, AiModelId } from '../types'
-import { parseMarkdownForRag, type RagDocument } from './rag/chunker'
-import { callGeminiApi, listGeminiModels, maskApiKey, redactApiKey } from './rag/geminiClient'
-import { buildRagContext } from './rag/retriever'
+import { parseMarkdownForRag, type RagDocument } from './domain/rag/chunker'
+import { callGeminiApi, listGeminiModels, maskApiKey, redactApiKey } from './adapters/outbound/gemini/geminiClient'
+import { buildRagContext } from './domain/rag/retriever'
 import { join, dirname, basename, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { access, appendFile, constants, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
@@ -15,9 +15,9 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../types'
-import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
-import { CancelledError, ConverterWorker } from './converterWorker'
-import { friendlyError } from './errors'
+import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName, type SheetResult } from './domain/excel/output'
+import { CancelledError, ConverterWorker } from './adapters/outbound/converterWorker'
+import { friendlyError } from './domain/errors'
 import {
   imageMime,
   isInsideDir,
@@ -25,9 +25,9 @@ import {
   isOpenableDirectory,
   isSafeExternalUrl,
   shouldAllowNavigation,
-} from './guards'
-import { listMarkdownFiles, readMarkdownFile } from './mdFolder'
-import { PARTIAL_SUFFIX } from './workerProtocol'
+} from './domain/guards'
+import { listMarkdownFiles, readMarkdownFile } from './adapters/outbound/mdFolder'
+import { PARTIAL_SUFFIX } from './application/ports/workerProtocol'
 import { IMG_SCHEME, imagePathFromUrl } from '../shared/mdView'
 
 // Ảnh cục bộ trong file .md (chế độ Đọc Markdown). Phải đăng ký trước app ready.
@@ -223,9 +223,10 @@ ipcMain.handle('export:html', async (_e, defaultName: unknown, html: unknown) =>
     if (typeof defaultName !== 'string' || typeof html !== 'string' || html.length > 20_000_000) {
       return { ok: false, error: 'Dữ liệu xuất HTML không hợp lệ.' }
     }
+    const base = defaultName.replace(/\.(md|markdown|xlsx|xls|html)$/i, '')
     const res = await dialog.showSaveDialog({
       title: 'Lưu trang HTML',
-      defaultPath: safeFileName(defaultName) + '.html',
+      defaultPath: safeFileName(base || 'ghi-chu') + '.html',
       filters: [{ name: 'HTML', extensions: ['html'] }],
     })
     if (res.canceled || !res.filePath) return { ok: true, data: null }

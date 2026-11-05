@@ -4,8 +4,8 @@ import { mkdtempSync, utimesSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WorkbookCache, createWorkbookCache } from './workbookCache'
-import { readWorkbook, convertSheetInWorkbook } from './converter'
-import { DEFAULT_OPTIONS } from '../types'
+import { readWorkbook, convertSheetInWorkbook } from '../../../domain/excel/converter'
+import { DEFAULT_OPTIONS } from '../../../../types'
 
 function fakeDeps() {
   const files: Record<string, { mtimeMs: number; size: number }> = {}

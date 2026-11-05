@@ -11,14 +11,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
-import { convertWorkbook, joinWorkbookMarkdown, listSheets } from '../converter'
-import { DEFAULT_OPTIONS } from '../../types'
+import { convertWorkbook, joinWorkbookMarkdown, listSheets } from '../excel/converter'
+import { DEFAULT_OPTIONS } from '../../../types'
 import type { SheetModel } from './model'
 import { assignSheetNames } from './names'
 import { parseMarkdownFile } from './parse'
 import { buildWorkbook, saveWorkbook } from './write'
 
-const INPUT_DIR = fileURLToPath(new URL('../../../test/golden/', import.meta.url))
+const INPUT_DIR = fileURLToPath(new URL('../../../../test/golden/', import.meta.url))
 const files = readdirSync(INPUT_DIR).filter((f) => f.endsWith('.md'))
 
 interface CellDump {
@@ -174,7 +174,7 @@ describe('golden md2xlsx: Markdown do app tạo', () => {
     it(`${f}: golden`, async () => {
       const dump = await dumpWorkbook(parseMarkdownFile(md, f).sheets)
       await expect(JSON.stringify(dump, null, 2) + '\n').toMatchFileSnapshot(
-        `../../../test/golden-md2xlsx/${f}.json`
+        `../../../../test/golden-md2xlsx/${f}.json`
       )
     })
 
@@ -255,7 +255,7 @@ describe('Markdown bất kỳ (spec §11): không crash, mọi chữ được gi
   })
 
   it('mẫu viết tay (heading nhiều cấp, list có số, quote, bảng, code, <br>): không mất chữ', async () => {
-    const md = readFileSync(fileURLToPath(new URL('../../../test/fixtures/handwritten.md', import.meta.url)), 'utf8')
+    const md = readFileSync(fileURLToPath(new URL('../../../../test/fixtures/handwritten.md', import.meta.url)), 'utf8')
     const { sheets, back } = await mdToReadBack(md, 'handwritten.md')
     expect(sheets.map((s) => s.name)).toEqual(['概要', '変更履歴'])
     // mẫu đủ lớn để kiểm có ý nghĩa

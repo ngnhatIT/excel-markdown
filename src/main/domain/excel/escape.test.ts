@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { marked } from 'marked'
 import { escapeMarkdownInline, sheetToMarkdown } from './converter'
-import { DEFAULT_OPTIONS, type ConvertOptions } from '../types'
+import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../types'
 import { BLOCK_CASES, INLINE_CASES, UNTOUCHED } from './escapeCases'
 
 const OPTS: ConvertOptions = { ...DEFAULT_OPTIONS, includeSheetTitle: false }

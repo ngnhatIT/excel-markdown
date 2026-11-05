@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import { parseArgs, runCli } from './cliCore'
 
-const fixture = join(__dirname, '../../test/fixtures/excel-authored.xlsx')
+const fixture = join(__dirname, '../../../../../test/fixtures/excel-authored.xlsx')
 const tmp = mkdtempSync(join(tmpdir(), 'x2m-cli-'))
 afterAll(() => rmSync(tmp, { recursive: true, force: true }))
 

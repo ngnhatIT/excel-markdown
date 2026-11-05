@@ -1,7 +1,7 @@
 /* Giao thức main <-> worker đọc Excel (utilityProcess). Chỉ chứa type:
  * main import file này mà không kéo SheetJS vào main process.
  */
-import type { ConvertOptions } from '../types'
+import type { ConvertOptions } from '../../../types'
 
 export type WorkerRequest =
   | { id: number; type: 'listSheets'; path: string; skipDelSheets: boolean }

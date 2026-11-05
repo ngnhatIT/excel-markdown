@@ -1,4 +1,4 @@
-import { runCli, USAGE } from './cliCore'
+import { runCli, USAGE } from './adapters/inbound/cli/cliCore'
 
 try {
   process.exitCode = runCli(process.argv.slice(2))

@@ -11,6 +11,7 @@ import { defaultWorkbookName } from '../../shared/workbookName'
 import { imageUrl, resolveRelative } from '../../shared/mdView'
 import { errMsg, type ConvertProgress } from './api'
 import { baseName, copyText, toast } from './utils'
+import { iconBtn } from './ui'
 import { AiChatPanel } from './components/AiChatPanel'
 import { FileList } from './components/FileList'
 import { Footer } from './components/Footer'
@@ -696,7 +697,7 @@ export default function App(): React.ReactElement {
   /* -------------------------------- render --------------------------------- */
   return (
     <div
-      className="x2m-app"
+      className="x2m-app flex h-screen flex-col bg-canvas text-ink"
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -720,7 +721,7 @@ export default function App(): React.ReactElement {
       />
 
       {showOnboarding && (
-        <div className="x2m-onboarding">
+        <div className="x2m-onboarding flex items-center justify-between border-b border-line bg-accent-soft px-4 py-1.5 text-xs text-dim [&_b]:text-ink">
           {isView ? (
             <span>
               Kéo thả thư mục hoặc file Markdown vào đây để đọc — <b>Ctrl+O</b> mở thư mục,
@@ -737,13 +738,13 @@ export default function App(): React.ReactElement {
               <b> Ctrl+Enter</b> để convert.
             </span>
           )}
-          <button className="icon-btn" onClick={dismissOnboarding} title="Đóng" aria-label="Đóng">
+          <button className={`icon-btn ${iconBtn}`} onClick={dismissOnboarding} title="Đóng" aria-label="Đóng">
             <IconX size={14} />
           </button>
         </div>
       )}
 
-      <div className="x2m-body">
+      <div className="x2m-body flex min-h-0 flex-1">
         {isView ? (
           <>
             <MdTreeList
@@ -774,7 +775,7 @@ export default function App(): React.ReactElement {
               onRemoveLoose={viewer.removeLoose}
             />
 
-            <main className="x2m-main">
+            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
               <PreviewPane
                 title={viewerTitle}
                 md={viewer.doc?.markdown ?? ''}
@@ -794,7 +795,7 @@ export default function App(): React.ReactElement {
 
             {!sideCollapsed && (
               <div
-                className="x2m-resizer"
+                className="x2m-resizer relative z-[5] -mx-0.5 w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-150 hover:bg-accent active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
                 title="Kéo để thay đổi độ rộng cột Trợ lý AI"
               />
@@ -825,7 +826,7 @@ export default function App(): React.ReactElement {
               onRemove={removeMdFile}
             />
 
-            <main className="x2m-main">
+            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
               <PreviewPane
                 title={mdSel ? mdSel.name : null}
                 md={mdSel?.markdown ?? ''}
@@ -854,7 +855,7 @@ export default function App(): React.ReactElement {
 
             {!sideCollapsed && (
               <div
-                className="x2m-resizer"
+                className="x2m-resizer relative z-[5] -mx-0.5 w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-150 hover:bg-accent active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
                 title="Kéo để thay đổi độ rộng cột Tùy chọn"
               />
@@ -893,13 +894,13 @@ export default function App(): React.ReactElement {
 
             {!leftCollapsed && (
               <div
-                className="x2m-resizer"
+                className="x2m-resizer relative z-[5] -mx-0.5 w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-150 hover:bg-accent active:bg-accent"
                 onMouseDown={(e) => startResize('left', e)}
                 title="Kéo để thay đổi độ rộng cột File Excel"
               />
             )}
 
-            <main className="x2m-main">
+            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
               <PreviewPane
                 title={selFile && selSheet ? `${selFile.name} / ${selSheet}` : null}
                 md={preview.md}
@@ -923,7 +924,7 @@ export default function App(): React.ReactElement {
 
             {!sideCollapsed && (
               <div
-                className="x2m-resizer"
+                className="x2m-resizer relative z-[5] -mx-0.5 w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-150 hover:bg-accent active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
                 title="Kéo để thay đổi độ rộng cột Tùy chọn"
               />

@@ -1,0 +1,221 @@
+/* ================== Rendered Markdown (.md-body) ================== */
+.md-body {
+  max-width: 1100px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.md-body.full {
+  max-width: none;
+}
+
+.md-body h1 {
+  font-size: 22px;
+  margin: 0 0 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.md-body h2 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  padding-bottom: 7px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+
+.md-body h3 {
+  font-size: 15px;
+  margin: 22px 0 8px;
+  color: var(--accent-text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.md-body h4,
+.md-body h5,
+.md-body h6 {
+  font-size: 14px;
+  margin: 16px 0 8px;
+}
+
+.md-body p {
+  margin: 8px 0;
+}
+
+.md-body blockquote {
+  margin: 10px 0;
+  padding: 8px 14px;
+  color: var(--text-dim);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 8px 8px 0;
+}
+
+.md-body blockquote p {
+  margin: 3px 0;
+}
+
+.md-body ul,
+.md-body ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.md-body li {
+  margin: 3px 0;
+}
+
+/* Bảng dữ liệu đã convert từ Excel */
+.md-body table {
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 14px 0 18px;
+  font-size: 13px;
+  line-height: 1.5;
+  width: max-content;
+  min-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.md-body th,
+.md-body td {
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 7px 11px;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+.md-body th:last-child,
+.md-body td:last-child {
+  border-right: none;
+}
+
+.md-body tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Chế độ gói dòng thông minh (wrap-cells): giữ cột đầu & header gọn, tự gói dòng cột mô tả dài */
+.md-body.wrap-cells td {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  max-width: 440px;
+  min-width: 56px;
+}
+
+.md-body.wrap-cells th:first-child,
+.md-body.wrap-cells td:first-child {
+  white-space: nowrap;
+  min-width: 40px;
+}
+
+.md-body th {
+  background: var(--bg-raised);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.md-body thead th {
+  position: sticky;
+  top: -20px;
+  z-index: 2;
+  box-shadow: 0 1px 0 var(--border);
+}
+
+.md-body tbody tr:nth-child(even) td {
+  background: var(--bg-soft);
+}
+
+.md-body tbody tr:hover td {
+  background: var(--bg-hover);
+}
+
+.md-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 24px 0;
+}
+
+.md-body code {
+  font-family: 'Cascadia Code', Consolas, monospace;
+  font-size: 12.5px;
+}
+
+.md-body a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+.md-body a:hover {
+  text-decoration: underline;
+}
+
+.md-body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+
+.md-body :not(pre) > code {
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.md-body pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  line-height: 1.6;
+}
+
+
+/* In / lưu PDF (window.print): chỉ in vùng xem trước, bỏ toàn bộ khung app */
+@media print {
+  .x2m-header,
+  .x2m-footer,
+  .x2m-side,
+  .x2m-preview-bar,
+  .x2m-outline-bar,
+  .x2m-show-more,
+  .x2m-body > :not(.x2m-main),
+  .x2m-main > :not(.x2m-preview) {
+    display: none !important;
+  }
+  html,
+  body,
+  #root,
+  .x2m-app,
+  .x2m-body,
+  .x2m-main,
+  .x2m-preview {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+  }
+  .x2m-preview {
+    padding: 0 !important;
+    zoom: 1 !important;
+  }
+  .md-body {
+    max-width: none !important;
+    color: #000;
+  }
+  .md-body table {
+    page-break-inside: auto;
+    width: 100%;
+  }
+  .md-body tr {
+    page-break-inside: avoid;
+  }
+}
+
+

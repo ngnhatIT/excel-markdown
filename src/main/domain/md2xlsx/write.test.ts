@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { PARTIAL_SUFFIX } from '../workerProtocol'
+import { PARTIAL_SUFFIX } from '../../application/ports/workerProtocol'
 import { estimateLines } from './layout'
 import type { Block, SheetModel } from './model'
 import { safeSheetName } from './names'
@@ -704,7 +704,7 @@ describe('buildWorkbook: chiều cao hàng merge không thấp hơn AutoFit củ
     { kind: 'code', lines: CODE.map(({ text }) => text) }
   ]
   const golden = parseMarkdownFile(
-    readFileSync(fileURLToPath(new URL('../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)), 'utf8'),
+    readFileSync(fileURLToPath(new URL('../../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url)), 'utf8'),
     'kihon-sekkei.xlsx.md'
   ).sheets[0]
 

@@ -15,9 +15,13 @@ export function Toasts(): React.ReactElement {
   }, [])
 
   return (
-    <div className="x2m-toasts" aria-live="polite">
+    <div className="x2m-toasts fixed bottom-[68px] right-4 z-[100] flex flex-col gap-2" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className={cn('x2m-toast', t.kind)} role="status">
+        <div key={t.id} className={cn(
+            'x2m-toast max-w-[380px] rounded-[10px] border bg-raised px-4 py-2.5 text-[13px] text-ink shadow-pop',
+            t.kind,
+            t.kind === 'ok' ? 'border-success' : 'border-danger'
+          )} role="status">
           {t.msg}
         </div>
       ))}

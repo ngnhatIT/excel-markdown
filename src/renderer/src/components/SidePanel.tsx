@@ -16,25 +16,25 @@ export function SidePanel({ title = 'Tùy chọn', collapsed, onToggle, actions,
   const hideTitle = `Ẩn ${title}`
   if (collapsed) {
     return (
-      <aside className="x2m-side collapsed">
-        <button className="x2m-side-strip" onClick={onToggle} title={showTitle} aria-label={showTitle} aria-expanded={false}>
-          <span className="x2m-side-chevron open">
+      <aside className="x2m-side collapsed w-10 min-w-10 shrink-0 overflow-hidden border-l border-line bg-soft">
+        <button className="x2m-side-strip flex size-full cursor-pointer flex-col items-center gap-2.5 py-3 text-dim transition-colors duration-150 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent" onClick={onToggle} title={showTitle} aria-label={showTitle} aria-expanded={false}>
+          <span className="x2m-side-chevron open flex rotate-90">
             <IconChevronDown size={14} />
           </span>
           <IconSettings size={16} />
-          <span className="x2m-side-vlabel">{title}</span>
+          <span className="x2m-side-vlabel text-xs font-bold tracking-[0.04em] [writing-mode:vertical-rl]">{title}</span>
         </button>
       </aside>
     )
   }
   return (
-    <aside className="x2m-side" style={width ? { width, minWidth: width } : undefined}>
-      <div className="x2m-pane-title">
+    <aside className="x2m-side w-[304px] min-w-60 shrink-0 overflow-y-auto border-l border-line bg-soft" style={width ? { width, minWidth: width } : undefined}>
+      <div className="x2m-pane-title flex items-center justify-between gap-1.5 px-3 pb-1.5 pt-2.5 text-xs font-bold tracking-[0.01em] text-dim">
         {title}
-        <span className="x2m-side-head-actions">
+        <span className="x2m-side-head-actions flex items-center gap-1">
           {actions}
-          <button className="x2m-move-btn x2m-reload-btn" onClick={onToggle} title={hideTitle} aria-label={hideTitle} aria-expanded>
-            <span className="x2m-side-chevron">
+          <button className="x2m-move-btn x2m-reload-btn flex cursor-pointer items-center rounded-md px-1.5 py-1 text-[13px] font-bold leading-none text-dim transition-colors duration-150 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent" onClick={onToggle} title={hideTitle} aria-label={hideTitle} aria-expanded>
+            <span className="x2m-side-chevron flex -rotate-90">
               <IconChevronDown size={14} />
             </span>
           </button>

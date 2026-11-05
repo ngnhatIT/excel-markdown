@@ -3,13 +3,13 @@
 // mọi yêu cầu Excel → Markdown không phải trả giá nạp exceljs.
 import { readFile } from 'node:fs/promises'
 import { basename, isAbsolute } from 'node:path'
-import type { MdInspectResult } from '../../types'
-import { friendlyError } from '../errors'
-import { isMarkdownPath } from '../guards'
-import type { WorkerRequest, WorkerResponse } from '../workerProtocol'
-import type { ParsedFile, SheetModel } from './model'
-import { assignSheetNames } from './names'
-import { parseMarkdownFile } from './parse'
+import type { MdInspectResult } from '../../../../types'
+import { friendlyError } from '../../../domain/errors'
+import { isMarkdownPath } from '../../../domain/guards'
+import type { WorkerRequest, WorkerResponse } from '../../../application/ports/workerProtocol'
+import type { ParsedFile, SheetModel } from '../../../domain/md2xlsx/model'
+import { assignSheetNames } from '../../../domain/md2xlsx/names'
+import { parseMarkdownFile } from '../../../domain/md2xlsx/parse'
 
 export type MdWorkerRequest = Extract<WorkerRequest, { type: 'mdInspect' | 'mdToXlsx' }>
 
@@ -77,7 +77,7 @@ async function toXlsx(files: string[], outPath: string): Promise<{ outPath: stri
   const sheets = assignSheetNames(all)
   if (sheets.length === 0) throw new MdRequestError('Các file Markdown không có nội dung để tạo sheet.')
 
-  const { buildWorkbook, saveWorkbook } = await import('./write')
+  const { buildWorkbook, saveWorkbook } = await import('../../../domain/md2xlsx/write')
   try {
     await saveWorkbook(buildWorkbook(sheets), outPath)
   } catch (err) {

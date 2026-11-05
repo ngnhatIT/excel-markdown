@@ -3,17 +3,14 @@
  * テーブルID..., section 【...】/■..., bảng No/№/項番, header gộp nhiều tầng,
  * ô merge ngang/dọc, dòng ghi chú ※ cuối bảng, ô nhiều dòng, công thức.
  */
-import * as fs from 'node:fs'
 import * as XLSX from 'xlsx'
-import type { ConvertOptions, VerticalMergeMode } from '../types'
+import type { ConvertOptions, VerticalMergeMode } from '../../../types'
 import { escapeMarkdownInline, type SheetResult } from './output'
 
 // Giữ API cũ: test và code cũ import các hàm này từ converter.
 export { dedupeFileName, escapeMarkdownInline, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
-
-// SheetJS >= 0.20: bản ESM (vitest dùng) không tự nạp `fs`, readFile/writeFile sẽ lỗi
-// "Cannot access file". Bản CJS (worker build) không cần nhưng gọi cũng vô hại.
-XLSX.set_fs(fs)
+// Re-export outbound adapters để tương thích ngược với tests và worker cũ
+export { convertSheet, convertWorkbook, listSheets, readWorkbook } from '../../adapters/outbound/xlsxFiles'
 
 const META_LABELS = new Set([
   '機能ID',
@@ -687,11 +684,6 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
 
 export type WorkBook = XLSX.WorkBook
 
-/** Đọc + parse file Excel (một lần cho cả liệt kê sheet, preview và convert). */
-export function readWorkbook(filePath: string): WorkBook {
-  return XLSX.readFile(filePath, { cellDates: false })
-}
-
 /** Liệt kê sheet của workbook kèm số dòng (theo nội dung thật) và cờ ẩn. */
 export function listSheetsInWorkbook(
   wb: WorkBook,
@@ -705,26 +697,11 @@ export function listSheetsInWorkbook(
   })
 }
 
-/** Liệt kê sheet của file Excel. Ném lỗi nếu file không đọc được. */
-export function listSheets(filePath: string, skipDelSheets: boolean): ReturnType<typeof listSheetsInWorkbook> {
-  return listSheetsInWorkbook(readWorkbook(filePath), skipDelSheets)
-}
-
 /** Convert một sheet của workbook theo tên. Ném lỗi nếu không tìm thấy sheet. */
 export function convertSheetInWorkbook(wb: WorkBook, sheetName: string, opts: ConvertOptions): string {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error('Không tìm thấy sheet: ' + sheetName)
   return sheetToMarkdown(ws, sheetName, opts)
-}
-
-/** Convert một sheet theo tên. Ném lỗi nếu không tìm thấy sheet. */
-export function convertSheet(filePath: string, sheetName: string, opts: ConvertOptions): string {
-  return convertSheetInWorkbook(readWorkbook(filePath), sheetName, opts)
-}
-
-/** Convert nhiều sheet của một file Excel (xem convertSheetsInWorkbook). */
-export function convertWorkbook(filePath: string, sheetNames: string[], opts: ConvertOptions): SheetResult[] {
-  return convertSheetsInWorkbook(readWorkbook(filePath), sheetNames, opts)
 }
 
 /** Convert nhiều sheet của một workbook. Bỏ qua sheet không tồn tại;

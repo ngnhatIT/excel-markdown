@@ -1,7 +1,7 @@
 /* Client gọi Gemini API ở tiến trình main, kèm các hàm bảo mật API Key (redactApiKey, maskApiKey)
  * và trích xuất thẻ trích dẫn [[relPath | sectionTitle]].
  */
-import type { AiAskResponse, AiChatTurn, AiModelId, RagCitation } from '../../types'
+import type { AiAskResponse, AiChatTurn, AiModelId, RagCitation } from '../../../../types'
 
 const MAX_HISTORY_MESSAGES = 12 // 6 lượt hỏi - đáp gần nhất
 
@@ -121,7 +121,11 @@ interface GeminiApiRawResponse {
     content?: {
       parts?: { text?: string }[]
     }
+    finishReason?: string
   }[]
+  promptFeedback?: {
+    blockReason?: string
+  }
   usageMetadata?: {
     promptTokenCount?: number
     candidatesTokenCount?: number
@@ -133,7 +137,24 @@ interface GeminiApiRawResponse {
   }
 }
 
-/** Gọi Gemini generateContent REST API bằng fetch của Node ở tiến trình main. */
+/** Chờ một khoảng thời gian, dừng ngay nếu người dùng huỷ yêu cầu. */
+function delayWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new Error('Đã dừng yêu cầu AI'))
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    const onAbort = (): void => {
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', onAbort)
+      reject(new Error('Đã dừng yêu cầu AI'))
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
+/** Gọi Gemini generateContent REST API bằng fetch của Node ở tiến trình main, kèm timeout và tự thử lại khi gặp lỗi tạm thời. */
 export async function callGeminiApi(opts: {
   apiKey: string
   model: AiModelId
@@ -148,73 +169,140 @@ export async function callGeminiApi(opts: {
     throw new Error('Chưa cấu hình Gemini API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-    opts.model
-  )}:generateContent?key=${encodeURIComponent(key)}`
-
   const body = buildGeminiRequestBody(opts.question, opts.contextText, opts.history)
+  let activeModel = opts.model
+  const maxAttempts = 3
 
-  let res: Response
-  try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: opts.signal,
-    })
-  } catch (err) {
-    if (err instanceof Error && err.name === 'AbortError') {
-      throw new Error('Đã dừng yêu cầu AI')
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      activeModel
+    )}:generateContent?key=${encodeURIComponent(key)}`
+
+    const timeoutMs = 60_000
+    const ctrl = new AbortController()
+    let timedOut = false
+    const timer = setTimeout(() => {
+      timedOut = true
+      ctrl.abort(new Error('TIMEOUT'))
+    }, timeoutMs)
+
+    const onUserAbort = (): void => ctrl.abort(new Error('USER_ABORT'))
+    if (opts.signal) {
+      if (opts.signal.aborted) {
+        clearTimeout(timer)
+        throw new Error('Đã dừng yêu cầu AI')
+      }
+      opts.signal.addEventListener('abort', onUserAbort, { once: true })
     }
-    throw new Error('Không kết nối được tới Gemini API: ' + redactApiKey(String(err), key))
-  }
 
-  let data: GeminiApiRawResponse = {}
-  try {
-    data = (await res.json()) as GeminiApiRawResponse
-  } catch {
-    /* phản hồi không phải JSON */
-  }
+    let res: Response
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      })
+    } catch (err) {
+      if (opts.signal?.aborted) {
+        throw new Error('Đã dừng yêu cầu AI')
+      }
+      if (timedOut) {
+        if (attempt < maxAttempts - 1) {
+          await delayWithSignal(1500 * (attempt + 1), opts.signal)
+          continue
+        }
+        throw new Error('Quá thời gian chờ phản hồi từ Gemini API (60s). Vui lòng thử lại.')
+      }
+      if (attempt < maxAttempts - 1) {
+        await delayWithSignal(1500 * (attempt + 1), opts.signal)
+        continue
+      }
+      throw new Error('Không kết nối được tới Gemini API: ' + redactApiKey(String(err), key))
+    } finally {
+      clearTimeout(timer)
+      if (opts.signal) {
+        opts.signal.removeEventListener('abort', onUserAbort)
+      }
+    }
 
-  if (!res.ok) {
-    if (res.status === 400 || res.status === 401 || res.status === 403) {
+    let data: GeminiApiRawResponse = {}
+    try {
+      data = (await res.json()) as GeminiApiRawResponse
+    } catch {
+      /* phản hồi không phải JSON */
+    }
+
+    if (!res.ok) {
+      // Tự động chuyển về model flash ổn định nếu model đã chọn bị khai tử hoặc trả 404
+      if (res.status === 404 && activeModel !== 'gemini-2.5-flash') {
+        activeModel = 'gemini-2.5-flash'
+        continue
+      }
+      // Lỗi tạm thời (rate limit 429 hoặc quá tải 500/502/503/504): thử lại có ngắt quãng
+      if (
+        (res.status === 429 || res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) &&
+        attempt < maxAttempts - 1
+      ) {
+        await delayWithSignal(1500 * (attempt + 1), opts.signal)
+        continue
+      }
+      if (res.status === 400 || res.status === 401 || res.status === 403) {
+        throw new Error(
+          'Gemini API Key không hợp lệ hoặc không có quyền truy cập (' +
+            res.status +
+            '): ' +
+            redactApiKey(data.error?.message ?? res.statusText, key)
+        )
+      }
+      if (res.status === 429) {
+        throw new Error('Đã vượt giới hạn quota Gemini API (429). Vui lòng chờ ít giây rồi thử lại.')
+      }
       throw new Error(
-        'Gemini API Key không hợp lệ hoặc không có quyền truy cập (' +
-          res.status +
-          '): ' +
-          redactApiKey(data.error?.message ?? res.statusText, key)
+        `Lỗi Gemini API (${res.status}): ` + redactApiKey(data.error?.message ?? res.statusText, key)
       )
     }
-    if (res.status === 429) {
-      throw new Error('Đã vượt giới hạn quota Gemini API (429). Vui lòng chờ ít giây rồi thử lại.')
+
+    const candidate = data.candidates?.[0]
+    if (candidate?.finishReason === 'SAFETY') {
+      throw new Error('Nội dung phản hồi bị bộ lọc an toàn của Gemini chặn (SAFETY). Vui lòng điều chỉnh lại câu hỏi.')
     }
-    throw new Error(
-      `Lỗi Gemini API (${res.status}): ` + redactApiKey(data.error?.message ?? res.statusText, key)
-    )
+    if (candidate?.finishReason === 'RECITATION') {
+      throw new Error('Nội dung phản hồi bị bộ lọc bản quyền của Gemini chặn (RECITATION).')
+    }
+    if (data.promptFeedback?.blockReason) {
+      throw new Error(`Yêu cầu bị chặn (${data.promptFeedback.blockReason}). Hãy thử đổi cách diễn đạt câu hỏi.`)
+    }
+
+    let rawText =
+      candidate?.content?.parts
+        ?.map((p) => p.text ?? '')
+        .join('')
+        .trim() ?? ''
+
+    if (!rawText) {
+      throw new Error('Gemini không trả về nội dung (có thể bị bộ lọc an toàn chặn hoặc tài liệu rỗng).')
+    }
+
+    if (candidate?.finishReason === 'MAX_TOKENS') {
+      rawText += '\n\n*(Lưu ý: Câu trả lời đã đạt giới hạn độ dài tối đa của model)*'
+    }
+
+    const { cleanAnswer, citations } = extractCitationsFromAnswer(rawText, opts.availableCitations)
+    const um = data.usageMetadata
+    const usage =
+      um && typeof um.totalTokenCount === 'number'
+        ? {
+            promptTokens: um.promptTokenCount ?? 0,
+            completionTokens: um.candidatesTokenCount ?? 0,
+            totalTokens: um.totalTokenCount,
+          }
+        : undefined
+
+    return { answer: cleanAnswer, citations, usage }
   }
 
-  const rawText =
-    data.candidates?.[0]?.content?.parts
-      ?.map((p) => p.text ?? '')
-      .join('')
-      .trim() ?? ''
-
-  if (!rawText) {
-    throw new Error('Gemini không trả về nội dung (có thể bị bộ lọc an toàn chặn hoặc tài liệu rỗng).')
-  }
-
-  const { cleanAnswer, citations } = extractCitationsFromAnswer(rawText, opts.availableCitations)
-  const um = data.usageMetadata
-  const usage =
-    um && typeof um.totalTokenCount === 'number'
-      ? {
-          promptTokens: um.promptTokenCount ?? 0,
-          completionTokens: um.candidatesTokenCount ?? 0,
-          totalTokens: um.totalTokenCount,
-        }
-      : undefined
-
-  return { answer: cleanAnswer, citations, usage }
+  throw new Error('Không thể hoàn thành yêu cầu tới Gemini sau nhiều lần thử.')
 }
 
 /** Lọc & sắp xếp danh sách model từ `GET /v1beta/models`: chỉ giữ model `gemini-*` hỗ trợ

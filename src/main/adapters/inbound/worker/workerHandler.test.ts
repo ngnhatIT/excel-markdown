@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
-import { readWorkbook } from './converter'
+import { readWorkbook } from '../../../domain/excel/converter'
 import { createWorkbookCache } from './workbookCache'
 import { handleRequest } from './workerHandler'
-import type { WorkerRequest } from './workerProtocol'
-import { DEFAULT_OPTIONS } from '../types'
+import type { WorkerRequest } from '../../../application/ports/workerProtocol'
+import { DEFAULT_OPTIONS } from '../../../../types'
 
-const fixture = fileURLToPath(new URL('../../test/fixtures/kihon-sekkei.xlsx', import.meta.url))
+const fixture = fileURLToPath(new URL('../../../../../test/fixtures/kihon-sekkei.xlsx', import.meta.url))
 
 describe('workerHandler', () => {
   let loads = 0

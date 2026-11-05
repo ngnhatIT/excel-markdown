@@ -4,11 +4,11 @@
  * Yêu cầu Markdown → Excel (mdInspect/mdToXlsx) cũng chạy ở đây; exceljs chỉ được nạp
  * (import động) khi có mdToXlsx.
  */
-import { readWorkbook } from './converter'
-import { handleMdRequest } from './md2xlsx/mdHandler'
-import { createWorkbookCache } from './workbookCache'
-import { handleRequest } from './workerHandler'
-import type { WorkerRequest } from './workerProtocol'
+import { readWorkbook } from './domain/excel/converter'
+import { handleMdRequest } from './adapters/inbound/worker/mdHandler'
+import { createWorkbookCache } from './adapters/inbound/worker/workbookCache'
+import { handleRequest } from './adapters/inbound/worker/workerHandler'
+import type { WorkerRequest } from './application/ports/workerProtocol'
 
 const cacheArg = process.argv.find((a) => a.startsWith('--cache='))
 const cache = createWorkbookCache(Number(cacheArg?.slice('--cache='.length)) || 3, readWorkbook)

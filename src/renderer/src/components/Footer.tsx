@@ -1,5 +1,6 @@
 import type { ConvertProgress } from '../api'
 import { cn } from '../utils'
+import { btn, btnGhost, btnPrimary, btnSm, cx } from '../ui'
 import { IconCheck, IconFolder, IconOpen } from './icons'
 
 interface Props {
@@ -27,13 +28,13 @@ interface Props {
 export function Footer(p: Props): React.ReactElement {
   const { outDir, progress, converting } = p
   return (
-    <footer className="x2m-footer">
-      <div className="x2m-outdir" title={outDir || 'Chưa chọn thư mục lưu'}>
+    <footer className="x2m-footer flex shrink-0 items-center justify-between gap-4 border-t border-line bg-soft px-4 py-2.5">
+      <div className="x2m-outdir flex min-w-0 flex-1 items-center gap-2 text-dim" title={outDir || 'Chưa chọn thư mục lưu'}>
         <IconFolder size={16} />
-        <span className={cn('x2m-outdir-text', !outDir && 'dim')}>{outDir || (p.outDirPlaceholder ?? 'Chưa chọn thư mục lưu file.md')}</span>
+        <span className={cn('x2m-outdir-text max-w-[420px] truncate text-[12.5px]', !outDir && 'dim text-faint')}>{outDir || (p.outDirPlaceholder ?? 'Chưa chọn thư mục lưu file.md')}</span>
         {p.recentDirs.length > 0 && (
           <select
-            className="x2m-dir-select"
+            className="x2m-dir-select max-w-[150px] cursor-pointer rounded-md border border-line bg-canvas px-1.5 py-1 text-xs text-dim transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             value=""
             onChange={(e) => {
               if (e.target.value) p.onPickRecentDir(e.target.value)
@@ -49,42 +50,42 @@ export function Footer(p: Props): React.ReactElement {
             ))}
           </select>
         )}
-        <button className="btn btn-sm" onClick={p.onChooseDir}>
+        <button className={cx('btn btn-sm', btn, btnSm)} onClick={p.onChooseDir}>
           Chọn thư mục
         </button>
         {outDir && (
-          <button className="btn btn-sm btn-ghost" onClick={p.onOpenDir} title="Mở thư mục" aria-label="Mở thư mục">
+          <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={p.onOpenDir} title="Mở thư mục" aria-label="Mở thư mục">
             <IconOpen size={14} />
           </button>
         )}
       </div>
-      <div className="x2m-footer-actions">
+      <div className="x2m-footer-actions flex shrink-0 items-center gap-3">
         {converting && progress && progress.total > 0 && (
           <div
-            className="x2m-progress"
+            className="x2m-progress relative h-[18px] w-40 overflow-hidden rounded-[9px] border border-line bg-canvas"
             role="progressbar"
             aria-valuenow={progress.done}
             aria-valuemin={0}
             aria-valuemax={progress.total}
             aria-label="Tiến độ convert"
           >
-            <div className="x2m-progress-fill" style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
-            <span className="x2m-progress-text">
+            <div className="x2m-progress-fill h-full bg-accent transition-[width] duration-200 ease-out motion-reduce:transition-none" style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} />
+            <span className="x2m-progress-text absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-ink">
               {progress.done}/{progress.total}
             </span>
           </div>
         )}
         {converting && (
-          <button className="btn btn-sm" onClick={p.onCancel} title="Dừng convert (file đã ghi được giữ nguyên)">
+          <button className={cx('btn btn-sm', btn, btnSm)} onClick={p.onCancel} title="Dừng convert (file đã ghi được giữ nguyên)">
             Hủy
           </button>
         )}
-        <span className="dim">
+        <span className="dim text-dim">
           {p.status}
           {p.appVersion ? ` · v${p.appVersion}` : ''}
           {p.lastConvertAt ? ` · convert lúc ${p.lastConvertAt}` : ''}
         </span>
-        <button className="btn btn-primary" onClick={p.onConvert} disabled={converting || !p.canConvert} title="Ctrl+Enter">
+        <button className={cx('btn btn-primary', btnPrimary)} onClick={p.onConvert} disabled={converting || !p.canConvert} title="Ctrl+Enter">
           {converting ? (
             <>Đang convert...</>
           ) : (

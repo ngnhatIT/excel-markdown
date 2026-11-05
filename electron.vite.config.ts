@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
 
 /** CSP cho renderer: chỉ tài nguyên đóng gói trong app, không script inline, không mạng.
@@ -46,6 +47,6 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
-    plugins: [react(), cspPlugin()]
+    plugins: [react(), tailwindcss(), cspPlugin()]
   }
 })

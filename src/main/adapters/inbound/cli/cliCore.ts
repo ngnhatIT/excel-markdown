@@ -1,9 +1,9 @@
 /* CLI headless: cùng engine với app. `node out/main/cli.js a.xlsx b.xlsx -o outDir [tuỳ chọn]` */
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
-import { DEFAULT_OPTIONS, type ConvertOptions } from '../types'
-import { convertWorkbook, listSheets } from './converter'
-import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName } from './output'
+import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../types'
+import { convertWorkbook, listSheets } from '../../../domain/excel/converter'
+import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName } from '../../../domain/excel/output'
 
 export const USAGE = `Dùng: cli <file.xlsx...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
           [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title]`

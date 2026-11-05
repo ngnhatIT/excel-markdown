@@ -9,8 +9,8 @@ import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
 import { handleMdRequest } from './mdHandler'
 
-const GOLDEN = fileURLToPath(new URL('../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url))
-const fixtureXlsx = fileURLToPath(new URL('../../../test/fixtures/kihon-sekkei.xlsx', import.meta.url))
+const GOLDEN = fileURLToPath(new URL('../../../../../test/golden/kihon-sekkei.xlsx.md', import.meta.url))
+const fixtureXlsx = fileURLToPath(new URL('../../../../../test/fixtures/kihon-sekkei.xlsx', import.meta.url))
 
 const dir = mkdtempSync(join(tmpdir(), 'x2m-mdh-'))
 const goldenText = readFileSync(GOLDEN, 'utf-8')

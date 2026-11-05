@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { marked, type Tokens } from 'marked'
-import { escapeMarkdownInline } from '../output'
-import { INLINE_CASES, UNTOUCHED } from '../escapeCases'
+import { escapeMarkdownInline } from '../excel/output'
+import { INLINE_CASES, UNTOUCHED } from '../excel/escapeCases'
 import { inlineCell } from './inline'
 
 const cellOf = (src: string) => inlineCell((marked.lexer(`| A |\n|---|\n| ${src} |`)[0] as Tokens.Table).rows[0][0].tokens)

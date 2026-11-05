@@ -4,6 +4,7 @@ import { buildGuideHtml } from '../../../shared/guideHtml'
 import { errMsg } from '../api'
 import { sanitizeHtml } from '../sanitize'
 import { cn, copyText, matchHeadingText, toast } from '../utils'
+import { btnGhost, btnSm, cx } from '../ui'
 import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
 
 /** Preview dài hơn số dòng này thì cắt, bấm "Hiện thêm" để xem hết. */
@@ -209,8 +210,13 @@ export function PreviewPane({
       const body = sanitizeHtml(marked.parse(md, { breaks: false }) as string, {
         resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
       })
-      const name = title ?? 'ghi-chu'
-      const saved = await window.api.saveHtml(name, buildGuideHtml(name, body, { date: new Date().toLocaleDateString('vi-VN') }))
+      const cleanName = (title ?? 'ghi-chu')
+        .replace(/\.[a-zA-Z0-9]+$/g, '')
+        .replace(/[\\/]/g, ' - ')
+        .trim() || 'ghi-chu'
+      const docHeading = (md.match(/^#\s+(.+)$/m) || md.match(/^##\s+(.+)$/m))?.[1]?.replace(/<[^>]*>/g, '').trim()
+      const pageTitle = docHeading || cleanName
+      const saved = await window.api.saveHtml(cleanName, buildGuideHtml(pageTitle, body, { date: new Date().toLocaleDateString('vi-VN') }))
       if (saved) toast('Đã lưu HTML: ' + saved, 'ok')
     } catch (err) {
       toast('Xuất HTML thất bại: ' + errMsg(err), 'err')
@@ -243,39 +249,54 @@ export function PreviewPane({
 
   return (
     <>
-      <div className="x2m-preview-bar">
-        <div className="x2m-tabs">
-          <button className={cn('x2m-tab', tab === 'rendered' && 'active')} onClick={() => setTab('rendered')}>
+      <div className="x2m-preview-bar flex flex-wrap items-center justify-between gap-3 border-b border-line bg-soft px-4 py-2">
+        <div className="x2m-tabs flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5">
+          <button
+            className={cn(
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              tab === 'rendered' && 'active bg-soft text-accent-ink shadow-sm'
+            )}
+            onClick={() => setTab('rendered')}
+          >
             <IconEye size={15} /> Xem trước
           </button>
           <button
-            className={cn('x2m-tab', tab === 'split' && 'active')}
+            className={cn(
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              tab === 'split' && 'active bg-soft text-accent-ink shadow-sm'
+            )}
             onClick={() => setTab('split')}
             title="Xem song song Mã Markdown và Bản hiển thị"
           >
             <IconSplit size={15} /> Song song
           </button>
-          <button className={cn('x2m-tab', tab === 'source' && 'active')} onClick={() => setTab('source')}>
+          <button
+            className={cn(
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              tab === 'source' && 'active bg-soft text-accent-ink shadow-sm'
+            )}
+            onClick={() => setTab('source')}
+          >
             <IconMarkdown size={15} /> Mã Markdown
           </button>
         </div>
-        <div className="x2m-preview-meta">
+        <div className="x2m-preview-meta flex items-center gap-2 text-xs">
           {title ? (
-            <span className="x2m-meta-stats dim" title={title}>
-              <strong className="x2m-meta-title">{title}</strong>
+            <span className="x2m-meta-stats dim text-dim" title={title}>
+              <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
               {stats ? ` · ${stats.lines} dòng · ${stats.tables} bảng · ${stats.chars.toLocaleString('vi-VN')} ký tự` : ''}
             </span>
           ) : (
-            <span className="dim">{noSelectionText}</span>
+            <span className="dim text-dim">{noSelectionText}</span>
           )}
           {zoom !== 1 && (
-            <button className="btn btn-sm btn-ghost" onClick={onResetZoom} title="Khôi phục cỡ chữ (Ctrl+0)">
+            <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={onResetZoom} title="Khôi phục cỡ chữ (Ctrl+0)">
               {Math.round(zoom * 100)}%
             </button>
           )}
           {tab !== 'source' && md && (
             <button
-              className={cn('btn btn-sm btn-ghost', wrapTables && 'active-pill')}
+              className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, wrapTables && 'active-pill border-accent-line bg-accent-soft text-accent-ink')}
               onClick={() => setWrapTables((w) => !w)}
               title={wrapTables ? 'Đang tự xuống dòng trong ô bảng dài (bấm để giữ 1 dòng ngang)' : 'Đang giữ 1 dòng ngang (bấm để tự xuống dòng ô dài)'}
               aria-pressed={wrapTables}
@@ -285,7 +306,7 @@ export function PreviewPane({
           )}
           {outline.length > 1 && tab !== 'source' && (
             <button
-              className={cn('btn btn-sm btn-ghost', showOutline && 'active-pill')}
+              className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, showOutline && 'active-pill border-accent-line bg-accent-soft text-accent-ink')}
               onClick={() => setShowOutline((s) => !s)}
               title="Ẩn/hiện thanh Mục lục & Công cụ Bảng"
               aria-pressed={showOutline}
@@ -293,11 +314,11 @@ export function PreviewPane({
               <IconList size={14} /> Mục lục ({outline.length})
             </button>
           )}
-          <button className="btn btn-sm btn-ghost" onClick={copy} disabled={!md || loading} title="Copy toàn bộ Markdown">
+          <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title="Copy toàn bộ Markdown">
             <IconCopy size={14} /> Copy
           </button>
           <button
-            className="btn btn-sm btn-ghost"
+            className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
             onClick={() => void exportHtml()}
             disabled={!md || loading}
             title="Xuất trang HTML đứng riêng có mục lục (ghi chú hướng dẫn)"
@@ -305,7 +326,7 @@ export function PreviewPane({
             Xuất HTML
           </button>
           <button
-            className="btn btn-sm btn-ghost"
+            className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
             onClick={() => window.print()}
             disabled={!md || loading}
             title="In hoặc lưu PDF (chọn 'Lưu dưới dạng PDF')"
@@ -316,12 +337,12 @@ export function PreviewPane({
       </div>
 
       {showOutline && outline.length > 1 && tab !== 'source' && !loading && !error && md && (
-        <div className="x2m-outline-bar" role="navigation" aria-label="Mục lục nhanh">
-          <div className="x2m-outline-items">
+        <div className="x2m-outline-bar border-b border-line bg-raised/40 px-3 py-1.5 overflow-x-auto" role="navigation" aria-label="Mục lục nhanh">
+          <div className="x2m-outline-items flex items-center gap-1.5">
             {outline.map((item, idx) => (
-              <div key={idx} className={cn('x2m-outline-chip', item.kind === 'table' && 'is-table')}>
+              <div key={idx} className={cn('x2m-outline-chip inline-flex items-center overflow-hidden rounded-md border border-line bg-soft text-xs shadow-xs', item.kind === 'table' && 'is-table')}>
                 <button
-                  className="x2m-outline-jump"
+                  className="x2m-outline-jump inline-flex items-center gap-1 px-2 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
                   onClick={() => jumpToItem(item)}
                   title={
                     item.kind === 'table'
@@ -332,14 +353,14 @@ export function PreviewPane({
                   {item.kind === 'table' && <IconTable size={12} />}
                   <span>{item.label}</span>
                   {item.kind === 'table' && (
-                    <span className="x2m-outline-badge">
+                    <span className="x2m-outline-badge ml-1 rounded bg-line px-1 py-0.5 text-[10px] text-faint">
                       {item.rowCount}×{item.colCount}
                     </span>
                   )}
                 </button>
                 {item.kind === 'table' && item.tsvBlock && (
                   <button
-                    className="x2m-outline-copy"
+                    className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
                     onClick={() => void copyTableData(item.tsvBlock!, `${item.label} (TSV cho Excel)`)}
                     title="Copy bảng dạng TSV (dán thẳng vào Excel / Google Sheets)"
                   >
@@ -348,7 +369,7 @@ export function PreviewPane({
                 )}
                 {item.kind === 'table' && item.mdBlock && tablesInOutline.length > 1 && (
                   <button
-                    className="x2m-outline-copy"
+                    className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
                     onClick={() => void copyTableData(item.mdBlock!, `${item.label} (Markdown)`)}
                     title="Copy riêng bảng này dạng Markdown"
                   >
@@ -363,59 +384,61 @@ export function PreviewPane({
 
       <div
         ref={previewRef}
-        className={cn('x2m-preview', tab === 'split' && 'is-split')}
+        className={cn('x2m-preview relative flex-1 overflow-auto bg-canvas p-6', tab === 'split' && 'is-split !p-4')}
         style={{ zoom }}
       >
         {loading ? (
-          <div className="x2m-loading">{loadingText}</div>
+          <div className="x2m-loading flex h-full items-center justify-center p-8 text-sm text-dim">{loadingText}</div>
         ) : error ? (
-          <div className="x2m-error">{error}</div>
+          <div className="x2m-error m-4 rounded-lg border border-danger/30 bg-danger-soft p-4 text-sm text-danger">{error}</div>
         ) : !md ? (
-          <div className="x2m-empty">
+          <div className="x2m-empty flex h-full flex-col items-center justify-center gap-3 p-12 text-center text-faint">
             <IconEye size={36} />
-            <p>{emptyText}</p>
+            <p className="text-dim text-sm">{emptyText}</p>
           </div>
         ) : tab === 'source' ? (
-          <div className="x2m-source-wrap">
-            <div className="x2m-gutter" aria-hidden="true">
+          <div className="x2m-source-wrap flex min-h-full overflow-auto rounded-lg border border-line bg-code font-mono text-xs">
+            <div className="x2m-gutter flex select-none flex-col border-r border-line bg-raised/40 px-2 py-3 text-right text-faint" aria-hidden="true">
               {sourceLines.map((_, i) => (
                 <span key={i}>{i + 1}</span>
               ))}
             </div>
-            <pre className="x2m-source">{display.md}</pre>
+            <pre className="x2m-source flex-1 overflow-x-auto whitespace-pre p-3 font-mono leading-relaxed text-ink outline-none">{display.md}</pre>
           </div>
         ) : tab === 'split' ? (
-          <div className="x2m-split-pane">
-            <div className="x2m-split-col x2m-split-source">
-              <div className="x2m-split-col-head">Mã nguồn Markdown</div>
-              <div className="x2m-source-wrap">
-                <div className="x2m-gutter" aria-hidden="true">
+          <div className="x2m-split-pane grid h-full grid-cols-2 gap-4">
+            <div className="x2m-split-col x2m-split-source flex flex-col overflow-hidden rounded-lg border border-line">
+              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">Mã nguồn Markdown</div>
+              <div className="x2m-source-wrap flex flex-1 overflow-auto bg-code font-mono text-xs">
+                <div className="x2m-gutter flex select-none flex-col border-r border-line bg-raised/40 px-2 py-3 text-right text-faint" aria-hidden="true">
                   {sourceLines.map((_, i) => (
                     <span key={i}>{i + 1}</span>
                   ))}
                 </div>
-                <pre className="x2m-source">{display.md}</pre>
+                <pre className="x2m-source flex-1 overflow-x-auto whitespace-pre p-3 font-mono leading-relaxed text-ink outline-none">{display.md}</pre>
               </div>
             </div>
-            <div className="x2m-split-col x2m-split-rendered">
-              <div className="x2m-split-col-head">Bản hiển thị</div>
-              <div
-                className={cn('md-body', fullWidth && 'full', wrapTables && 'wrap-cells')}
-                onClick={clickBody}
-                dangerouslySetInnerHTML={{ __html: html }}
-              />
+            <div className="x2m-split-col x2m-split-rendered flex flex-col overflow-hidden rounded-lg border border-line">
+              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">Bản hiển thị</div>
+              <div className="flex-1 overflow-auto p-4 bg-canvas">
+                <div
+                  className={cn('md-body', fullWidth && 'full', wrapTables && 'wrap-cells')}
+                  onClick={clickBody}
+                  dangerouslySetInnerHTML={{ __html: html }}
+                />
+              </div>
             </div>
           </div>
         ) : (
           <div
-            className={cn('md-body', fullWidth && 'full', wrapTables && 'wrap-cells')}
+            className={cn('md-body mx-auto', fullWidth && 'full !max-w-none', wrapTables && 'wrap-cells')}
             onClick={clickBody}
             dangerouslySetInnerHTML={{ __html: html }}
           />
         )}
       </div>
       {display.truncated && (
-        <button className="btn btn-sm x2m-show-more" onClick={() => setExpanded(true)}>
+        <button className={cx('btn btn-sm x2m-show-more mx-auto my-3', btnGhost, btnSm)} onClick={() => setExpanded(true)}>
           Hiện thêm {display.hidden} dòng
         </button>
       )}
