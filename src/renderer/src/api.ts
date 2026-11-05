@@ -1,5 +1,9 @@
 /* Kiểu của `window.api` (expose bởi src/preload/index.ts qua contextBridge). */
 import type {
+  AiAskRequest,
+  AiAskResponse,
+  AiConfigInfo,
+  AiModelId,
   ConvertOptions,
   ConvertResultItem,
   MdConvertResult,
@@ -45,6 +49,10 @@ export interface WindowApi {
   openMarkdownFolder(): Promise<string | null>
   listMarkdownFolder(root: string): Promise<MdFolderListing>
   readMarkdown(path: string): Promise<string>
+  aiGetConfig(): Promise<AiConfigInfo>
+  aiSetConfig(payload: { apiKey?: string; model?: AiModelId }): Promise<AiConfigInfo>
+  aiAsk(req: AiAskRequest): Promise<AiAskResponse>
+  aiCancel(): Promise<void>
 }
 
 declare global {

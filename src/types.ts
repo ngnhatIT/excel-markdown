@@ -1,5 +1,7 @@
 /* Shared types between main, preload and renderer */
 
+export type VerticalMergeMode = 'repeat' | 'empty' | 'ditto'
+
 export interface ConvertOptions {
   /** Them "## Ten sheet" truoc moi sheet */
   includeSheetTitle: boolean
@@ -22,6 +24,10 @@ export interface ConvertOptions {
   frontMatter: boolean
   /** Bảng dài hơn N dòng thì tách khối, lặp lại header (0 = tắt) */
   chunkRows: number
+  /** Cách xử lý ô gộp dọc (vertical merge): lặp lại giá trị ('repeat'), để trống ('empty'), hoặc ký hiệu '↑' ('ditto') */
+  verticalMerge?: VerticalMergeMode
+  /** Căn thẳng độ rộng cột trong mã nguồn bảng Markdown */
+  alignTables?: boolean
 }
 
 export const DEFAULT_OPTIONS: ConvertOptions = {
@@ -35,6 +41,8 @@ export const DEFAULT_OPTIONS: ConvertOptions = {
   showFormulas: false,
   frontMatter: false,
   chunkRows: 0,
+  verticalMerge: 'repeat',
+  alignTables: false,
 }
 
 export type OutputMode = 'per-sheet' | 'per-workbook'
@@ -122,3 +130,50 @@ export type MdConvertResult =
   | { status: 'done'; outPath: string; sheets: string[] }
   | { status: 'cancelled' }
   | { status: 'declined' }
+
+/* --------------------------- Trợ lý AI (Gemini RAG) --------------------------- */
+
+export type AiModelId = 'gemini-2.5-flash' | 'gemini-2.5-pro'
+export type AiScope = 'folder' | 'active'
+
+export interface RagCitation {
+  filePath: string
+  relPath: string
+  sheetName: string
+  sectionTitle: string
+}
+
+export interface AiChatTurn {
+  role: 'user' | 'model'
+  text: string
+}
+
+export interface AiConfigInfo {
+  hasKey: boolean
+  maskedKey: string
+  model: AiModelId
+}
+
+export interface AiAskRequest {
+  question: string
+  scope: AiScope
+  model?: AiModelId
+  rootDir?: string | null
+  relFiles?: string[]
+  looseFiles?: string[]
+  activeFilePath?: string | null
+  activeMarkdown?: string
+  history?: AiChatTurn[]
+}
+
+export interface AiAskResponse {
+  answer: string
+  citations: RagCitation[]
+  mode: 'full-active' | 'full-folder' | 'parent-rag'
+  docCount: number
+  usage?: {
+    promptTokens: number
+    completionTokens: number
+    totalTokens: number
+  }
+}

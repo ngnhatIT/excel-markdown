@@ -1,4 +1,8 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol, shell, type MessageBoxOptions } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, safeStorage, shell, type MessageBoxOptions } from 'electron'
+import type { AiAskRequest, AiAskResponse, AiConfigInfo, AiModelId } from '../types'
+import { parseMarkdownForRag, type RagDocument } from './rag/chunker'
+import { callGeminiApi, maskApiKey, redactApiKey } from './rag/geminiClient'
+import { buildRagContext } from './rag/retriever'
 import { join, dirname, basename, extname, isAbsolute } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { access, appendFile, constants, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
@@ -343,7 +347,9 @@ ipcMain.handle(
           } else {
             for (const s of sheets) {
               const fileName = dedupeFileName(safeFileName(base + '__' + s.sheet) + '.md', usedNames)
-              const fm = payload.options.frontMatter ? frontMatter({ source: basename(spec.path), sheet: s.sheet }) : ''
+              const fm = payload.options.frontMatter
+                ? frontMatter({ source: basename(spec.path), sheet: s.sheet, title: s.title, meta: s.meta })
+                : ''
               await writeFile(join(payload.outDir, fileName), fm + s.markdown + '\n', 'utf-8')
               written.push(fileName)
             }
@@ -483,6 +489,201 @@ ipcMain.handle(
 /** Thư mục người dùng đã mở để đọc (thư mục được liệt kê + thư mục chứa file đã đọc).
  * Scheme ảnh chỉ phục vụ file ảnh nằm trong các thư mục này. */
 const viewerRoots = new Set<string>()
+
+const RAG_CACHE_MAX = 500
+const ragDocCache = new Map<string, RagDocument>()
+let aiAbort: AbortController | null = null
+
+function encryptApiKey(rawKey: string): string {
+  const k = rawKey.trim()
+  if (!k) return ''
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return 'enc:' + safeStorage.encryptString(k).toString('base64')
+    }
+  } catch {
+    /* fallback base64 khi OS không có keyring */
+  }
+  return 'b64:' + Buffer.from(k, 'utf-8').toString('base64')
+}
+
+function decryptApiKey(stored: unknown): string {
+  if (typeof stored !== 'string' || !stored) return ''
+  try {
+    if (stored.startsWith('enc:') && safeStorage.isEncryptionAvailable()) {
+      return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64'))
+    }
+    if (stored.startsWith('b64:')) {
+      return Buffer.from(stored.slice(4), 'base64').toString('utf-8')
+    }
+  } catch {
+    /* key lỗi hoặc khác máy -> coi như chưa có */
+  }
+  return ''
+}
+
+function normalizeAiModel(m: unknown): AiModelId {
+  return m === 'gemini-2.5-pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash'
+}
+
+async function loadRagDocumentCached(absPath: string, relPath: string): Promise<RagDocument | null> {
+  if (!isMarkdownPath(absPath)) return null
+  try {
+    const st = await stat(absPath)
+    const mtime = st.mtimeMs
+    const cached = ragDocCache.get(absPath)
+    if (cached && cached.mtime === mtime && cached.relPath === relPath) {
+      return cached
+    }
+    const text = await readMarkdownFile(absPath)
+    const doc = parseMarkdownForRag(absPath, relPath, text, mtime)
+    if (ragDocCache.size >= RAG_CACHE_MAX) {
+      const oldestKey = ragDocCache.keys().next().value
+      if (oldestKey) ragDocCache.delete(oldestKey)
+    }
+    ragDocCache.set(absPath, doc)
+    return doc
+  } catch {
+    return null
+  }
+}
+
+ipcMain.handle('ai:getConfig', async () => {
+  try {
+    const store = await readStore()
+    const key = decryptApiKey(store['aiApiKeyEnc'])
+    const model = normalizeAiModel(store['aiModel'])
+    const info: AiConfigInfo = {
+      hasKey: key.length > 0,
+      maskedKey: maskApiKey(key),
+      model,
+    }
+    return { ok: true, data: info }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+ipcMain.handle('ai:setConfig', async (_e, payload: { apiKey?: string; model?: AiModelId }) => {
+  const task = storeWriteChain.then(async () => {
+    const store = await readStore()
+    if (typeof payload?.apiKey === 'string') {
+      store['aiApiKeyEnc'] = encryptApiKey(payload.apiKey)
+    }
+    if (payload?.model) {
+      store['aiModel'] = normalizeAiModel(payload.model)
+    }
+    await writeStore(store)
+  })
+  storeWriteChain = task.catch(() => undefined)
+  try {
+    await task
+    const store = await readStore()
+    const key = decryptApiKey(store['aiApiKeyEnc'])
+    const model = normalizeAiModel(store['aiModel'])
+    const info: AiConfigInfo = {
+      hasKey: key.length > 0,
+      maskedKey: maskApiKey(key),
+      model,
+    }
+    return { ok: true, data: info }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+ipcMain.handle('ai:cancel', async () => {
+  if (aiAbort) {
+    aiAbort.abort()
+    aiAbort = null
+  }
+  return { ok: true, data: null }
+})
+
+ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
+  let rawKey = ''
+  try {
+    const question = (req?.question ?? '').trim()
+    if (!question) return { ok: false, error: 'Câu hỏi không được để trống.' }
+
+    const store = await readStore()
+    rawKey = decryptApiKey(store['aiApiKeyEnc'])
+    const model = normalizeAiModel(req.model ?? store['aiModel'])
+
+    const docs: RagDocument[] = []
+    if (req.scope === 'active') {
+      if (req.activeFilePath === 'clipboard:paste' && typeof req.activeMarkdown === 'string') {
+        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', req.activeMarkdown, Date.now()))
+      } else if (req.activeFilePath && isMarkdownPath(req.activeFilePath)) {
+        const rel =
+          req.rootDir && req.activeFilePath.startsWith(req.rootDir)
+            ? req.activeFilePath.slice(req.rootDir.length).replace(/^[\\/]+/, '').replace(/\\/g, '/')
+            : basename(req.activeFilePath)
+        const d = await loadRagDocumentCached(req.activeFilePath, rel)
+        if (d) docs.push(d)
+      } else if (typeof req.activeMarkdown === 'string' && req.activeMarkdown.trim() !== '') {
+        docs.push(parseMarkdownForRag('clipboard:paste', 'Tài liệu đang xem', req.activeMarkdown, Date.now()))
+      }
+    } else {
+      const rootDir = typeof req.rootDir === 'string' && isAbsolute(req.rootDir) ? req.rootDir : null
+      const relFiles = Array.isArray(req.relFiles) ? req.relFiles.slice(0, RAG_CACHE_MAX) : []
+      if (rootDir && relFiles.length > 0) {
+        const loaded = await Promise.all(
+          relFiles.map((rel) => loadRagDocumentCached(join(rootDir, ...rel.split('/')), rel))
+        )
+        for (const d of loaded) if (d) docs.push(d)
+      }
+      const loose = Array.isArray(req.looseFiles) ? req.looseFiles.slice(0, 100) : []
+      if (loose.length > 0) {
+        const loadedLoose = await Promise.all(
+          loose.map((abs) => loadRagDocumentCached(abs, basename(abs)))
+        )
+        for (const d of loadedLoose) if (d) docs.push(d)
+      }
+      if (req.activeFilePath === 'clipboard:paste' && typeof req.activeMarkdown === 'string') {
+        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', req.activeMarkdown, Date.now()))
+      }
+    }
+
+    if (docs.length === 0) {
+      return { ok: false, error: 'Chưa có file Markdown nào để tra cứu. Hãy mở thư mục hoặc chọn file Markdown trước.' }
+    }
+
+    const ragCtx = buildRagContext(docs, question, {
+      scope: req.scope,
+      activeFilePath: req.activeFilePath ?? undefined,
+    })
+
+    if (aiAbort) aiAbort.abort()
+    const controller = new AbortController()
+    aiAbort = controller
+
+    const apiRes = await callGeminiApi({
+      apiKey: rawKey,
+      model,
+      question,
+      contextText: ragCtx.contextText,
+      history: Array.isArray(req.history) ? req.history : [],
+      availableCitations: ragCtx.citations,
+      signal: controller.signal,
+    })
+
+    const out: AiAskResponse = {
+      answer: apiRes.answer,
+      citations: apiRes.citations,
+      mode: ragCtx.mode,
+      docCount: ragCtx.docCount,
+      usage: apiRes.usage,
+    }
+    return { ok: true, data: out }
+  } catch (err) {
+    const safeMsg = redactApiKey(err instanceof Error ? err.message : String(err), rawKey)
+    void logError('ai:ask', new Error(safeMsg))
+    return { ok: false, error: safeMsg }
+  } finally {
+    aiAbort = null
+  }
+})
 
 ipcMain.handle('dialog:openMarkdownFolder', async () => {
   try {

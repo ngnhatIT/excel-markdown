@@ -1,5 +1,9 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  AiAskRequest,
+  AiAskResponse,
+  AiConfigInfo,
+  AiModelId,
   ApiResult,
   ConvertFileSpec,
   ConvertOptions,
@@ -93,4 +97,14 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('mdv:list', root) as Promise<ApiResult<MdFolderListing>>),
   readMarkdown: (path: string): Promise<string> =>
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
+
+  // Trợ lý AI (Gemini RAG)
+  aiGetConfig: (): Promise<AiConfigInfo> =>
+    unwrap(ipcRenderer.invoke('ai:getConfig') as Promise<ApiResult<AiConfigInfo>>),
+  aiSetConfig: (payload: { apiKey?: string; model?: AiModelId }): Promise<AiConfigInfo> =>
+    unwrap(ipcRenderer.invoke('ai:setConfig', payload) as Promise<ApiResult<AiConfigInfo>>),
+  aiAsk: (req: AiAskRequest): Promise<AiAskResponse> =>
+    unwrap(ipcRenderer.invoke('ai:ask', req) as Promise<ApiResult<AiAskResponse>>),
+  aiCancel: (): Promise<void> =>
+    unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })
