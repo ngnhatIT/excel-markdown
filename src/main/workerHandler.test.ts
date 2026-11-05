@@ -47,4 +47,17 @@ describe('workerHandler', () => {
     const bad = handleRequest(cache, { id: 6, type: 'nope' } as unknown as WorkerRequest)
     expect(bad).toMatchObject({ id: 6, ok: false })
   })
+
+  it('preview gắn YAML front-matter khi options.frontMatter === true', () => {
+    const pv = handleRequest(cache, {
+      id: 7,
+      type: 'preview',
+      path: fixture,
+      sheet: '画面項目定義',
+      options: { ...DEFAULT_OPTIONS, frontMatter: true },
+    })
+    expect(pv.ok).toBe(true)
+    const md = pv.ok ? (pv.data as string) : ''
+    expect(md.startsWith('---\nsource: "kihon-sekkei.xlsx"\nsheet: "画面項目定義"\n')).toBe(true)
+  })
 })

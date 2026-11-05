@@ -5,7 +5,11 @@
 export interface SheetResult {
   sheet: string
   markdown: string
+  title?: string
+  meta?: Record<string, string>
 }
+
+export type FrontMatterValue = string | string[] | Record<string, string>
 
 const isWordChar = (ch: string | undefined): boolean => !!ch && /[\p{L}\p{N}]/u.test(ch)
 
@@ -26,10 +30,16 @@ export function escapeMarkdownInline(s: string): string {
   return out.replace(/\](?=[([:])/g, '\\]')
 }
 
-/** YAML front-matter cho RAG/LLM. Giá trị là chuỗi JSON (hợp lệ YAML, không cần escape riêng). */
-export function frontMatter(fields: Record<string, string | string[]>): string {
-  const line = ([k, v]: [string, string | string[]]): string => k + ': ' + JSON.stringify(v)
-  return '---\n' + Object.entries(fields).map(line).join('\n') + '\n---\n\n'
+/** YAML front-matter cho RAG/LLM. Giá trị là chuỗi JSON (hợp lệ YAML, không cần escape riêng).
+ * Bỏ qua các khóa có giá trị undefined hoặc object rỗng. */
+export function frontMatter(fields: Record<string, FrontMatterValue | undefined>): string {
+  const entries = Object.entries(fields).filter(([, v]) => {
+    if (v === undefined) return false
+    if (typeof v === 'object' && !Array.isArray(v) && Object.keys(v).length === 0) return false
+    return true
+  }) as [string, FrontMatterValue][]
+  const line = ([k, v]: [string, FrontMatterValue]): string => k + ': ' + JSON.stringify(v)
+  return '---\n' + entries.map(line).join('\n') + '\n---\n\n'
 }
 
 /** Gộp markdown các sheet cho per-workbook mode: bỏ sheet rỗng để không

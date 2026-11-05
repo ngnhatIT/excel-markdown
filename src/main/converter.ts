@@ -1,10 +1,11 @@
 /* Excel -> Markdown converter.
  * Hiểu các định dạng tài liệu 基本設計 (Backlog): banner 基本設計, meta 機能ID/画面ID/
- * テーブルID..., section 【...】/■..., bảng No/№/項番, ô merge, ô nhiều dòng, công thức.
+ * テーブルID..., section 【...】/■..., bảng No/№/項番, header gộp nhiều tầng,
+ * ô merge ngang/dọc, dòng ghi chú ※ cuối bảng, ô nhiều dòng, công thức.
  */
 import * as fs from 'node:fs'
 import * as XLSX from 'xlsx'
-import type { ConvertOptions } from '../types'
+import type { ConvertOptions, VerticalMergeMode } from '../types'
 import { escapeMarkdownInline, type SheetResult } from './output'
 
 // Giữ API cũ: test và code cũ import các hàm này từ converter.
@@ -24,13 +25,41 @@ const META_LABELS = new Set([
   '更新種別',
   '画面遷移',
   '動作環境',
+  'システム名',
+  'サブシステム名',
+  'モジュールID',
+  'モジュール名',
+  'バッチID',
+  'バッチ名',
+  '帳票ID',
+  '帳票名',
+  'API ID',
+  'API名',
+  'エンドポイント',
+  '対象システム',
+  '前提条件',
+  'トリガー',
 ])
-const HEADER_LABELS = new Set(['No', '№', '項番'])
+const HEADER_LABELS = new Set(['No', '№', '項番', '번호', '#'])
 const DOC_KIND = '基本設計'
 /** Prefix cho dòng nối tiếp (sub-bullet) dưới meta. */
 const SUB_BULLET = '  - '
 
 type WorkSheet = XLSX.WorkSheet
+
+/** Merge ngang trên một dòng trong hệ tọa độ của grid (đã trừ ref.s). */
+interface HMergeSpan {
+  sc: number
+  ec: number
+}
+
+interface GridData {
+  grid: string[][]
+  /** Các vùng merge ngang theo từng dòng của grid (r -> danh sách [sc, ec]) */
+  hMergesByRow: Map<number, HMergeSpan[]>
+  /** Các ô được sinh ra từ merge dọc (dạng `${r},${c}`) */
+  vMergedCells: Set<string>
+}
 
 /** Escape cú pháp *đầu block* cho text đứng đầu dòng (đoạn văn, quote, sub-bullet):
  * `# x` (heading), `> x` (quote), `- x`/`+ x` (list), `---` (đường kẻ), `1. x`/`1) x` (list số).
@@ -118,9 +147,16 @@ function effectiveRange(ws: WorkSheet, clip: XLSX.Range | null = null): XLSX.Ran
 
 /** Dòng banner tiêu đề (基本設計 + merge 2D) phải được phát hiện trước khi lan merge dọc,
  * nếu không giá trị banner sẽ rò rỉ xuống các dòng dưới. */
-function sheetToGrid(ws: WorkSheet, esc: boolean, clip: XLSX.Range | null = null, formulas = false): string[][] {
+function sheetToGrid(
+  ws: WorkSheet,
+  esc: boolean,
+  clip: XLSX.Range | null = null,
+  formulas = false
+): GridData {
   const ref = effectiveRange(ws, clip)
-  if (!ref) return []
+  const hMergesByRow = new Map<number, HMergeSpan[]>()
+  const vMergedCells = new Set<string>()
+  if (!ref) return { grid: [], hMergesByRow, vMergedCells }
   const merges = ws['!merges'] || []
   const grid: string[][] = []
   for (let r = ref.s.r; r <= ref.e.r; r++) {
@@ -137,20 +173,28 @@ function sheetToGrid(ws: WorkSheet, esc: boolean, clip: XLSX.Range | null = null
   for (const m of merges) {
     const gr = m.s.r - ref.s.r
     const gc = m.s.c - ref.s.c
+    const gec = Math.min(m.e.c - ref.s.c, (grid[0]?.length ?? 1) - 1)
     if (gr === bannerIdx) continue
     // Ô gốc nằm ngoài vùng quét (ô gốc rỗng hoặc ngoài !ref) -> không có gì để lan.
     if (gr < 0 || gr >= grid.length || gc < 0 || gc >= grid[gr].length) continue
-    // Chỉ lan giá trị merge theo chiều dọc (cùng cột, các dòng dưới ô gốc).
-    // Merge ngang giữ nguyên tại ô gốc để markdown gọn.
+    if (gec > gc) {
+      const list = hMergesByRow.get(gr) ?? []
+      list.push({ sc: gc, ec: gec })
+      hMergesByRow.set(gr, list)
+    }
+    // Lan giá trị merge theo chiều dọc (cùng cột, các dòng dưới ô gốc) và đánh dấu vMergedCells.
     const v = grid[gr][gc]
     if (v) {
       const last = Math.min(m.e.r - ref.s.r, grid.length - 1)
       for (let rr = gr + 1; rr <= last; rr++) {
-        if (!grid[rr][gc]) grid[rr][gc] = v
+        if (!grid[rr][gc]) {
+          grid[rr][gc] = v
+          vMergedCells.add(`${rr},${gc}`)
+        }
       }
     }
   }
-  return grid
+  return { grid, hMergesByRow, vMergedCells }
 }
 
 function escCell(v: string, multiline: 'br' | 'space'): string {
@@ -161,8 +205,40 @@ function escCell(v: string, multiline: 'br' | 'space'): string {
   return s.replace(/[ \t]+/g, ' ').trim()
 }
 
+/** Độ rộng hiển thị xấp xỉ của chuỗi trong font monospace (CJK / toàn角 tính bằng 2 ký tự ASCII). */
+function displayWidth(s: string): number {
+  let w = 0
+  for (const ch of s) {
+    const code = ch.codePointAt(0) ?? 0
+    w +=
+      (code >= 0x1100 &&
+        (code <= 0x115f ||
+          code === 0x2329 ||
+          code === 0x232a ||
+          (code >= 0x2e80 && code <= 0xa4cf && code !== 0x303f) ||
+          (code >= 0xac00 && code <= 0xd7a3) ||
+          (code >= 0xf900 && code <= 0xfaff) ||
+          (code >= 0xfe10 && code <= 0xfe19) ||
+          (code >= 0xfe30 && code <= 0xfe6f) ||
+          (code >= 0xff00 && code <= 0xff60) ||
+          (code >= 0xffe0 && code <= 0xffe6)))
+        ? 2
+        : 1
+  }
+  return w
+}
+
+function padDisplay(s: string, targetWidth: number): string {
+  const pad = targetWidth - displayWidth(s)
+  return pad > 0 ? s + ' '.repeat(pad) : s
+}
+
 const isSectionTitle = (s: string): boolean =>
   /^【[^】]+】$/.test(s) || s.startsWith('■')
+
+/** Nhận diện dòng ghi chú cuối bảng (bắt đầu bằng ※, 注：, 注:, 注), ＊). */
+const isFootnoteText = (s: string): boolean =>
+  /^(※|＊|注[：:）)]|Note[:：])/i.test(s.trim())
 
 interface MetaPair {
   label: string
@@ -185,16 +261,71 @@ function parseMetaPairs(row: string[]): MetaPair[] {
   return pairs
 }
 
-/** Render bảng, bỏ các cột trống toàn bảng để markdown gọn. */
-function renderTable(header: string[], rows: string[][], opts: ConvertOptions): string {
-  const keptIdx: number[] = []
-  header.forEach((h, i) => {
-    if (h !== '' || rows.some((r) => (r[i] ?? '') !== '')) keptIdx.push(i)
+/** Gộp các cột nằm trong vùng merge ngang của header (khi header tại các cột phụ đang rỗng)
+ * để tránh sinh ra cột không tên `|  |` trong bảng Markdown. */
+function consolidateMergedCols(
+  header: string[],
+  rows: string[][],
+  headerSpans: HMergeSpan[]
+): { header: string[]; rows: string[][] } {
+  const activeSpans = headerSpans.filter(
+    (sp) =>
+      sp.ec > sp.sc &&
+      (header[sp.sc] ?? '') !== '' &&
+      header.slice(sp.sc + 1, sp.ec + 1).every((h) => (h ?? '') === '')
+  )
+  if (activeSpans.length === 0) return { header, rows }
+  const nextRows = rows.map((r) => {
+    const copy = r.slice()
+    for (const sp of activeSpans) {
+      const parts: string[] = []
+      for (let c = sp.sc; c <= sp.ec; c++) {
+        const val = copy[c] ?? ''
+        if (val !== '') parts.push(val)
+        if (c > sp.sc) copy[c] = ''
+      }
+      copy[sp.sc] = parts.join(' ')
+    }
+    return copy
   })
+  return { header, rows: nextRows }
+}
+
+/** Render bảng, bỏ các cột trống toàn bảng để markdown gọn. Hỗ trợ căn thẳng cột khi opts.alignTables = true. */
+function renderTable(
+  rawHeader: string[],
+  rawRows: string[][],
+  opts: ConvertOptions,
+  headerSpans: HMergeSpan[] = []
+): string {
+  const { header, rows } = consolidateMergedCols(rawHeader, rawRows, headerSpans)
+  const maxCols = Math.max(header.length, ...rows.map((r) => r.length))
+  const keptIdx: number[] = []
+  for (let i = 0; i < maxCols; i++) {
+    if ((header[i] ?? '') !== '' || rows.some((r) => (r[i] ?? '') !== '')) keptIdx.push(i)
+  }
   if (keptIdx.length === 0) return ''
-  const h = keptIdx.map((i) => escCell(header[i], opts.multiline))
-  const head = ['| ' + h.join(' | ') + ' |', '|' + h.map(() => '---').join('|') + '|']
-  const body = rows.map((r) => '| ' + keptIdx.map((i) => escCell(r[i] ?? '', opts.multiline)).join(' | ') + ' |')
+  const h = keptIdx.map((i) => escCell(header[i] ?? '', opts.multiline))
+  const bodyMatrix = rows.map((r) => keptIdx.map((i) => escCell(r[i] ?? '', opts.multiline)))
+
+  let head: string[]
+  let body: string[]
+  if (opts.alignTables) {
+    const widths = keptIdx.map((_, colIdx) =>
+      Math.max(3, displayWidth(h[colIdx]), ...bodyMatrix.map((row) => displayWidth(row[colIdx])))
+    )
+    head = [
+      '| ' + h.map((cell, idx) => padDisplay(cell, widths[idx])).join(' | ') + ' |',
+      '| ' + widths.map((w) => '-'.repeat(w)).join(' | ') + ' |',
+    ]
+    body = bodyMatrix.map(
+      (row) => '| ' + row.map((cell, idx) => padDisplay(cell, widths[idx])).join(' | ') + ' |'
+    )
+  } else {
+    head = ['| ' + h.join(' | ') + ' |', '|' + h.map(() => '---').join('|') + '|']
+    body = bodyMatrix.map((row) => '| ' + row.join(' | ') + ' |')
+  }
+
   const n = opts.chunkRows > 0 ? Math.floor(opts.chunkRows) : 0
   if (n === 0 || body.length <= n) return [...head, ...body].join('\n')
   // Mỗi khối tự đủ nghĩa (header lặp lại) để chia nhỏ cho RAG/LLM.
@@ -203,14 +334,124 @@ function renderTable(header: string[], rows: string[][], opts: ConvertOptions): 
   return chunks.join('\n\n')
 }
 
+/** Nếu dòng `rowIdx` là header có merge ngang (nhóm cột) và dòng `rowIdx + 1` là dòng tiêu đề phụ
+ * (các cột ngoài vùng merge ngang đều rỗng hoặc trùng với dòng `rowIdx` do merge dọc, còn trong vùng
+ * merge ngang có tên cột con), gộp 2 dòng thành 1 header dạng `Nhóm / Cột con`. */
+function tryMergeTwoRowHeader(
+  topRow: string[],
+  subRow: string[] | undefined,
+  spans: HMergeSpan[] | undefined
+): string[] | null {
+  if (!subRow || !spans || spans.length === 0) return null
+  const validSpans = spans.filter((sp) => sp.ec > sp.sc && (topRow[sp.sc] ?? '') !== '')
+  if (validSpans.length === 0) return null
+
+  const inSpan = (c: number): HMergeSpan | undefined =>
+    validSpans.find((sp) => c >= sp.sc && c <= sp.ec)
+
+  let hasSubLabels = false
+  const len = Math.max(topRow.length, subRow.length)
+  for (let c = 0; c < len; c++) {
+    const sp = inSpan(c)
+    const topVal = topRow[c] ?? ''
+    const subVal = subRow[c] ?? ''
+    if (sp) {
+      const groupLabel = topRow[sp.sc] ?? ''
+      if (subVal !== '' && subVal !== groupLabel) hasSubLabels = true
+    } else {
+      // Ngoài vùng merge ngang: dòng sub-header chỉ được rỗng hoặc trùng dòng trên (do merge dọc)
+      if (subVal !== '' && subVal !== topVal) return null
+    }
+  }
+  if (!hasSubLabels) return null
+
+  const merged: string[] = []
+  for (let c = 0; c < len; c++) {
+    const sp = inSpan(c)
+    const subVal = subRow[c] ?? ''
+    if (sp) {
+      const groupLabel = topRow[sp.sc] ?? ''
+      if (subVal !== '' && subVal !== groupLabel) {
+        merged.push(`${groupLabel} / ${subVal}`)
+      } else {
+        merged.push(c === sp.sc ? groupLabel : '')
+      }
+    } else {
+      merged.push(topRow[c] || subVal || '')
+    }
+  }
+  return merged
+}
+
+/** Áp dụng chế độ xử lý ô merge dọc cho một dòng dữ liệu trong bảng. */
+function applyVerticalMergeMode(
+  row: string[],
+  rowIdx: number,
+  vMergedCells: Set<string>,
+  mode: VerticalMergeMode
+): string[] {
+  if (mode === 'repeat') return row
+  return row.map((val, colIdx) => {
+    if (!vMergedCells.has(`${rowIdx},${colIdx}`)) return val
+    return mode === 'ditto' ? '↑' : ''
+  })
+}
+
+/** Trích xuất nhanh tiêu đề tài liệu (từ banner 基本設計) và các cặp META_LABELS đầu sheet
+ * để làm giàu YAML front-matter cho RAG/LLM. Không trả trường rỗng để giữ tương thích ngược. */
+export function extractSheetMeta(
+  ws: WorkSheet | undefined,
+  sheetName: string
+): { title?: string; meta?: Record<string, string> } {
+  if (!ws) return {}
+  const { grid } = sheetToGrid(ws, false)
+  let i = 0
+  while (i < grid.length && nonEmptyCount(grid[i]) === 0) i++
+  if (i >= grid.length) return {}
+
+  let title: string | undefined
+  if (grid[i][0] === DOC_KIND) {
+    const firstLabel = grid[i].slice(1).find((v) => v !== '')
+    if (firstLabel && firstLabel !== sheetName) {
+      title = firstLabel.replace(/\r?\n/g, ' ').trim()
+    }
+    i++
+  }
+
+  const meta: Record<string, string> = {}
+  for (; i < grid.length; i++) {
+    const r = grid[i]
+    if (nonEmptyCount(r) === 0) continue
+    if (META_LABELS.has(r[0])) {
+      for (const p of parseMetaPairs(r)) {
+        const val = p.values.join(' ').replace(/\r?\n/g, ' ').trim()
+        if (val && !(p.label in meta)) meta[p.label] = val
+      }
+    } else if (HEADER_LABELS.has(r.find((x) => x !== '') ?? '') || isSectionTitle(r.find((x) => x !== '') ?? '')) {
+      break
+    }
+  }
+
+  const out: { title?: string; meta?: Record<string, string> } = {}
+  if (title) out.title = title
+  if (Object.keys(meta).length > 0) out.meta = meta
+  return out
+}
+
 /** Convert một worksheet thành Markdown, hiểu định dạng tài liệu 基本設計. */
 export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertOptions): string {
   // Option có thể thiếu khi store cũ / caller cũ: mặc định escape.
   const esc = opts.escapeMarkdown !== false
+  const vMergeMode: VerticalMergeMode = opts.verticalMerge ?? 'repeat'
   /** Text do người dùng nhập đứng đầu dòng (đoạn văn, quote, sub-bullet). */
   const blk = (s: string): string => (esc ? escapeBlockStart(s) : s)
   const title = esc ? escapeMarkdownInline(sheetName) : sheetName
-  const grid = sheetToGrid(ws, esc, parseRange(opts.range), opts.showFormulas === true)
+  const { grid, hMergesByRow, vMergedCells } = sheetToGrid(
+    ws,
+    esc,
+    parseRange(opts.range),
+    opts.showFormulas === true
+  )
   const out: string[] = []
   if (opts.includeSheetTitle) out.push('## ' + title, '')
 
@@ -276,6 +517,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   }
 
   let tableHeader: string[] | null = null
+  let tableHeaderSpans: HMergeSpan[] = []
   let tableRows: string[][] = []
   let lastMetaLabel: string | null = null
   /** Sub-bullet meta không có dòng trống phía sau (để các dòng nối tiếp liền nhau).
@@ -286,14 +528,31 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   }
   const flushTable = (): void => {
     if (tableHeader) {
-      const t = renderTable(tableHeader, tableRows, opts)
+      const t = renderTable(tableHeader, tableRows, opts, tableHeaderSpans)
       if (t) {
         startBlock()
         out.push(t, '')
       }
       tableHeader = null
+      tableHeaderSpans = []
       tableRows = []
     }
+  }
+  const openTableAt = (rowIdx: number): void => {
+    const r = grid[rowIdx]
+    const spans = hMergesByRow.get(rowIdx) ?? []
+    const merged2 = tryMergeTwoRowHeader(r, grid[rowIdx + 1], spans)
+    if (merged2) {
+      tableHeader = merged2
+      // Khi đã tách thành cột con ở dòng 2, chỉ giữ các span không bị tách
+      tableHeaderSpans = hMergesByRow.get(rowIdx + 1) ?? []
+      i = rowIdx + 1
+    } else {
+      tableHeader = r.slice()
+      tableHeaderSpans = spans
+    }
+    tableRows = []
+    lastMetaLabel = null
   }
   const isMetaRow = (r: string[]): boolean => META_LABELS.has(r[0])
   /** Dòng "ma" do merge dọc lan giá trị header xuống: mọi ô có giá trị đều
@@ -323,12 +582,15 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
 
     if (n === 1) {
       const v = escCell(fe, opts.multiline)
-      if (tableHeader && !isSectionTitle(fe)) {
+      const rowSpans = hMergesByRow.get(i) ?? []
+      const isFullWidthMergedNote =
+        feIdx === 0 && rowSpans.some((sp) => sp.sc === 0 && sp.ec >= 2)
+      if (tableHeader && !isSectionTitle(fe) && !isFootnoteText(fe) && !isFullWidthMergedNote) {
         // Dòng ma do merge dọc lan header xuống -> bỏ qua
         if (isHeaderGhost(r, tableHeader)) {
           continue
         }
-        tableRows.push(r) // dòng nối tiếp trong bảng (vd: チェック対象項目 xuống dòng)
+        tableRows.push(applyVerticalMergeMode(r, i, vMergedCells, vMergeMode)) // dòng nối tiếp trong bảng
       } else if (lastMetaLabel && !tableHeader && !isSectionTitle(fe) && v) {
         // Dòng 1 ô ngay sau meta (vd: 画面遷移 xuống dòng) -> sub-bullet nối tiếp.
         if (out.length > 0 && out[out.length - 1] === '') out.pop()
@@ -346,11 +608,12 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       } else {
         flushTable()
         lastMetaLabel = null
-        // Dòng 1 ô đứng ngay trên bảng -> coi là tiêu đề của bảng đó
+        // Dòng 1 ô đứng ngay trên bảng -> coi là tiêu đề của bảng đó (trừ khi là dòng ghi chú ※)
         const nr = grid[i + 1]
         const nnr = grid[i + 2]
         const nfe = nr?.find((x) => x !== '') ?? ''
-        const aboveTable = !!nr && isTableHeaderRow(nr, nnr, nfe, nonEmptyCount(nr))
+        const aboveTable =
+          !isFootnoteText(fe) && !!nr && isTableHeaderRow(nr, nnr, nfe, nonEmptyCount(nr))
         startBlock()
         out.push(aboveTable ? '### ' + v : '> ' + blk(v), '')
       }
@@ -398,12 +661,11 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       if (isHeaderGhost(r, tableHeader)) {
         continue
       }
-      if (HEADER_LABELS.has(fe)) {
+      if (HEADER_LABELS.has(fe) && !vMergedCells.has(`${i},${feIdx}`)) {
         flushTable()
-        tableHeader = r.slice()
-        tableRows = []
+        openTableAt(i)
       } else {
-        tableRows.push(r)
+        tableRows.push(applyVerticalMergeMode(r, i, vMergedCells, vMergeMode))
       }
       continue
     }
@@ -411,9 +673,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
     const next = grid[i + 1]
     const looksHeader = isTableHeaderRow(r, next, fe, n)
     if (looksHeader) {
-      tableHeader = r.slice()
-      tableRows = []
-      lastMetaLabel = null
+      openTableAt(i)
       continue
     }
     lastMetaLabel = null
@@ -480,7 +740,7 @@ export function convertSheetsInWorkbook(
     if (!ws) continue
     const md = sheetToMarkdown(ws, sn, opts)
     if (opts.skipEmptySheets && md.trim() === '') continue
-    results.push({ sheet: sn, markdown: md })
+    results.push({ sheet: sn, markdown: md, ...extractSheetMeta(ws, sn) })
   }
   return results
 }

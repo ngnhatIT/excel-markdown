@@ -77,7 +77,9 @@ export function runCli(argv: string[], log: (s: string) => void = console.log): 
         }
       } else {
         for (const s of sheets) {
-          const fm = args.options.frontMatter ? frontMatter({ source: src, sheet: s.sheet }) : ''
+          const fm = args.options.frontMatter
+            ? frontMatter({ source: src, sheet: s.sheet, title: s.title, meta: s.meta })
+            : ''
           write(base + '__' + s.sheet, fm + s.markdown + '\n')
         }
       }
