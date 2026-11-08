@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
-import { readWorkbook } from '../../../domain/excel/converter'
+import { readWorkbook } from '../../outbound/xlsxFiles'
 import { createWorkbookCache } from './workbookCache'
 import { handleRequest } from './workerHandler'
 import type { WorkerRequest } from '../../../application/ports/workerProtocol'

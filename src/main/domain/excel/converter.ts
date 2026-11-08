@@ -9,8 +9,6 @@ import { escapeMarkdownInline, type SheetResult } from './output'
 
 // Giữ API cũ: test và code cũ import các hàm này từ converter.
 export { dedupeFileName, escapeMarkdownInline, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
-// Re-export outbound adapters để tương thích ngược với tests và worker cũ
-export { convertSheet, convertWorkbook, listSheets, readWorkbook } from '../../adapters/outbound/xlsxFiles'
 
 const META_LABELS = new Set([
   '機能ID',

@@ -2,6 +2,8 @@
 
 Electron + TypeScript + React (electron-vite). UI tiếng Việt, 2 theme.
 
+Thư mục `src/main` chia theo tầng domain / ports / adapters: xem [docs/architecture.md](docs/architecture.md).
+
 ## Luồng dữ liệu
 
 ```
@@ -87,7 +89,7 @@ Excel → Markdown (SheetJS đọc) và Markdown → Excel (marked parse + excel
    sub-bullet) escape thêm cú pháp block (`# `, `> `, `- `, `1. `, `---`).
    Khoảng trắng ASCII gộp, toàn角 (U+3000) giữ.
 
-## Engine Markdown → Excel (`src/main/md2xlsx/`, tóm tắt)
+## Engine Markdown → Excel (`src/main/domain/md2xlsx/`, tóm tắt)
 
 Thuần Node (test được không cần Electron); `write.ts` là module duy nhất nạp exceljs.
 Thiết kế và quyết định: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
@@ -117,9 +119,9 @@ Kiểm bằng Excel thật: `scripts/xlsx-snapshot.ps1` (xem README) mở file b
 ## Quy ước
 
 - Mỗi thay đổi: typecheck + test xanh mới commit. Regression: golden test
-  (`src/main/golden.test.ts`, file mẫu `test/fixtures`, output `test/golden`);
+  (`src/main/domain/excel/golden.test.ts`, file mẫu `test/fixtures`, output `test/golden`);
   đổi output có chủ ý thì `npm run test:update` và review diff `test/golden`.
-  Chiều Markdown → Excel: `src/main/md2xlsx/golden.test.ts` (golden JSON `test/golden-md2xlsx`
+  Chiều Markdown → Excel: `src/main/domain/md2xlsx/golden.test.ts` (golden JSON `test/golden-md2xlsx`
   + round-trip với Markdown do app tạo); **không** sửa `test/golden` để chiều này ổn định hơn.
 - Đổi UI / IPC / main: chạy `npm run e2e` (build + điều khiển app Electron thật qua
   DevTools Protocol, `scripts/e2e.mjs`). Cần màn hình, không chạy trong CI.

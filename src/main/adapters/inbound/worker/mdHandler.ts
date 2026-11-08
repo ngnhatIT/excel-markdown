@@ -77,7 +77,8 @@ async function toXlsx(files: string[], outPath: string): Promise<{ outPath: stri
   const sheets = assignSheetNames(all)
   if (sheets.length === 0) throw new MdRequestError('Các file Markdown không có nội dung để tạo sheet.')
 
-  const { buildWorkbook, saveWorkbook } = await import('../../../domain/md2xlsx/write')
+  const { buildWorkbook } = await import('../../../domain/md2xlsx/write')
+  const { saveWorkbook } = await import('../../outbound/xlsxWriter')
   try {
     await saveWorkbook(buildWorkbook(sheets), outPath)
   } catch (err) {

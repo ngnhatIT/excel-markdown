@@ -5,7 +5,7 @@ import { IconChevronDown, IconFile, IconTrash, IconX } from './icons'
 
 /** Class dùng chung cho các component cột trái (FileList, MdFileList, MdTreeList). */
 export const filesAside =
-  'flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line bg-soft'
+  'glass flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto rounded-2xl'
 export const filesAsideDrag = 'outline-2 -outline-offset-2 outline-dashed outline-accent'
 export const emptyBox = 'flex flex-col items-center justify-center gap-2 px-6 py-12 text-center text-faint'
 export const emptyP = 'm-0 text-[13px] text-dim'
@@ -17,8 +17,8 @@ export const moveBtn =
   'rounded-md px-1.5 py-1 text-[13px] font-bold leading-none text-dim transition-colors duration-150 enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-default disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-accent'
 export const reloadBtn = 'flex items-center'
 export const fileCard =
-  'overflow-hidden rounded-[9px] border border-line bg-canvas transition-colors duration-150 hover:border-faint motion-reduce:transition-none'
-export const fileCardActive = '!border-accent'
+  'glass-chip overflow-hidden rounded-xl transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-line motion-reduce:transition-none'
+export const fileCardActive = '!border-accent-line !shadow-[inset_0_1px_0_var(--glass-highlight),0_0_0_3px_var(--accent-soft)]'
 export const fileHead = 'flex items-center gap-1.5 px-2 py-1.5'
 export const fileNameBtn =
   'flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-sm p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-accent'

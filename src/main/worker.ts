@@ -4,7 +4,7 @@
  * Yêu cầu Markdown → Excel (mdInspect/mdToXlsx) cũng chạy ở đây; exceljs chỉ được nạp
  * (import động) khi có mdToXlsx.
  */
-import { readWorkbook } from './domain/excel/converter'
+import { readWorkbook } from './adapters/outbound/xlsxFiles'
 import { handleMdRequest } from './adapters/inbound/worker/mdHandler'
 import { createWorkbookCache } from './adapters/inbound/worker/workbookCache'
 import { handleRequest } from './adapters/inbound/worker/workerHandler'

@@ -178,7 +178,7 @@ export async function callGeminiApi(opts: {
       activeModel
     )}:generateContent?key=${encodeURIComponent(key)}`
 
-    const timeoutMs = 60_000
+    const timeoutMs = 120_000
     const ctrl = new AbortController()
     let timedOut = false
     const timer = setTimeout(() => {
@@ -207,12 +207,9 @@ export async function callGeminiApi(opts: {
       if (opts.signal?.aborted) {
         throw new Error('Đã dừng yêu cầu AI')
       }
+      // Không thử lại khi quá giờ: câu trả lời chậm sẽ lại quá giờ, chỉ tốn thêm thời gian và token.
       if (timedOut) {
-        if (attempt < maxAttempts - 1) {
-          await delayWithSignal(1500 * (attempt + 1), opts.signal)
-          continue
-        }
-        throw new Error('Quá thời gian chờ phản hồi từ Gemini API (60s). Vui lòng thử lại.')
+        throw new Error(`Quá thời gian chờ phản hồi từ Gemini API (${timeoutMs / 1000}s). Vui lòng thử lại.`)
       }
       if (attempt < maxAttempts - 1) {
         await delayWithSignal(1500 * (attempt + 1), opts.signal)
@@ -286,6 +283,9 @@ export async function callGeminiApi(opts: {
 
     if (candidate?.finishReason === 'MAX_TOKENS') {
       rawText += '\n\n*(Lưu ý: Câu trả lời đã đạt giới hạn độ dài tối đa của model)*'
+    }
+    if (activeModel !== opts.model) {
+      rawText += `\n\n*(Lưu ý: model "${opts.model}" không còn dùng được, câu trả lời này do ${activeModel} tạo. Hãy chọn model khác.)*`
     }
 
     const { cleanAnswer, citations } = extractCitationsFromAnswer(rawText, opts.availableCitations)

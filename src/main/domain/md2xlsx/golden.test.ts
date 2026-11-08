@@ -11,12 +11,14 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import * as XLSX from 'xlsx'
-import { convertWorkbook, joinWorkbookMarkdown, listSheets } from '../excel/converter'
+import { joinWorkbookMarkdown } from '../excel/converter'
+import { convertWorkbook, listSheets } from '../../adapters/outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../types'
 import type { SheetModel } from './model'
 import { assignSheetNames } from './names'
 import { parseMarkdownFile } from './parse'
-import { buildWorkbook, saveWorkbook } from './write'
+import { buildWorkbook } from './write'
+import { saveWorkbook } from '../../adapters/outbound/xlsxWriter'
 
 const INPUT_DIR = fileURLToPath(new URL('../../../../test/golden/', import.meta.url))
 const files = readdirSync(INPUT_DIR).filter((f) => f.endsWith('.md'))

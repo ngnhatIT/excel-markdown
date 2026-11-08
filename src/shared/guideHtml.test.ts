@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildGuideHtml } from './guideHtml'
+import { buildGuideHtml, guideFileStem } from './guideHtml'
 
 describe('buildGuideHtml', () => {
   it('id theo slug (Unicode ok, trùng thì thêm số), mục lục bỏ thẻ trong text', () => {
@@ -39,5 +39,26 @@ describe('buildGuideHtml', () => {
   it('script của trang cú pháp hợp lệ', () => {
     const js = /<script>([\s\S]*)<\/script>/.exec(buildGuideHtml('T', '<p>x</p>'))![1]
     expect(() => new Function(js)).not.toThrow()
+  })
+  it('bố cục tài liệu: thanh trên, ngăn mục lục cho màn hẹp, % đã đọc, đếm sơ đồ, footer', () => {
+    const out = buildGuideHtml('T', '<h2>a</h2><h2>b</h2><figure class="mmd"><svg></svg></figure>', { date: '1/1/2026' })
+    for (const id of ['menu', 'np', 'tocq', 'print', 'top']) expect(out).toContain(`id="${id}"`)
+    expect(out).toContain('<span>1 sơ đồ</span>')
+    expect(out).toContain('<article class="doc">')
+    expect(out).toContain('Xuất từ ExcelToMarkdown · 1/1/2026')
+  })
+  it('thời gian đọc: chữ Nhật đếm theo ký tự, chữ Việt theo từ', () => {
+    expect(buildGuideHtml('T', `<p>${'エラー時は必須です。'.repeat(1000)}</p>`)).toContain('~20 phút đọc')
+    expect(buildGuideHtml('T', `<p>${'một '.repeat(1800)}</p>`)).toContain('~10 phút đọc')
+  })
+})
+
+describe('guideFileStem', () => {
+  it('bỏ đuôi file, đổi / thành " - ", giữ dấu chấm trong tên', () => {
+    expect(guideFileStem('book.xlsx / Rev.3')).toBe('book - Rev.3')
+    expect(guideFileStem('docs\\spec.v2/SC001.md')).toBe('docs - spec.v2 - SC001')
+    expect(guideFileStem('release-1.2.MD')).toBe('release-1.2')
+    expect(guideFileStem(null)).toBe('ghi-chu')
+    expect(guideFileStem('.md')).toBe('ghi-chu')
   })
 })

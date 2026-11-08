@@ -4,15 +4,8 @@ import { marked } from 'marked'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
-import {
-  sheetToMarkdown,
-  listSheets,
-  convertSheet,
-  convertWorkbook,
-  safeFileName,
-  dedupeFileName,
-  joinWorkbookMarkdown,
-} from './converter'
+import { sheetToMarkdown, safeFileName, dedupeFileName, joinWorkbookMarkdown } from './converter'
+import { listSheets, convertSheet, convertWorkbook } from '../../adapters/outbound/xlsxFiles'
 import type { ConvertOptions } from '../../../types'
 
 const OPTS: ConvertOptions = {

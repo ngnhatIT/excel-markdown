@@ -362,6 +362,3 @@ export function injectIgnoredErrors(xml: string): string {
   if (at < 0) return xml
   return xml.slice(0, at) + IGNORED_ERRORS + xml.slice(at)
 }
-
-// Re-export saveWorkbook từ outbound adapter
-export { saveWorkbook } from '../../adapters/outbound/xlsxWriter'

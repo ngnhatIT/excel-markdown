@@ -166,12 +166,12 @@ export function MdTreeList(p: Props): React.ReactElement {
           )}
           {p.root && p.recent.length > 0 && (
             <>
-              <div className="x2m-tree-section px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint">Mới sửa</div>
+              <div className="x2m-tree-section px-2 py-1.5 text-[11.5px] font-semibold text-dim">Mới sửa</div>
               {p.recent.map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r], 'x2m-recent-row'))}
             </>
           )}
           {p.root && (
-            <div className="x2m-tree-section x2m-tree-section-bar flex items-center justify-between px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint border-t border-line/40 mt-1.5">
+            <div className="x2m-tree-section x2m-tree-section-bar flex items-center justify-between px-2 py-1.5 text-[11.5px] font-semibold text-dim border-t border-line/40 mt-1.5">
               <span>Tất cả</span>
               <span className="x2m-sort flex items-center gap-0.5 rounded border border-line bg-raised p-0.5 normal-case tracking-normal">
                 <button className="x2m-sort-btn rounded px-1.5 py-0.5 text-[10.5px] font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs" aria-pressed={p.sort === 'name'} onClick={() => p.onSortChange('name')}>
@@ -192,7 +192,7 @@ export function MdTreeList(p: Props): React.ReactElement {
           {p.root && p.relFiles.length === 0 && !p.listing && <div className="x2m-loading">Không có file Markdown nào</div>}
           {p.loose.length > 0 && (
             <>
-              <div className="x2m-tree-group px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-faint border-t border-line/40 mt-2">File đã mở</div>
+              <div className="x2m-tree-group px-2 py-1.5 text-[11.5px] font-semibold text-dim border-t border-line/40 mt-2">File đã mở</div>
               {p.loose
                 .filter((f) => !q || f.toLowerCase().includes(q))
                 .map((f) => fileRow(f, baseName(f), 0, f, () => p.onRemoveLoose(f)))}

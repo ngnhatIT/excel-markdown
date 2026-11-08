@@ -4,7 +4,8 @@ import { mkdtempSync, utimesSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { WorkbookCache, createWorkbookCache } from './workbookCache'
-import { readWorkbook, convertSheetInWorkbook } from '../../../domain/excel/converter'
+import { convertSheetInWorkbook } from '../../../domain/excel/converter'
+import { readWorkbook } from '../../outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../../types'
 
 function fakeDeps() {

@@ -26,9 +26,9 @@ const PICK_LABEL: Record<AppMode, string> = {
 export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange }: Props): React.ReactElement {
   const themeLabel = theme === 'dark' ? 'Chuyển sang nền sáng' : 'Chuyển sang nền tối'
   return (
-    <header className="x2m-header flex shrink-0 items-center justify-between gap-3 border-b border-line bg-soft px-4 py-2.5">
+    <header className="x2m-header glass flex shrink-0 items-center justify-between gap-3 rounded-2xl px-4 py-2.5">
       <div className="x2m-brand flex items-center gap-[11px]">
-        <span className="x2m-logo flex size-9 shrink-0 items-center justify-center rounded-[9px] border border-accent-line bg-accent-soft text-accent-ink">
+        <span className="x2m-logo seg-on flex size-9 shrink-0 items-center justify-center rounded-xl text-accent-ink">
           <IconMarkdown size={22} />
         </span>
         <div>
@@ -36,13 +36,13 @@ export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange }
           <div className="x2m-sub text-[11.5px] text-dim">Convert file Excel sang Markdown, giữ đúng bố cục tài liệu</div>
         </div>
       </div>
-      <div className="x2m-mode flex gap-0.5 rounded-[9px] border border-line bg-raised p-[3px]" role="group" aria-label="Chế độ">
+      <div className="x2m-mode flex gap-0.5 rounded-xl border border-line bg-canvas p-[3px] shadow-[inset_0_1px_2px_rgba(0,0,0,0.12)]" role="group" aria-label="Chế độ">
         {MODES.map((m) => (
           <button
             key={m.value}
             className={cn(
               'x2m-mode-btn cursor-pointer whitespace-nowrap rounded-[7px] px-3 py-[5px] text-[12.5px] font-semibold transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
-              mode === m.value ? 'active bg-accent-soft text-accent-ink' : 'text-dim hover:bg-hover hover:text-ink'
+              mode === m.value ? 'active seg-on' : 'text-dim hover:bg-hover hover:text-ink'
             )}
             onClick={() => onModeChange(m.value)}
             aria-pressed={mode === m.value}
