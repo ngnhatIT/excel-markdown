@@ -371,7 +371,7 @@ export function AiChatPanel({
             <div className="x2m-ai-keybox-row flex items-center gap-2">
               <label className="x2m-ai-label text-xs font-medium text-dim">{t('ai.model')}</label>
               <select
-                className="x2m-select flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
+                className="x2m-select min-w-0 flex-1 truncate rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
                 value={config.model}
                 onChange={(e) => void changeModel(e.target.value)}
               >

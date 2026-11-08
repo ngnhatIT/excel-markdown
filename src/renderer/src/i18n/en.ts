@@ -25,8 +25,10 @@ export const en: Dict = {
   'header.mode.excel2md': 'Excel → Markdown',
   'header.mode.md2excel': 'Markdown → Excel',
   'header.mode.mdview': 'Markdown Reader',
+  'header.mode.compare': 'Compare',
   'header.pick.excel2md': 'Add Excel files',
   'header.pick.md2excel': 'Add Markdown files',
+  'header.pick.compare': 'Choose files to compare',
   'header.theme.toLight': 'Switch to light theme',
   'header.theme.toDark': 'Switch to dark theme',
 
@@ -34,6 +36,7 @@ export const en: Dict = {
     'Drop a folder or Markdown files here to read — **Ctrl+O** open folder, **↑/↓** switch file, **Ctrl+K** quick open, **Alt+←/→** back/forward.',
   'onboarding.md2excel': 'Drop Markdown files here to start — **Ctrl+O** add files, **Ctrl+Enter** create the Excel file.',
   'onboarding.excel2md': 'Drop Excel files here to start — **Ctrl+O** add files, **Ctrl+Enter** convert.',
+  'onboarding.compare': 'Choose the **old** and **new** version (Excel or Markdown) to see what changed — **F7** jumps to the next change.',
 
   'app.hint.excelFile': 'Excel file: switch to Excel → Markdown mode to convert it',
   'app.hint.mdFile': 'Markdown file: switch to Markdown → Excel mode to create an Excel file',

@@ -30,6 +30,8 @@ import { EXCEL_EXT, useFiles } from './features/excel2md/useFiles'
 import { useMdConvert } from './features/md2excel/useMdConvert'
 import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
 import { joinRoot, PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
+import { ComparePane } from './features/compare/ComparePane'
+import { useCompare } from './features/compare/useCompare'
 import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 import { detectLang, getLocale, isLang, setLang, t as tr, useT, type Lang } from './i18n'
@@ -110,6 +112,7 @@ export default function App(): React.ReactElement {
   } = useMdFiles()
 
   const viewer = useMdViewer(persist)
+  const compare = useCompare()
 
   /* ------------------------------- theme/store ------------------------------ */
   useEffect(() => {
@@ -142,7 +145,7 @@ export default function App(): React.ReactElement {
         if (o) setOptions({ ...DEFAULT_OPTIONS, ...o })
         if (m === 'per-sheet' || m === 'per-workbook') setOutputMode(m)
         if (sc && typeof sc === 'object') setSavedChecks(sc)
-        if (am === 'excel2md' || am === 'md2excel' || am === 'mdview') setAppMode(am)
+        if (am === 'excel2md' || am === 'md2excel' || am === 'mdview' || am === 'compare') setAppMode(am)
       } catch {
         /* bỏ qua: dùng mặc định */
       }
@@ -298,6 +301,10 @@ export default function App(): React.ReactElement {
    * Chế độ Đọc Markdown: file .md mở để xem, thứ khác thử mở như thư mục. */
   const dropPaths = useCallback(
     (paths: string[]) => {
+      if (appMode === 'compare') {
+        if (compare.addPaths(paths) === 0) toast(t('compare.unsupported'), 'err')
+        return
+      }
       if (appMode === 'mdview') {
         if (paths.some((p) => EXCEL_EXT.test(p))) toast(hintExcelFile(), 'err')
         viewerOpenFiles(paths.filter((p) => MD_EXT.test(p)))
@@ -311,7 +318,7 @@ export default function App(): React.ReactElement {
       const rest = paths.filter((p) => !foreign.test(p))
       if (rest.length > 0) void add(rest)
     },
-    [appMode, addMdPaths, addPaths, viewerOpenFiles, viewerOpenFolder]
+    [appMode, addMdPaths, addPaths, viewerOpenFiles, viewerOpenFolder, compare]
   )
 
   const removeFile = useCallback(
@@ -523,6 +530,15 @@ export default function App(): React.ReactElement {
 
   const isMd = appMode === 'md2excel'
   const isView = appMode === 'mdview'
+  const isCompare = appMode === 'compare'
+  const pickCompareFile = useCallback(async () => {
+    try {
+      const p = await window.api.openCompareFile()
+      if (p) compare.addPaths([p])
+    } catch (err) {
+      toast(errMsg(err), 'err')
+    }
+  }, [compare])
 
   /** Preview Excel: ảnh trong sheet được worker nhúng sẵn dạng data:. */
   const resolvePreviewImage = useCallback((src: string): string | null => (/^data:image\/(png|jpe?g|gif|webp|bmp);/i.test(src) ? src : null), [])
@@ -673,10 +689,10 @@ export default function App(): React.ReactElement {
       setSheetFilter('')
       viewer.setFilter('')
     },
-    onMoveSheet: isView ? viewer.move : isMd ? moveMdSelection : moveSheet,
+    onMoveSheet: isCompare ? () => undefined : isView ? viewer.move : isMd ? moveMdSelection : moveSheet,
     // Đọc Markdown không có convert
-    onConvert: () => void (isView ? undefined : isMd ? doMdConvert() : doConvert()),
-    onPickFiles: () => void (isView ? pickViewerFolder() : isMd ? pickMdFiles() : pickFiles()),
+    onConvert: () => void (isView || isCompare ? undefined : isMd ? doMdConvert() : doConvert()),
+    onPickFiles: () => void (isCompare ? pickCompareFile() : isView ? pickViewerFolder() : isMd ? pickMdFiles() : pickFiles()),
     onZoom: (a) =>
       setZoom((z) =>
         a === 'reset'
@@ -727,7 +743,7 @@ export default function App(): React.ReactElement {
       <Header
         theme={theme}
         onToggleTheme={toggleTheme}
-        onPickFiles={isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
+        onPickFiles={isCompare ? pickCompareFile : isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
         mode={appMode}
         onModeChange={changeAppMode}
         onLangChange={changeLang}
@@ -743,7 +759,9 @@ export default function App(): React.ReactElement {
       )}
 
       <div className="x2m-body flex min-h-0 flex-1">
-        {isView ? (
+        {isCompare ? (
+          <ComparePane state={compare} dragOver={dragOver} />
+        ) : isView ? (
           <>
             <MdTreeList
               root={viewer.root}
@@ -971,7 +989,7 @@ export default function App(): React.ReactElement {
       </div>
 
       {/* Đọc Markdown không convert nên không có thanh thư mục lưu + nút convert */}
-      {!isView && (
+      {!isView && !isCompare && (
         <Footer
           outDir={outDir}
           recentDirs={recentDirs}

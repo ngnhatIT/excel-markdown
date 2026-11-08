@@ -25,8 +25,10 @@ export const ja: Dict = {
   'header.mode.excel2md': 'Excel → Markdown',
   'header.mode.md2excel': 'Markdown → Excel',
   'header.mode.mdview': 'Markdown 閲覧',
+  'header.mode.compare': '新旧比較',
   'header.pick.excel2md': 'Excel ファイルを追加',
   'header.pick.md2excel': 'Markdown ファイルを追加',
+  'header.pick.compare': '比較するファイルを選択',
   'header.theme.toLight': 'ライトテーマに切り替え',
   'header.theme.toDark': 'ダークテーマに切り替え',
 
@@ -34,6 +36,7 @@ export const ja: Dict = {
     'フォルダまたは Markdown ファイルをここにドロップして閲覧 — **Ctrl+O** フォルダを開く、**↑/↓** ファイル切替、**Ctrl+K** クイック検索、**Alt+←/→** 戻る/進む。',
   'onboarding.md2excel': 'Markdown ファイルをここにドロップして開始 — **Ctrl+O** ファイル追加、**Ctrl+Enter** Excel ファイル作成。',
   'onboarding.excel2md': 'Excel ファイルをここにドロップして開始 — **Ctrl+O** ファイル追加、**Ctrl+Enter** 変換。',
+  'onboarding.compare': '**旧版**と**新版**（Excel または Markdown）を選ぶと変更点を表示します — **F7** で次の変更へ移動。',
 
   'app.hint.excelFile': 'Excel ファイル：変換するには Excel → Markdown モードに切り替えてください',
   'app.hint.mdFile': 'Markdown ファイル：Excel を作成するには Markdown → Excel モードに切り替えてください',

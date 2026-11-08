@@ -85,7 +85,7 @@ export interface ApiResult<T> {
 }
 
 /** Chế độ làm việc của app: Excel → Markdown (mặc định), Markdown → Excel hoặc Đọc Markdown. */
-export type AppMode = 'excel2md' | 'md2excel' | 'mdview'
+export type AppMode = 'excel2md' | 'md2excel' | 'mdview' | 'compare'
 
 /** Một dòng khớp khi tìm theo nội dung (chế độ Đọc Markdown). */
 export interface MdSearchHit {

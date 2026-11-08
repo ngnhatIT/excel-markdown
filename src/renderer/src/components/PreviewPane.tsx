@@ -6,6 +6,7 @@ import { errMsg } from '../lib/api'
 import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
+import { SelectionTranslate } from './SelectionTranslate'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
 import { getLocale, LOCALES, t as tr, useLang, useT } from '../i18n'
@@ -505,6 +506,7 @@ export function PreviewPane({
           {t('preview.showMore', { n: display.hidden })}
         </button>
       )}
+      <SelectionTranslate containerRef={previewRef} />
     </>
   )
 }

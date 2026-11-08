@@ -13,7 +13,7 @@ interface Props {
   onLangChange: (l: Lang) => void
 }
 
-const MODES: AppMode[] = ['excel2md', 'md2excel', 'mdview']
+const MODES: AppMode[] = ['excel2md', 'md2excel', 'mdview', 'compare']
 /** Chữ trên nút chọn ngôn ngữ (giữ nguyên ở mọi ngôn ngữ) */
 const LANG_SHORT: Record<Lang, string> = { vi: 'VI', en: 'EN', ja: '日本語' }
 

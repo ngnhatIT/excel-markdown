@@ -25,8 +25,10 @@ export const vi = {
   'header.mode.excel2md': 'Excel → Markdown',
   'header.mode.md2excel': 'Markdown → Excel',
   'header.mode.mdview': 'Đọc Markdown',
+  'header.mode.compare': 'So sánh',
   'header.pick.excel2md': 'Thêm file Excel',
   'header.pick.md2excel': 'Thêm file Markdown',
+  'header.pick.compare': 'Chọn file so sánh',
   'header.theme.toLight': 'Chuyển sang nền sáng',
   'header.theme.toDark': 'Chuyển sang nền tối',
 
@@ -34,6 +36,7 @@ export const vi = {
     'Kéo thả thư mục hoặc file Markdown vào đây để đọc — **Ctrl+O** mở thư mục, **↑/↓** chuyển file, **Ctrl+K** tìm nhanh, **Alt+←/→** lùi/tiến.',
   'onboarding.md2excel': 'Kéo thả file Markdown vào đây để bắt đầu — **Ctrl+O** thêm file, **Ctrl+Enter** để tạo file Excel.',
   'onboarding.excel2md': 'Kéo thả file Excel vào đây để bắt đầu — **Ctrl+O** thêm file, **Ctrl+Enter** để convert.',
+  'onboarding.compare': 'Chọn **bản cũ** và **bản mới** (Excel hoặc Markdown) để xem thay đổi — **F7** nhảy tới thay đổi kế tiếp.',
 
   'app.hint.excelFile': 'File Excel: chuyển sang chế độ Excel → Markdown để convert',
   'app.hint.mdFile': 'File Markdown: chuyển sang chế độ Markdown → Excel để tạo file Excel',

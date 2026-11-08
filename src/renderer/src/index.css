@@ -186,6 +186,13 @@
   animation-delay: 120ms;
 }
 
+/* Toast nổi trên nội dung bất kỳ: kính gần đặc để chữ phía sau không lộ qua (ngoài @layer nên thắng utility glass) */
+.x2m-toast {
+  background:
+    linear-gradient(160deg, var(--sheen), transparent 32%),
+    color-mix(in srgb, var(--backdrop-base) 90%, transparent);
+}
+
 /* Biểu tượng trạng thái trống đặt trong một ô kính */
 .x2m-empty > svg:first-child {
   box-sizing: content-box;
