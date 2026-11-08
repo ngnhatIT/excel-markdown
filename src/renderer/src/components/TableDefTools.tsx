@@ -5,6 +5,7 @@ import { SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDialect, type TableDe
 import { renderMermaidIn } from '../lib/mermaid'
 import { btnGhost, btnSm, cx, input } from '../lib/ui'
 import { useT } from '../i18n'
+import { useFocusTrap } from '../lib/focusTrap'
 
 const DIALECT_KEY = 'x2m.ddlDialect'
 const DIALECT_LABEL: Record<SqlDialect, string> = { generic: '', postgres: 'PostgreSQL', mysql: 'MySQL', oracle: 'Oracle', sqlserver: 'SQL Server' }
@@ -59,6 +60,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
   const [dialect, setDialect] = useState<SqlDialect>(loadDialect)
   const ddl = useMemo(() => toDDL([def], dialect), [def, dialect])
   useDismiss(ref, onClose)
+  useFocusTrap(ref)
   const left = Math.max(8, Math.min(x, window.innerWidth - POP_W - 8))
   return createPortal(
     <div
@@ -117,6 +119,7 @@ export function ErDialog({ defs, onClose, onCopy }: { defs: TableDef[]; onClose:
   const boxRef = useRef<HTMLDivElement | null>(null)
   const src = useMemo(() => toErMermaid(defs), [defs])
   useDismiss(ref, onClose)
+  useFocusTrap(ref)
   useEffect(() => {
     const box = boxRef.current
     if (!box) return

@@ -65,7 +65,8 @@
   --text: #e8edf4;
   --text-dim: #98a6b8;
   --text-faint: #7d8b9e;
-  --accent: #4f86df;
+  /* chữ trắng trên nền accent ≥ 4.5:1 (WCAG AA) */
+  --accent: #3b6fc4;
   --accent-soft: rgba(79, 134, 223, 0.16);
   --accent-border: rgba(79, 134, 223, 0.4);
   --accent-text: #7cb3ff;
@@ -108,16 +109,17 @@
   --border-subtle: rgba(30, 55, 95, 0.07);
   --text: #161f2c;
   --text-dim: #526175;
-  --text-faint: #68778c;
+  /* ≥ 4.5:1 trên nền kính sáng (đo trên nền ghép thực tế, không chỉ nền trắng) */
+  --text-faint: #566477;
   --accent: #1d5bd6;
   --accent-soft: rgba(29, 91, 214, 0.1);
   --accent-border: rgba(29, 91, 214, 0.32);
   --accent-text: #1850c2;
-  --success: #168a4a;
+  --success: #127a40;
   --success-soft: rgba(22, 138, 74, 0.1);
-  --warning: #b87a11;
+  --warning: #8a5a00;
   --warning-soft: rgba(184, 122, 17, 0.1);
-  --danger: #d13838;
+  --danger: #b42525;
   --danger-soft: rgba(209, 56, 56, 0.1);
   --code-bg: rgba(243, 246, 250, 0.82);
   --shadow: 0 12px 32px -10px rgba(30, 55, 95, 0.25);
