@@ -4,7 +4,7 @@
 import ExcelJS from 'exceljs'
 import { toCellValue } from './cellValue'
 import { displayWidth, estimateLines, splitByLines } from './layout'
-import type { Block, SheetModel, XCell } from './model'
+import type { Block, Run, SheetModel, XCell } from './model'
 
 // ---- Hằng số bố cục (Global Constraints) ----
 const FONT_NAME = '游ゴシック'
@@ -55,6 +55,13 @@ const DEFAULT_COL_WIDTH = 8.43
 const EXCELJS_DEFAULT_WIDTH = 9
 /** Ô Excel chứa tối đa 32 767 ký tự. */
 const MAX_CELL_CHARS = 32767
+/** Excel có tối đa 16 384 cột (XFD): bảng rộng hơn bị cắt bớt cột thay vì exceljs ném lỗi. */
+const MAX_COLUMNS = 16384
+/** Ảnh rộng hơn thì thu nhỏ (giữ tỉ lệ) để không kéo vùng in quá rộng. */
+const MAX_IMAGE_WIDTH_PX = 800
+/** Hàng mặc định cao 15pt = 20px (96 DPI): số hàng dành cho ảnh = chiều cao ảnh / 20. */
+const DEFAULT_ROW_HEIGHT = 15
+const DEFAULT_ROW_PX = 20
 
 /** exceljs đã tự bỏ C0 (trừ tab/LF/CR) và DEL khi mã hóa XML nhưng KHÔNG bỏ U+FFFE/U+FFFF — đều cấm trong XML 1.0. */
 const XML_INVALID_RE = /[\uFFFE\uFFFF]/g
@@ -75,10 +82,15 @@ function cellText(text: string): string {
   return cut + '…'
 }
 
-/** Chỉ http/https/mailto thành hyperlink; scheme khác và link nội bộ `#…` ghi chữ thuần. */
+/**
+ * http/https/mailto, và link nội bộ đã giải (`'Sheet'!A1`, do nameAndLinkSheets) thành hyperlink; scheme khác và
+ * link nội bộ chưa giải (`#slug`, `x.md`) ghi chữ thuần.
+ */
 function isSafeLink(link: string): boolean {
-  return /^(?:https?:|mailto:)/i.test(link)
+  return /^(?:https?:|mailto:)/i.test(link) || INTERNAL_LINK_RE.test(link)
 }
+/** Dạng exceljs ghi thành hyperlink nội bộ (`location`); xlsxWriter bỏ quan hệ External thừa exceljs ghi kèm. */
+const INTERNAL_LINK_RE = /^'(?:[^']|'')+'![A-Z]+\d+$/
 
 // ---- Style (tạo đối tượng mới mỗi lần để các ô không dùng chung tham chiếu) ----
 const font = (extra: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: FONT_NAME, size: FONT_SIZE, ...extra })
@@ -88,6 +100,7 @@ const allBorders = (): Partial<ExcelJS.Borders> => ({ top: thin(), left: thin(),
 const wrapTop = (): Partial<ExcelJS.Alignment> => ({ wrapText: true, vertical: 'top' })
 
 interface Ctx {
+  wb: ExcelJS.Workbook
   ws: ExcelJS.Worksheet
   /** Số cột của vùng merge: max(4, số cột của bảng rộng nhất). */
   span: number
@@ -106,7 +119,17 @@ function sumWidths(ctx: Ctx, from: number, to: number): number {
 function tableColumns(block: Extract<Block, { kind: 'table' }>): number {
   let cols = block.header.length
   for (const row of block.rows) if (row.length > cols) cols = row.length
-  return cols
+  return Math.min(cols, MAX_COLUMNS)
+}
+
+/**
+ * Merge hàng `row` cột `from..to` không qua ws.mergeCells: hàm đó so với MỌI vùng merge đã có (O(n²), 100 000 dòng
+ * code treo hàng giờ). Vùng của ta không bao giờ chồng nhau; exceljs ghi `<mergeCells>` từ ô kiểu Merge nên kết quả
+ * như mergeCells (ô phụ lấy style của ô chính).
+ */
+function merge(ws: ExcelJS.Worksheet, row: number, from: number, to: number): void {
+  const master = ws.getCell(row, from)
+  for (let c = from + 1; c <= to; c++) ws.getCell(row, c).merge(master)
 }
 
 /** Tính độ rộng cột của sheet và `span`. Cột không có dữ liệu không được đặt độ rộng (giữ mặc định). */
@@ -140,15 +163,44 @@ function computeLayout(blocks: Block[]): { span: number; widths: (number | undef
   return { span, widths }
 }
 
-/** Ghi giá trị của một XCell: số/format theo toCellValue, link thành hyperlink có font link. */
+/** Font của một run: đậm/nghiêng/gạch ngang cộng vào font nền; code dùng font đơn cách. */
+function runFont(base: Partial<ExcelJS.Font>, r: Omit<Run, 'text'>): Partial<ExcelJS.Font> {
+  const f: Partial<ExcelJS.Font> = { ...base }
+  if (r.bold) f.bold = true
+  if (r.italic) f.italic = true
+  if (r.strike) f.strike = true
+  if (r.code) f.name = CODE_FONT_NAME
+  return f
+}
+
+/** Định dạng chung nếu mọi run có chữ (bỏ run chỉ khoảng trắng) cùng định dạng; khác nhau -> null (cần rich text). */
+function uniformStyle(runs: Run[]): Omit<Run, 'text'> | null {
+  const sig = runs.filter((r) => r.text.trim() !== '')
+  const s = sig[0] ?? {}
+  const same = (r: Run) => !r.bold === !s.bold && !r.italic === !s.italic && !r.strike === !s.strike && !r.code === !s.code
+  return sig.every(same) ? s : null
+}
+
+/**
+ * Ghi giá trị của một XCell: số/format theo toCellValue, link thành hyperlink có font link, `note` thành ghi chú Excel.
+ * Định dạng inline: cả ô cùng một định dạng -> font của ô (giá trị vẫn qua toCellValue, `**10**` vẫn là số); nhiều
+ * định dạng -> rich text (chữ thuần).
+ */
 function setCellContent(cell: ExcelJS.Cell, x: XCell, baseFont: Partial<ExcelJS.Font>): void {
+  if (x.note !== undefined && x.note.trim() !== '') cell.note = cellText(x.note)
   if (x.link !== undefined && isSafeLink(x.link)) {
     cell.value = { text: cellText(x.text), hyperlink: clean(x.link) }
     cell.font = { ...baseFont, underline: true, color: { argb: COLOR_LINK } }
     return
   }
-  cell.font = baseFont
+  const uniform = x.runs ? uniformStyle(x.runs) : {}
+  cell.font = uniform ? runFont(baseFont, uniform) : baseFont
   if (x.text === '') return
+  // shortcut: rich text dài quá giới hạn ô ghi chữ thuần đã cắt (không cắt từng run)
+  if (!uniform && x.runs && x.text.length <= MAX_CELL_CHARS) {
+    cell.value = { richText: x.runs.map((r) => ({ text: clean(r.text), font: runFont(baseFont, r) })) }
+    return
+  }
   const { value, numFmt } = toCellValue(x.text)
   cell.value = typeof value === 'string' ? cellText(value) : value
   if (numFmt) cell.numFmt = numFmt
@@ -183,13 +235,23 @@ function writeTable(ctx: Ctx, block: Extract<Block, { kind: 'table' }>, row: num
     const cell = ws.getCell(r, c + 1)
     setCellContent(cell, x ?? { text: '' }, font(header ? { bold: true } : {}))
     cell.border = allBorders()
-    cell.alignment = wrapTop()
+    // Căn ngang theo dòng phân cách `:---:` / `---:` / `:---` (cả header, như GFM)
+    const horizontal = block.align?.[c]
+    cell.alignment = horizontal ? { ...wrapTop(), horizontal } : wrapTop()
     if (header) cell.fill = fill(COLOR_HEADER_FILL)
   }
   for (let c = 0; c < cols; c++) put(row, c, block.header[c], true)
   block.rows.forEach((cells, i) => {
     for (let c = 0; c < cols; c++) put(row + 1 + i, c, cells[c], false)
   })
+  // Danh sách thả xuống trên mọi hàng dữ liệu của cột (exceljs gộp các ô liền nhau thành một sqref)
+  for (const v of block.validations ?? []) {
+    if (v.col >= cols) continue
+    const formulae = ['"' + v.values.map(clean).join(',') + '"']
+    for (let i = 0; i < block.rows.length; i++) {
+      ws.getCell(row + 1 + i, v.col + 1).dataValidation = { type: 'list', allowBlank: true, formulae }
+    }
+  }
   return 1 + block.rows.length
 }
 
@@ -215,10 +277,11 @@ function writeMeta(ctx: Ctx, block: Extract<Block, { kind: 'meta' }>, row: numbe
       cell.border = allBorders()
       cell.alignment = { ...wrapTop(), horizontal: 'left' }
     }
-    ws.mergeCells(r, 2, r, span)
+    merge(ws, r, 2, span)
     // Excel không tự giãn chiều cao ô merge: dòng thật + dòng do chữ tự xuống dòng. Value 1 dòng thì để Excel tự
     // giãn hàng (theo ô nhãn); đã đặt chiều cao thì phải đủ cho cả ô nhãn tự xuống dòng ở cột A.
-    const lines = estimateLines(item.value.text, valueWidth)
+    // Có chữ đậm (rich text / cả ô đậm): ước lượng theo glyph đậm (rộng hơn) để không thiếu dòng
+    const lines = estimateLines(item.value.text, valueWidth, item.value.runs?.some((x) => x.bold) ? 'bold' : 'body')
     if (lines > 1) setRowHeight(ws, r, Math.max(lines, estimateLines(item.label, labelWidth, 'bold')))
   })
   return block.items.length
@@ -240,7 +303,7 @@ function writeHeading(ctx: Ctx, block: Extract<Block, { kind: 'heading' }>, row:
     cell.font = font({ bold: true, size: 12, color: { argb: COLOR_HEADING } })
     if (i === pieces.length - 1) cell.border = { bottom: { style: 'medium', color: { argb: COLOR_HEADING } } }
     cell.alignment = wrapTop()
-    ws.mergeCells(r, 1, r, span)
+    merge(ws, r, 1, span)
     ws.getRow(r).height = Math.min(MAX_ROW_HEIGHT, HEADING_LINE_HEIGHT * estimateLines(piece, width, 'heading'))
   })
   return pieces.length
@@ -251,17 +314,23 @@ function writeHeading(ctx: Ctx, block: Extract<Block, { kind: 'heading' }>, row:
  * Nếu cao hơn một hàng Excel cho phép (409.5pt) thì tách thành các hàng merge liền nhau,
  * không để chữ bị che; không có hàng trống giữa các mảnh.
  */
-function writeText(ctx: Ctx, text: string, muted: boolean, row: number): number {
+function writeText(ctx: Ctx, text: string, muted: boolean, row: number, link?: string): number {
   const { ws, span } = ctx
   const width = sumWidths(ctx, 1, span)
   const pieces = splitByLines(text, width, MAX_LINES_PER_ROW, MAX_CELL_CHARS)
   pieces.forEach((piece, i) => {
     const r = row + i
     const cell = ws.getCell(r, 1)
-    if (piece !== '') cell.value = cellText(piece)
-    cell.font = font(muted ? { color: { argb: COLOR_MUTED } } : {})
+    // Đoạn có đúng một link (inlineCell): mọi mảnh là hyperlink tới link đó, chữ giữ nguyên
+    if (link !== undefined && isSafeLink(link) && piece !== '') {
+      cell.value = { text: cellText(piece), hyperlink: clean(link) }
+      cell.font = font({ underline: true, color: { argb: COLOR_LINK } })
+    } else {
+      if (piece !== '') cell.value = cellText(piece)
+      cell.font = font(muted ? { color: { argb: COLOR_MUTED } } : {})
+    }
     cell.alignment = wrapTop()
-    ws.mergeCells(r, 1, r, span)
+    merge(ws, r, 1, span)
     setRowHeight(ws, r, estimateLines(piece, width))
   })
   return pieces.length
@@ -282,13 +351,30 @@ function writeCode(ctx: Ctx, block: Extract<Block, { kind: 'code' }>, row: numbe
       if (piece !== '') cell.value = cellText(piece)
       cell.font = font({ name: CODE_FONT_NAME })
       cell.alignment = wrapTop()
-      ws.mergeCells(r, 1, r, span)
+      merge(ws, r, 1, span)
       const lines = estimateLines(piece, width, 'code')
       ws.getRow(r).height = Math.min(MAX_ROW_HEIGHT, Math.max(CODE_MIN_HEIGHT, CODE_LINE_HEIGHT * lines + CODE_EXTRA_HEIGHT))
       r++
     }
   }
   return r - row
+}
+
+/**
+ * Ảnh: đặt ở cột A hàng `row`, kích thước theo pixel của ảnh (thu nhỏ nếu rộng hơn MAX_IMAGE_WIDTH_PX), dành đủ số
+ * hàng 15pt bên dưới để khối sau không đè lên ảnh. Chưa đọc được ảnh (adapter không điền `image`) -> ghi chữ alt.
+ */
+function writeImage(ctx: Ctx, block: Extract<Block, { kind: 'image' }>, row: number): number {
+  const img = block.image
+  if (!img) return writeText(ctx, block.alt, false, row)
+  const scale = Math.min(1, MAX_IMAGE_WIDTH_PX / img.width)
+  const width = Math.max(1, Math.round(img.width * scale))
+  const height = Math.max(1, Math.round(img.height * scale))
+  const id = ctx.wb.addImage({ buffer: img.data as unknown as ExcelJS.Buffer, extension: img.extension })
+  ctx.ws.addImage(id, { tl: { col: 0, row: row - 1 }, ext: { width, height }, editAs: 'oneCell' })
+  const rows = Math.ceil(height / DEFAULT_ROW_PX)
+  for (let r = row; r < row + rows; r++) ctx.ws.getRow(r).height = DEFAULT_ROW_HEIGHT
+  return rows
 }
 
 function writeBlock(ctx: Ctx, block: Block, row: number): number {
@@ -302,9 +388,11 @@ function writeBlock(ctx: Ctx, block: Block, row: number): number {
     case 'heading':
       return writeHeading(ctx, block, row)
     case 'note':
-      return writeText(ctx, block.text, true, row)
+      return writeText(ctx, block.text, true, row, block.link)
     case 'paragraph':
-      return writeText(ctx, block.text, false, row)
+      return writeText(ctx, block.text, false, row, block.link)
+    case 'image':
+      return writeImage(ctx, block, row)
     case 'code':
       return writeCode(ctx, block, row)
   }
@@ -324,7 +412,7 @@ export function buildWorkbook(sheets: SheetModel[]): ExcelJS.Workbook {
     widths.forEach((w, i) => {
       if (w !== undefined) ws.getColumn(i + 1).width = w
     })
-    const ctx: Ctx = { ws, span, widths }
+    const ctx: Ctx = { wb, ws, span, widths }
 
     let row = 1
     for (const block of sheet.blocks) {
@@ -361,4 +449,22 @@ export function injectIgnoredErrors(xml: string): string {
   const at = m ? from + m.index : xml.lastIndexOf('</worksheet>')
   if (at < 0) return xml
   return xml.slice(0, at) + IGNORED_ERRORS + xml.slice(at)
+}
+
+/**
+ * exceljs ghi link nội bộ thành `<hyperlink r:id=… location=…>` KÈM quan hệ External trỏ tới chính chuỗi `'Sheet'!A1`:
+ * Excel đi theo r:id (một "file" không tồn tại). Bỏ r:id của mọi hyperlink có `location` và quan hệ tương ứng trong
+ * `_rels` của sheet. Chữ trong ô đã được escape (`&lt;`) nên không thể giả làm thẻ `<hyperlink`.
+ */
+export function fixInternalLinks(sheetXml: string, relsXml: string | null): { sheet: string; rels: string | null } {
+  const ids = new Set<string>()
+  const sheet = sheetXml.replace(/<hyperlink\b[^>]*>/g, (tag) => {
+    const m = /\sr:id="([^"]*)"/.exec(tag)
+    if (!m || !/\slocation="/.test(tag)) return tag
+    ids.add(m[1])
+    return tag.replace(m[0], '')
+  })
+  if (ids.size === 0 || relsXml === null) return { sheet, rels: relsXml }
+  const rels = relsXml.replace(/<Relationship\b[^>]*>/g, (tag) => (ids.has(/\sId="([^"]*)"/.exec(tag)?.[1] ?? '') ? '' : tag))
+  return { sheet, rels }
 }

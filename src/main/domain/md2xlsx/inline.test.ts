@@ -39,12 +39,39 @@ describe('inlineCell', () => {
     expect(cellOf('&#0; &#xD800; &#1114112; &copy;').text).toBe('&#0; &#xD800; &#1114112; &copy;')
   })
 
-  it('link: chỉ khi cả ô là đúng một link http/https/mailto', () => {
+  it('link: cả ô là một link http/https/mailto, hoặc link nội bộ chờ giải (#slug, x.md); scheme khác -> chữ', () => {
     expect(cellOf('[Spec](https://x.example/a)')).toEqual({ text: 'Spec', link: 'https://x.example/a' })
     expect(cellOf('[M](mailto:a@x.example)').link).toBe('mailto:a@x.example')
-    expect(cellOf('see [Spec](https://x.example/a)')).toEqual({ text: 'see Spec' })
     expect(cellOf('[x](file:///C:/a)')).toEqual({ text: 'x' })
-    expect(cellOf("[参照](#'テーブル定義'!A1)")).toEqual({ text: '参照' })
+    expect(cellOf('[x](javascript:a.md)')).toEqual({ text: 'x' })
+    expect(cellOf('[参照](#テーブル定義)')).toEqual({ text: '参照', link: '#テーブル定義' })
+    expect(cellOf('[参照](kihon__テーブル定義.md)')).toEqual({ text: '参照', link: 'kihon__テーブル定義.md' })
+    expect(cellOf('[参照](a.txt)')).toEqual({ text: '参照' })
+  })
+
+  it('link giữa câu: đúng một link -> cả ô là hyperlink; nhiều link -> thêm (url) sau chữ, không mất URL', () => {
+    expect(cellOf('詳細は[仕様](https://example.com)を参照')).toEqual({ text: '詳細は仕様を参照', link: 'https://example.com' })
+    expect(cellOf('[A](https://a.example) と [B](mailto:b@x.example)')).toEqual({
+      text: 'A (https://a.example) と B (mailto:b@x.example)'
+    })
+    // <url> chữ đã là URL: không lặp; link nội bộ giữa câu chỉ giữ chữ
+    expect(cellOf('<https://a.example> と [B](https://b.example)').text).toBe('https://a.example と B (https://b.example)')
+    expect(cellOf('see [x](#s)')).toEqual({ text: 'see x' })
+  })
+
+  it('định dạng inline -> runs (đậm/nghiêng/gạch/code); không có định dạng thì không có runs', () => {
+    expect(cellOf('a **b** *i* ~~d~~ `c`').runs).toEqual([
+      { text: 'a ' },
+      { text: 'b', bold: true },
+      { text: ' ' },
+      { text: 'i', italic: true },
+      { text: ' ' },
+      { text: 'd', strike: true },
+      { text: ' ' },
+      { text: 'c', code: true }
+    ])
+    expect(cellOf('***x***').runs).toEqual([{ text: 'x', bold: true, italic: true }])
+    expect(cellOf('plain \\*x\\*')).toEqual({ text: 'plain *x*' })
   })
 
   it('URL trần do GFM tự nhận không thành hyperlink', () => {
