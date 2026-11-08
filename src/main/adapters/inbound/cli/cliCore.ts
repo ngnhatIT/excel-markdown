@@ -11,7 +11,7 @@ import { writeMdFiles } from '../../outbound/mdOutput'
 import { listMarkdownFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
-import { ASSET_TOKEN, workbookMdFiles } from '../../../domain/excel/output'
+import { ASSET_TOKEN, linkSheets, workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
 
 export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
@@ -136,7 +136,8 @@ export function workbookTextconv(file: string): string {
   return (
     convertSheetsInWorkbook(wb, names, opts)
       .map((s) =>
-        s.markdown.trim().replace(new RegExp(ASSET_TOKEN + '([^)\\s]+)', 'g'), (_m, enc: string) => {
+        // Link sang sheet khác: giữ tên sheet đích để đổi đích cũng hiện trong diff
+        linkSheets(s.markdown.trim(), (sheet) => '#' + encodeURIComponent(sheet)).replace(new RegExp(ASSET_TOKEN + '([^)\\s]+)', 'g'), (_m, enc: string) => {
           const name = decodeURIComponent(enc)
           const data = s.images?.[name]
           return data ? `${enc}#sha1=${createHash('sha1').update(data).digest('hex').slice(0, 12)}` : enc

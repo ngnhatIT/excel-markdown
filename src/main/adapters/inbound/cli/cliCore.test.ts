@@ -115,4 +115,10 @@ describe('textconv (git diff driver)', () => {
     expect(text).not.toContain('x2m-asset:')
     expect(text).not.toContain('Xa1b2c')
   })
+
+  it('link sang sheet khác không lộ token nội bộ', () => {
+    const text = workbookTextconv(fixture)
+    expect(text).toContain('[参照](#%E3%83%86%E3%83%BC%E3%83%96%E3%83%AB%E5%AE%9A%E7%BE%A9)')
+    expect(text).not.toContain('x2m-sheet:')
+  })
 })
