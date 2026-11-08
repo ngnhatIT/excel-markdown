@@ -179,6 +179,11 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   `file.md#mục` cuộn đúng tới mục.
 - File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì quay lại cửa sổ app là tự tải lại,
   giữ vị trí cuộn.
+- **Định nghĩa bảng → DDL / ER / JSON**: bảng có cột `物理名` + `型` (テーブル定義書) có thêm nút **DDL** trên thanh
+  mục lục: chọn Generic / PostgreSQL / MySQL / Oracle / SQL Server, copy `CREATE TABLE` (kèm PK, NOT NULL, DEFAULT,
+  comment theo tên logic), JSON hoặc sơ đồ ER Mermaid. Nút **ER** trên thanh xem vẽ sơ đồ quan hệ của cả file
+  (khóa ngoại suy ra từ tên cột). Dòng lệnh: `node out/main/cli.js ddl <file.md|thư mục|file.xlsx> [--dialect postgres]
+  [--format sql|json|mermaid] [-o schema.sql]`; MCP: tool `table_ddl`.
 - **Mở file lẻ** hoặc **Dán Markdown** từ clipboard để xem nhanh.
 - Mỗi lần chọn file đều đọc lại từ đĩa. File > 20 MB không mở.
 - Ảnh đường dẫn tương đối hiện được; ảnh từ mạng không tải. Link tới `.md` khác mở ngay trong app,
@@ -301,6 +306,7 @@ Máy chỉ cài bản `.exe` (không có Node): dùng chính app thay Node:
 | `outline` | Danh sách heading của một file `.md` kèm số dòng |
 | `list_sheets` | Danh sách sheet của file Excel (số dòng, sheet ẩn) |
 | `preview_sheet` | Markdown của một sheet, không ghi file |
+| `table_ddl` | DDL / JSON / ER Mermaid từ テーブル定義書 trong file `.md`, file Excel hoặc cả thư mục |
 | `build_excel` | Gộp file `.md` (hoặc cả thư mục) thành một `.xlsx`; file đích đã có thì cần `overwrite: true` |
 
 `convert_excel` nhận `files` và/hoặc `dir` (cả thư mục); file `.md` đích đã có thì từ chối, trừ khi

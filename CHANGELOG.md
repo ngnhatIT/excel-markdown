@@ -24,6 +24,8 @@ chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet
   link sang sheet khác, 入力規則 thành danh sách thả xuống, コメント thành note của ô, nhúng ảnh PNG/JPEG cạnh file .md.
   Sửa: trích dẫn / list lồng rất sâu làm tràn stack, đoạn văn rất dài chạy chậm theo hàm bậc hai, khối code 100 000 dòng
   bị treo, bảng > 16 384 cột, số > 15 chữ số sai chữ số; file chỉ có heading không còn bị bỏ, file rỗng báo lỗi rõ.
+- Tính năng: **テーブル定義書 → DDL / ER / JSON**: nút DDL trên bảng định nghĩa (Generic / PostgreSQL / MySQL / Oracle /
+  SQL Server), nút ER vẽ sơ đồ quan hệ Mermaid của file; CLI `ddl`, MCP `table_ddl`.
 - Tính năng: So sánh tự tạo dòng **改訂履歴** (版数 / 改訂日 / 改訂者 / 改訂箇所 / 改訂内容) từ các thay đổi, copy
   Markdown hoặc TSV dán Excel.
 - Giao diện: font Be Vietnam Pro đóng gói (offline), font Nhật cho giao diện 日本語, màu nhấn dịu hơn, tiêu đề khung
