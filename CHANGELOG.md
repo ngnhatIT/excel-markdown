@@ -52,6 +52,10 @@ chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet
   không gửi câu hỏi AI; rời chế độ Đọc Markdown thì dừng câu trả lời đang stream; bấm trích dẫn AI
   không còn khóa tab Mã Markdown; mở thư mục nhanh liên tiếp không bị kết quả cũ ghi đè; mục lục
   HTML xuất không escape hai lần (`A &amp;amp; B`); focus bàn phím hiện rõ trong cây file.
+- Sửa (kiểm bằng Gemini thật): model mặc định `gemini-2.5-flash` bị Google ngừng cấp cho key mới (404) nên người dùng
+  mới không hỏi được AI; mặc định nay là alias `gemini-flash-latest`, model đã lưu bị ngừng thì tự chuyển sang alias này.
+  Nhận key Gemini dạng mới `AQ.…` (gợi ý + che key trong thông báo lỗi).
+- Sửa: Markdown → Excel bỏ front-matter YAML đầu file (không còn sheet rác `source_ … sheet_ …`).
 - MCP: `protocolVersion` lạ trả bản mới nhất hỗ trợ, batch trả `-32600`, tool lạ trả `-32602`.
 - Dependency: electron 44.10.2, vitest 5.1, tailwind 4.3.5 (bản vá).
 - Bảo mật: renderer không còn đọc/ghi được API Key Claude / OpenAI qua `store:get` / `store:set`

@@ -45,6 +45,12 @@ src/
         converterWorker.ts       # client tới utilityProcess (id, tự khởi động lại, Hủy = kill)
         mdOutput.ts              # ghi .md + ảnh (app và CLI dùng chung)
         mdFolder.ts, ragDocCache.ts, xlsxFiles.ts, xlsxWriter.ts
+  shared/ (thêm)                 # thuần, test bằng vitest, dùng chung main + renderer
+    specDiff.ts                  # So sánh 新旧: diff theo sheet -> mục -> dòng bảng (khóa ID), inline diff, báo cáo
+    revision.ts                  # dòng 改訂履歴 từ SpecDiff (Markdown / TSV)
+    tableDef.ts                  # テーブル定義書 -> TableDef -> DDL (5 dialect) / ER Mermaid / JSON
+    specIndex.ts                 # Bản đồ thiết kế: màn hình, 遷移, bảng, tham chiếu, 影響調査, 整合性チェック
+    translate.ts, textFold.ts    # prompt + nhận diện ngôn ngữ cho Dịch nhanh; so khớp không phân biệt hoa thường / かな
   renderer/src/
     App.tsx                      # layout + chuyển chế độ + nối các feature
     features/
