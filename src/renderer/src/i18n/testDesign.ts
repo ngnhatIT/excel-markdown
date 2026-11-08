@@ -1,0 +1,62 @@
+/* Chuỗi của tính năng テスト観点表 (nút 観点表 trên thanh xem + hộp thoại). Nội dung bảng do shared/testDesign.ts sinh. */
+export const testDesignVi = {
+  'tsd.btn': '観点表',
+  'tsd.btnTitle': 'Sinh テスト観点表 / テスト仕様書 từ {n} bảng 項目定義 (tại chỗ, không dùng AI)',
+  'tsd.heading': 'テスト観点表: {n} dòng',
+  'tsd.lang': 'Ngôn ngữ nội dung',
+  'tsd.capped': 'Chỉ hiện {shown} / {n} dòng đầu; Copy / Lưu có đủ.',
+  'tsd.truncated': 'Đã cắt ở {max} dòng.',
+  'tsd.empty': 'Không sinh được dòng nào từ tài liệu này.',
+  'tsd.copyTsv': 'Copy TSV',
+  'tsd.copyTsvTitle': 'Copy dạng TSV để dán thẳng vào Excel',
+  'tsd.copyMd': 'Copy Markdown',
+  'tsd.saveMd': 'Lưu .md',
+  'tsd.saveMdTitle': 'Lưu file .md; mở ở chế độ Markdown → Excel để tạo .xlsx',
+  'tsd.saved': 'Đã lưu {path}. Mở ở chế độ Markdown → Excel để tạo .xlsx.',
+  'tsd.saveFailed': 'Không lưu được: {err}',
+  'tsd.close': 'Đóng (Esc)',
+  'tsd.lblTsv': 'テスト観点表 (TSV)',
+  'tsd.lblMd': 'テスト観点表 (Markdown)',
+}
+
+type TsdDict = Record<keyof typeof testDesignVi, string>
+
+export const testDesignEn: TsdDict = {
+  'tsd.btn': '観点表',
+  'tsd.btnTitle': 'Generate a test viewpoint table / test spec skeleton from {n} item tables (local, no AI)',
+  'tsd.heading': 'Test viewpoints: {n} rows',
+  'tsd.lang': 'Content language',
+  'tsd.capped': 'Showing the first {shown} of {n} rows; Copy / Save include all.',
+  'tsd.truncated': 'Cut at {max} rows.',
+  'tsd.empty': 'No rows could be generated from this document.',
+  'tsd.copyTsv': 'Copy TSV',
+  'tsd.copyTsvTitle': 'Copy as TSV to paste straight into Excel',
+  'tsd.copyMd': 'Copy Markdown',
+  'tsd.saveMd': 'Save .md',
+  'tsd.saveMdTitle': 'Save a .md file; open it in Markdown → Excel mode to build .xlsx',
+  'tsd.saved': 'Saved {path}. Open it in Markdown → Excel mode to build .xlsx.',
+  'tsd.saveFailed': 'Could not save: {err}',
+  'tsd.close': 'Close (Esc)',
+  'tsd.lblTsv': 'Test viewpoints (TSV)',
+  'tsd.lblMd': 'Test viewpoints (Markdown)',
+}
+
+export const testDesignJa: TsdDict = {
+  'tsd.btn': '観点表',
+  'tsd.btnTitle': '項目定義 {n} 件からテスト観点表 / テスト仕様書の雛形を生成（ローカル、AI 不使用）',
+  'tsd.heading': 'テスト観点表: {n} 行',
+  'tsd.lang': '出力言語',
+  'tsd.capped': '先頭 {shown} / {n} 行のみ表示しています。コピー / 保存は全行です。',
+  'tsd.truncated': '{max} 行で打ち切りました。',
+  'tsd.empty': 'この文書からは観点を生成できませんでした。',
+  'tsd.copyTsv': 'TSV をコピー',
+  'tsd.copyTsvTitle': 'Excel にそのまま貼り付けられる TSV でコピー',
+  'tsd.copyMd': 'Markdown をコピー',
+  'tsd.saveMd': '.md を保存',
+  'tsd.saveMdTitle': '.md を保存します。Markdown → Excel モードで開くと .xlsx を作成できます',
+  'tsd.saved': '{path} を保存しました。Markdown → Excel モードで .xlsx を作成できます。',
+  'tsd.saveFailed': '保存できませんでした: {err}',
+  'tsd.close': '閉じる (Esc)',
+  'tsd.lblTsv': 'テスト観点表 (TSV)',
+  'tsd.lblMd': 'テスト観点表 (Markdown)',
+}

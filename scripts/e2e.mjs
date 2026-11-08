@@ -577,6 +577,16 @@ try {
   const erCsp = await ev(`window.__csp.splice(${cspBeforeEr})`)
   check('ER: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', erCsp.every((v) => v.startsWith('style-src')), erCsp.slice(0, 3))
 
+  // テスト観点表: dán 画面設計書 (golden kihon-sekkei) -> nút 観点表 -> bảng có dòng 未入力, Esc đóng
+  await ev(`navigator.clipboard.readText = async () => ${JSON.stringify(golden)}; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-testdesign-btn')`, 3000)
+  await ev(`document.querySelector('.x2m-testdesign-btn')?.click(), 1`)
+  check('観点表: hộp thoại sinh dòng 必須 (未入力), focus nằm trong hộp thoại',
+    (await waitFor(`(document.querySelector('.x2m-testdesign-table')?.innerText ?? '').includes('「顧客コード」を未入力のまま登録') && !!document.activeElement?.closest('.x2m-testdesign')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-testdesign')?.innerText.slice(0, 300) ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('観点表: Esc đóng hộp thoại', (await waitFor(`!document.querySelector('.x2m-testdesign')`, 2000)) >= 0)
+
   // Bản đồ thiết kế + 影響調査: mở thư mục fixture, sơ đồ 画面遷移 (SVG), bấm nút màn hình, 影響調査 -> mở tài liệu
   await dropFiles([join(root, 'test', 'fixtures', 'specmap')])
   check('Bản đồ: mở thư mục specmap -> có nút Bản đồ thiết kế trên cây', (await waitFor(`!!(${treeRow('flow.md')}) && !!document.querySelector('.x2m-specmap-btn')`, 5000)) >= 0)
