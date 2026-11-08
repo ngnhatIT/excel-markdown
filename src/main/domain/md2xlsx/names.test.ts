@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { assignSheetNames, safeSheetName } from './names'
+import type { SheetModel } from './model'
+import { assignSheetNames, nameAndLinkSheets, safeSheetName } from './names'
 
 const fresh = () => new Set<string>()
 
@@ -89,5 +90,34 @@ describe('assignSheetNames', () => {
     // không sửa đầu vào
     expect(input.map((s) => s.name)).toEqual(['A', 'a'])
     expect(out[0]).not.toBe(input[0])
+  })
+})
+
+
+describe('nameAndLinkSheets: link sang sheet khác', () => {
+  const cell = (link: string) => ({ text: 'x', link })
+  const tbl = (...links: string[]): SheetModel['blocks'][number] => ({ kind: 'table', header: [{ text: 'h' }], rows: links.map((l) => [cell(l)]) })
+
+  it('#slug -> sheet cùng file; x.md -> sheet đầu của file trong lần tạo; không giải được -> bỏ link', () => {
+    const a: SheetModel[] = [
+      { name: '一覧', blocks: [tbl('#テーブル定義', '#none', 'b__Detail.md', './sub/../b__Detail.md#x', 'zzz.md'), { kind: 'paragraph', text: 'p', link: '#it-s' }] },
+      { name: 'テーブル定義', blocks: [] },
+      { name: "It's", blocks: [] }
+    ]
+    const b: SheetModel[] = [{ name: 'Detail', blocks: [] }, { name: 'Second', blocks: [] }]
+    const named = nameAndLinkSheets([
+      { path: '/w/b__List.md', sheets: a },
+      { path: '/w/b__Detail.md', sheets: b }
+    ])
+    expect(named.map((s) => s.name)).toEqual(['一覧', 'テーブル定義', "It's", 'Detail', 'Second'])
+    const rows = (named[0].blocks[0] as Extract<SheetModel['blocks'][number], { kind: 'table' }>).rows
+    expect(rows.map((r) => r[0].link)).toEqual(["'テーブル定義'!A1", undefined, "'Detail'!A1", "'Detail'!A1", undefined])
+    expect(named[0].blocks[1]).toEqual({ kind: 'paragraph', text: 'p', link: "'It''s'!A1" })
+  })
+
+  it('link ngoài giữ nguyên; tên sheet có `!` -> bỏ link (exceljs không ghi được)', () => {
+    const s: SheetModel[] = [{ name: 'A', blocks: [tbl('https://x.example', '#b-c')] }, { name: 'B!C', blocks: [] }]
+    const rows = (nameAndLinkSheets([{ path: 'a.md', sheets: s }])[0].blocks[0] as Extract<SheetModel['blocks'][number], { kind: 'table' }>).rows
+    expect(rows.map((r) => r[0].link)).toEqual(['https://x.example', undefined])
   })
 })

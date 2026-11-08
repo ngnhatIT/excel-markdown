@@ -21,8 +21,19 @@ function decimalFmt(fraction: string): string {
   return '0.' + '0'.repeat(fraction.length)
 }
 
+// Số double chỉ giữ đúng 15 chữ số có nghĩa: nhiều hơn thì Excel hiển thị sai chữ số -> giữ dạng chữ.
+const MAX_DIGITS = 15
+
 export function toCellValue(text: string): CellValue {
+  const v = numberValue(text)
+  // `-0`/`-0.0`: số -0 Excel hiển thị `0`, mất dấu `-` -> giữ chữ
+  if (typeof v.value === 'number' && Object.is(v.value, -0)) return { value: text }
+  return v
+}
+
+function numberValue(text: string): CellValue {
   if (INT_RE.test(text)) return { value: Number(text) }
+  if ((text.match(/\d/g) ?? []).length > MAX_DIGITS) return { value: text }
 
   const dec = DECIMAL_RE.exec(text)
   if (dec) return { value: Number(text), numFmt: decimalFmt(dec[2]) }

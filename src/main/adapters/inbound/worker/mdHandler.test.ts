@@ -2,7 +2,8 @@
  * Markdown mẫu: test/golden/kihon-sekkei.xlsx.md, tách ở `---` thành hai file per-sheet trong thư mục tạm.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import JSZip from 'jszip'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -125,15 +126,24 @@ describe('handleMdRequest mdToXlsx', () => {
     expect(existsSync(out6 + '.partial')).toBe(false)
   })
 
-  it('không có nội dung để tạo sheet -> lỗi rõ ràng, không tạo file', async () => {
+  it('một file rỗng trong danh sách -> lỗi nêu tên file, không tạo file (không lặng lẽ thiếu sheet)', async () => {
     const empty = join(dir, 'empty.md')
-    writeFileSync(empty, '# chỉ tiêu đề\n', 'utf-8')
-    expect(await handleMdRequest({ id: 5, type: 'mdToXlsx', files: [empty], outPath: out3 })).toEqual({
+    writeFileSync(empty, '\n\n', 'utf-8')
+    expect(await handleMdRequest({ id: 5, type: 'mdToXlsx', files: [mdA, empty], outPath: out3 })).toEqual({
       id: 5,
       ok: false,
-      error: 'Các file Markdown không có nội dung để tạo sheet.',
+      error: 'File không có nội dung: empty.md. Hãy bỏ file khỏi danh sách hoặc thêm nội dung rồi thử lại.',
     })
     expect(existsSync(out3)).toBe(false)
+  })
+
+  it('file chỉ có `# tiêu đề` vẫn thành một sheet (tiêu đề là heading)', async () => {
+    const only = join(dir, 'kihon__新規.md')
+    writeFileSync(only, '# 新規\n', 'utf-8')
+    const out = join(dir, 'only-title.xlsx')
+    const r = await handleMdRequest({ id: 51, type: 'mdToXlsx', files: [mdA, only], outPath: out })
+    expect(r.ok && (r.data as { sheets: string[] }).sheets).toEqual(['画面項目定義', '新規'])
+    expect(XLSX.read(readFileSync(out)).Sheets['新規'].A1.v).toBe('新規')
   })
 
   it('outPath không phải .xlsx tuyệt đối -> từ chối', async () => {
@@ -158,5 +168,79 @@ describe('handleMdRequest mdToXlsx', () => {
     const r = await handleMdRequest({ id: 12, type: 'mdToXlsx', files: [mdA], outPath: blocker })
     expect(r.ok).toBe(false)
     expect(existsSync(blocker + '.partial')).toBe(false)
+  })
+})
+
+describe('handleMdRequest mdToXlsx: ảnh và link sang file khác', () => {
+  // PNG 1×1 hợp lệ (header IHDR 3×2 để kiểm kích thước đọc từ header)
+  const png = (w: number, h: number) => {
+    const b = Buffer.alloc(33)
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).copy(b, 0)
+    b.writeUInt32BE(13, 8)
+    b.write('IHDR', 12, 'latin1')
+    b.writeUInt32BE(w, 16)
+    b.writeUInt32BE(h, 20)
+    return b
+  }
+  const root = join(dir, 'img')
+  const docs = join(root, 'docs')
+  beforeAll(() => {
+    mkdirSync(join(docs, 'book_images'), { recursive: true })
+    writeFileSync(join(docs, 'book_images', 'image 1.png'), png(160, 45))
+    writeFileSync(join(root, 'secret.png'), png(10, 10))
+    writeFileSync(join(docs, 'fake.png'), 'not a png')
+    writeFileSync(join(docs, 'big.png'), Buffer.concat([png(10, 10), Buffer.alloc(10 * 1024 * 1024)]))
+    try {
+      symlinkSync(join(root, 'secret.png'), join(docs, 'link.png'))
+    } catch {
+      // Windows không có quyền tạo symlink: bỏ qua phần đó
+    }
+  })
+
+  it('ảnh tương đối trong thư mục .md được nhúng; ra ngoài / tuyệt đối / scheme / giả / quá cỡ -> giữ chữ alt', async () => {
+    const md = join(docs, 'book__画面.md')
+    writeFileSync(
+      md,
+      [
+        '## 画面',
+        '![ok (A1:B2)](book_images/image%201.png)',
+        '![up](../secret.png)',
+        `![abs](${join(root, 'secret.png').replace(/\\/g, '/')})`,
+        '![asset](x2m-asset:image1.png)',
+        '![fake](fake.png)',
+        '![big](big.png)',
+        '![link](link.png)',
+        '![txt](book__画面.md)',
+      ].join('\n\n'),
+      'utf-8'
+    )
+    const out = join(dir, 'img.xlsx')
+    expect((await handleMdRequest({ id: 60, type: 'mdToXlsx', files: [md], outPath: out })).ok).toBe(true)
+    const zip = await JSZip.loadAsync(readFileSync(out))
+    expect(Object.keys(zip.files).filter((f) => /^xl\/media\/./.test(f))).toEqual(['xl/media/image1.png'])
+    const drawing = await zip.file('xl/drawings/drawing1.xml')!.async('string')
+    // 160×45px -> 3 hàng 20px; ảnh đặt ở hàng 1 (row 0)
+    expect(drawing).toContain('<xdr:row>0</xdr:row>')
+    expect(drawing).toContain(`cx="${160 * 9525}" cy="${45 * 9525}"`)
+    const ws = XLSX.read(readFileSync(out)).Sheets['画面']
+    const texts = Object.keys(ws).filter((k) => !k.startsWith('!')).map((k) => ws[k].v)
+    expect(texts).toEqual(['up', 'abs', 'asset', 'fake', 'big', 'link', 'txt'])
+    // ảnh dành 3 hàng + 1 hàng trống: chữ alt đầu tiên ở A5
+    expect(ws.A5.v).toBe('up')
+  })
+
+  it('link [x](file.md) tới file trong cùng lần tạo -> hyperlink nội bộ tới sheet đầu của file đó', async () => {
+    const a = join(root, 'book__一覧.md')
+    const b = join(root, 'book__詳細 画面.md')
+    writeFileSync(a, '| No | 画面 |\n|---|---|\n| 1 | [詳細](book__%E8%A9%B3%E7%B4%B0%20%E7%94%BB%E9%9D%A2.md) |\n| 2 | [外](other.md) |\n', 'utf-8')
+    writeFileSync(b, '## 詳細 画面\n\nx\n', 'utf-8')
+    const out = join(dir, 'links.xlsx')
+    expect((await handleMdRequest({ id: 61, type: 'mdToXlsx', files: [a, b], outPath: out })).ok).toBe(true)
+    const ws = XLSX.read(readFileSync(out)).Sheets['一覧']
+    expect(ws.B2.l?.Target).toBe("#'詳細 画面'!A1")
+    expect(ws.B3.l).toBeUndefined()
+    // quan hệ External thừa của exceljs đã bị bỏ
+    const rels = await (await JSZip.loadAsync(readFileSync(out))).file('xl/worksheets/_rels/sheet1.xml.rels')?.async('string')
+    expect(rels ?? '').not.toContain('TargetMode="External"')
   })
 })
