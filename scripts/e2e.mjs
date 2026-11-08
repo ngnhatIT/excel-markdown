@@ -106,7 +106,7 @@ try {
   // Ngôn ngữ giao diện: lấy 'vi' từ store; đổi EN -> 日本語 -> VI
   check('ngôn ngữ từ store: <html lang="vi">', (await waitFor(`document.documentElement.lang === 'vi'`, 3000)) >= 0, await ev(`document.documentElement.lang`))
   const langBtn = (t) => `[...document.querySelectorAll('.x2m-lang button')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
-  const viewModeText = `document.querySelector('.x2m-mode-btn:last-child')?.textContent.trim()`
+  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[2]?.textContent.trim()`
   const langState = `[${viewModeText}, document.documentElement.lang]`
   await ev(`(${langBtn('EN')}).click(), 1`)
   check('đổi sang English: chữ nút chế độ tiếng Anh, <html lang="en">',
@@ -545,6 +545,34 @@ try {
   await key('Enter', 'Enter', 13)
   check('Ctrl+K: Enter mở alpha.md, đóng bảng lệnh',
     (await waitFor(`!document.querySelector('.x2m-palette') && ${metaTitle} === 'alpha.md' && document.querySelector('.md-body h1')?.textContent === 'Alpha'`, 4000)) >= 0, await ev(metaTitle))
+
+  // Dịch nhanh đoạn bôi đen: chưa có key -> popup hướng dẫn, không gọi mạng
+  await ev(`(() => { const h = document.querySelector('.md-body h1'); const r = document.createRange(); r.selectNodeContents(h); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); return 1 })()`)
+  check('Dịch: bôi đen chữ trong bản xem -> hiện nút Dịch', (await waitFor(`!!document.querySelector('.x2m-tr-btn')`, 2000)) >= 0)
+  await ev(`document.querySelector('.x2m-tr-btn')?.click(), 1`)
+  check('Dịch: chưa có API Key -> popup báo cần nhập key, có chọn ngôn ngữ đích',
+    (await waitFor(`!!document.querySelector('.x2m-tr-popup') && document.querySelector('.x2m-tr-popup').innerText.includes('API Key') && document.querySelectorAll('.x2m-tr-popup [role="radio"]').length === 3`, 4000)) >= 0,
+    await ev(`document.querySelector('.x2m-tr-popup')?.innerText ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('Dịch: Esc đóng popup', (await waitFor(`!document.querySelector('.x2m-tr-popup')`, 2000)) >= 0)
+
+  // So sánh 新旧: hai file Markdown, chèn một dòng giữa bảng + sửa một ô
+  const cmpDir = join(tmp, 'cmp')
+  mkdirSync(cmpDir, { recursive: true })
+  const tbl = (rows) => '## 画面\n\n### 【項目定義】\n\n| No | 項目ID | 項目名 |\n|---|---|---|\n' + rows.map((r, i) => `| ${i + 1} | ${r[0]} | ${r[1]} |`).join('\n') + '\n'
+  writeFileSync(join(cmpDir, 'old.md'), tbl([['C01', '顧客コード'], ['C02', '顧客名'], ['C03', '電話番号']]))
+  writeFileSync(join(cmpDir, 'new.md'), tbl([['C01', '顧客コード'], ['C09', 'メール'], ['C02', '顧客名称'], ['C03', '電話番号']]))
+  await ev(`(${modeBtn('So sánh')})?.click(), 1`)
+  check('So sánh: chế độ mới, không có thanh convert', (await waitFor(`!!(${modeBtn('So sánh')})?.classList.contains('active') && !document.querySelector('.x2m-footer') && !!document.querySelector('.x2m-compare-side')`, 2000)) >= 0)
+  await dropFiles([join(cmpDir, 'old.md'), join(cmpDir, 'new.md')])
+  check('So sánh: thả 2 file -> 1 dòng thêm, 1 dòng sửa (chèn giữa bảng không làm lệch phần sau)',
+    (await waitFor(`(() => { const b = document.querySelector('.x2m-compare-bar')?.innerText ?? ''; return b.includes('+1') && b.includes('~1') && b.includes('−0') })()`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-compare-bar')?.innerText ?? document.querySelector('.x2m-compare')?.innerText ?? null`))
+  check('So sánh: ô sửa tô chữ thêm/xóa trong dòng', await ev(`[...document.querySelectorAll('.x2m-compare-list mark')].some(m => m.textContent.includes('称'))`))
+  await ev(`[...document.querySelectorAll('.x2m-compare-bar button')].find(b => b.getAttribute('aria-label')?.startsWith('Thay đổi sau'))?.click(), 1`)
+  check('So sánh: thêm + sửa liền nhau là một cụm; nút thay đổi sau -> vị trí 1 / 1', (await waitFor(`document.querySelector('.x2m-compare-bar')?.innerText.includes('1 / 1')`, 2000)) >= 0)
+  await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-files')`, 2000)
 
   // Trợ lý AI: chọn nhà cung cấp, key riêng từng bên (không gọi mạng)
   const providerBtn = (t) => `[...document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button')].find(b => b.textContent.startsWith(${JSON.stringify(t)}))`
