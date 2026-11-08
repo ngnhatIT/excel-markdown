@@ -1,4 +1,4 @@
-/* IPC chung: store cài đặt, hộp thoại chọn file/thư mục, lưu HTML, mở thư mục, phiên bản app. */
+/* IPC chung: store cài đặt, hộp thoại chọn file/thư mục, lưu HTML/Markdown, mở thư mục, phiên bản app. */
 import { app, dialog, ipcMain, shell } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { errText, friendlyError } from '../../../domain/errors'
@@ -97,6 +97,27 @@ export function registerSystemIpc(): void {
       return { ok: true, data: res.filePath }
     } catch (err) {
       void logError('export:html', err)
+      return { ok: false, error: friendlyError(err) }
+    }
+  })
+
+  /** Lưu file Markdown (xuất cuộc trò chuyện AI). Luôn đuôi .md; trả đường dẫn, null nếu hủy. */
+  ipcMain.handle('export:md', async (_e, defaultName: unknown, md: unknown) => {
+    try {
+      if (typeof defaultName !== 'string' || typeof md !== 'string' || md.length > 5_000_000) {
+        return { ok: false, error: 'Dữ liệu xuất Markdown không hợp lệ.' }
+      }
+      const res = await dialog.showSaveDialog({
+        title: 'Lưu file Markdown',
+        defaultPath: safeFileName(defaultName.replace(/\.(md|markdown)$/i, '')) + '.md',
+        filters: [{ name: 'Markdown', extensions: ['md'] }],
+      })
+      if (res.canceled || !res.filePath) return { ok: true, data: null }
+      const filePath = /\.md$/i.test(res.filePath) ? res.filePath : res.filePath + '.md'
+      await writeFile(filePath, md, 'utf-8')
+      return { ok: true, data: filePath }
+    } catch (err) {
+      void logError('export:md', err)
       return { ok: false, error: friendlyError(err) }
     }
   })

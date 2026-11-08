@@ -139,3 +139,37 @@ export function formatRelativeTime(mtimeMs: number, nowMs: number): string {
   const pad = (v: number): string => String(v).padStart(2, '0')
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
 }
+
+/** Phần `#anchor` của link (đã giải mã %xx), '' nếu không có. `b.md#Mục%201` -> `Mục 1`. */
+export function hrefHash(href: string): string {
+  const i = href.indexOf('#')
+  if (i < 0) return ''
+  const h = href.slice(i + 1)
+  try {
+    return decodeURIComponent(h)
+  } catch {
+    return h
+  }
+}
+
+/** Slug kiểu GitHub của tiêu đề: chữ thường, bỏ dấu câu (giữ chữ mọi thứ tiếng, số, `_`, `-`), khoảng trắng -> `-`.
+ * Slug của một slug không đổi, nên so được cả `#anchor` lẫn chữ tiêu đề. */
+export function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
+    .replace(/ /g, '-')
+}
+
+/** Slug của từng tiêu đề theo thứ tự; trùng thì thêm `-1`, `-2`... như GitHub. */
+export function uniqueSlugs(texts: string[]): string[] {
+  const used = new Set<string>()
+  return texts.map((t) => {
+    const base = slugifyHeading(t)
+    let slug = base
+    for (let n = 1; used.has(slug); n++) slug = `${base}-${n}`
+    used.add(slug)
+    return slug
+  })
+}

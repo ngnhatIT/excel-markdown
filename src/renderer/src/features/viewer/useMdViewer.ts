@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildMdTree, recentMdFiles, visibleTreeFiles, type MdSort } from '../../../../shared/mdView'
 import type { MdSearchResult } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
-import { toast } from '../../lib/utils'
+import { EMPTY_NAV, navReducer, type NavEntry, type NavHistory } from '../../lib/navHistory'
+import { baseName, toast } from '../../lib/utils'
 
 export interface MdViewerDoc {
   path: string
@@ -46,6 +47,12 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   const [search, setSearch] = useState<MdContentSearch | null>(null)
   const readSeq = useRef(0)
   const listSeq = useRef(0)
+  const docRef = useRef(doc)
+  docRef.current = doc
+  const pastedRef = useRef(pasted)
+  pastedRef.current = pasted
+  const [nav, setNav] = useState<NavHistory>(EMPTY_NAV)
+  const navRef = useRef(nav)
   /** Ô lọc theo tên (không áp khi đang tìm trong nội dung) */
   const nameFilter = contentSearch ? '' : filter
 
@@ -92,8 +99,16 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     ]
   }, [root, tree, relFiles, collapsed, loose, nameFilter, search])
 
+  /** Ghi vào lịch sử Lùi/Tiến (file đang xem + anchor nếu có). */
+  const record = useCallback((entry: NavEntry) => {
+    navRef.current = navReducer(navRef.current, { type: 'push', entry })
+    setNav(navRef.current)
+  }, [])
+
+  /** Mở file để xem. `heading`: anchor sẽ nhảy tới (ghi vào lịch sử); `record: false` khi chính Lùi/Tiến gọi. */
   const select = useCallback(
-    async (path: string) => {
+    async (path: string, opts: { heading?: string; record?: boolean } = {}) => {
+      if (opts.record !== false) record({ path, heading: opts.heading || undefined })
       const seq = ++readSeq.current
       setDoc({ path, loading: true, error: '', markdown: '' })
       persist('viewerFile', path)
@@ -104,22 +119,64 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
         if (seq === readSeq.current) setDoc({ path, loading: false, error: errMsg(err), markdown: '' })
       }
     },
-    [persist]
+    [persist, record]
   )
 
-  /** Xem đoạn Markdown dán từ clipboard (không đọc file, không lưu vào store). */
-  const pasteText = useCallback((text: string) => {
-    ++readSeq.current
-    setPasted(text)
-    setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: text })
+  /** Lùi/Tiến: mở lại file của mục đó (nếu khác file đang xem); trả mục để App cuộn tới anchor, null nếu hết đường. */
+  const go = useCallback(
+    async (dir: 'back' | 'forward'): Promise<NavEntry | null> => {
+      const next = navReducer(navRef.current, { type: dir })
+      if (next === navRef.current) return null
+      navRef.current = next
+      setNav(next)
+      const entry = next.stack[next.index]
+      if (entry.path === PASTE_PATH) {
+        // Bản dán đã đóng thì mục này không còn gì để hiện: giữ nguyên tài liệu đang xem
+        if (pastedRef.current === null) return entry
+        ++readSeq.current
+        setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: pastedRef.current })
+      } else if (entry.path !== docRef.current?.path) {
+        await select(entry.path, { record: false })
+      }
+      return entry
+    },
+    [select]
+  )
+
+  /** Đọc lại file đang xem (cửa sổ được focus lại). Nội dung đổi thì thay tại chỗ, không qua trạng thái
+   * "đang đọc" nên vị trí cuộn giữ nguyên. Lỗi đọc (file vừa bị xóa/đổi tên) thì giữ bản đang xem. */
+  const reloadCurrent = useCallback(async () => {
+    const d = docRef.current
+    if (!d || d.path === PASTE_PATH || d.loading || d.error) return
+    const seq = readSeq.current
+    try {
+      const markdown = await window.api.readMarkdown(d.path)
+      if (seq !== readSeq.current || markdown === docRef.current?.markdown) return
+      setDoc({ ...d, markdown })
+      toast(`Đã tải lại: ${baseName(d.path)} (file vừa thay đổi)`, 'ok')
+    } catch {
+      /* giữ nguyên bản đang xem */
+    }
   }, [])
+
+  /** Xem đoạn Markdown dán từ clipboard (không đọc file, không lưu vào store). */
+  const pasteText = useCallback(
+    (text: string) => {
+      record({ path: PASTE_PATH })
+      ++readSeq.current
+      setPasted(text)
+      setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: text })
+    },
+    [record]
+  )
 
   /** Quay lại bản dán đã có. */
   const showPaste = useCallback(() => {
     if (pasted === null) return
+    record({ path: PASTE_PATH })
     ++readSeq.current
     setDoc({ path: PASTE_PATH, loading: false, error: '', markdown: pasted })
-  }, [pasted])
+  }, [pasted, record])
 
   const closePaste = useCallback(() => {
     setPasted(null)
@@ -165,11 +222,11 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
 
   /** Thêm file .md lẻ (không thuộc thư mục đang mở) và mở file đầu tiên. */
   const openFiles = useCallback(
-    (paths: string[]) => {
+    (paths: string[], heading?: string) => {
       if (paths.length === 0) return
       const inTree = new Set(root ? relFiles.map((r) => joinRoot(root, r)) : [])
       setLoose((prev) => [...prev, ...paths.filter((p) => !prev.includes(p) && !inTree.has(p))])
-      void select(paths[0])
+      void select(paths[0], { heading })
     },
     [root, relFiles, select]
   )
@@ -226,5 +283,10 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     removeLoose,
     toggleDir,
     move,
+    record,
+    go,
+    canBack: nav.index > 0,
+    canForward: nav.index < nav.stack.length - 1,
+    reloadCurrent,
   }
 }

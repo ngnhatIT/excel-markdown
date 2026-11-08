@@ -32,6 +32,7 @@ export interface WindowApi {
   openMarkdownFiles(): Promise<string[]>
   openDirectory(): Promise<string | null>
   saveHtml(defaultName: string, html: string): Promise<string | null>
+  saveMarkdown(defaultName: string, md: string): Promise<string | null>
   openPath(target: string): Promise<void>
   getVersion(): Promise<string>
   getPathForFile(file: File): string

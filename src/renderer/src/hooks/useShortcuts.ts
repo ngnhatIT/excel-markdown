@@ -11,6 +11,10 @@ export interface ShortcutHandlers {
   onPickFiles: () => void
   /** Ctrl+= / Ctrl+- / Ctrl+0 */
   onZoom: (action: 'in' | 'out' | 'reset') => void
+  /** Ctrl+K / Cmd+K (cả khi đang gõ): bảng lệnh. Không truyền = phím không làm gì */
+  onPalette?: () => void
+  /** Alt+← / Alt+→ khi không focus ô nhập: Lùi / Tiến */
+  onHistory?: (dir: 'back' | 'forward') => void
 }
 
 /** Phím tắt toàn cửa sổ. Handler luôn là bản mới nhất (qua ref), listener gắn một lần. */
@@ -33,8 +37,18 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
         h.onPickFiles()
         return
       }
+      if (mod && !e.altKey && !e.shiftKey && (e.key === 'k' || e.key === 'K') && h.onPalette) {
+        e.preventDefault()
+        h.onPalette()
+        return
+      }
       const tag = (e.target as HTMLElement | null)?.tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      if (e.altKey && !mod && !e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && h.onHistory) {
+        e.preventDefault()
+        h.onHistory(e.key === 'ArrowLeft' ? 'back' : 'forward')
+        return
+      }
       if (e.key === 'Escape') {
         h.onEscape()
         return
@@ -61,7 +75,18 @@ export function useShortcuts(handlers: ShortcutHandlers): void {
         h.onZoom('reset')
       }
     }
+    // Nút chuột Lùi (3) / Tiến (4)
+    const onMouse = (e: MouseEvent): void => {
+      const h = ref.current.onHistory
+      if ((e.button !== 3 && e.button !== 4) || !h) return
+      e.preventDefault()
+      h(e.button === 3 ? 'back' : 'forward')
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('mouseup', onMouse)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('mouseup', onMouse)
+    }
   }, [])
 }

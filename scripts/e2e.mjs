@@ -402,10 +402,16 @@ try {
   const viewDir = join(tmp, 'view')
   mkdirSync(join(viewDir, 'docs'), { recursive: true })
   mkdirSync(join(viewDir, 'img'), { recursive: true })
-  writeFileSync(join(viewDir, 'README.md'), '# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n')
+  // Đoạn đệm để có chỗ cuộn (link #anchor, giữ vị trí cuộn khi tải lại)
+  const filler = Array.from({ length: 60 }, (_, i) => `Đoạn đệm ${i + 1}`).join('\n\n')
+  writeFileSync(
+    join(viewDir, 'README.md'),
+    `# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n\n[Tới mục cuối](#mục-cuối)\n\n[Sang B phần 2](docs/b.md#Ph%E1%BA%A7n%202)\n\n${filler}\n\n## Mục cuối\n\nHết.\n\n${filler}\n`
+  )
   writeFileSync(join(viewDir, 'alpha.md'), '# Alpha\n')
   utimesSync(join(viewDir, 'alpha.md'), new Date(2020, 0, 1), new Date(2020, 0, 1))
-  writeFileSync(join(viewDir, 'docs', 'b.md'), '# Trang B\n\n```js\nconst x = 1\n```\n')
+  const bMd = (h1) => `# ${h1}\n\n\`\`\`js\nconst x = 1\n\`\`\`\n\n${filler}\n\n## Phần 2\n\nCuối B.\n\n${filler}\n`
+  writeFileSync(join(viewDir, 'docs', 'b.md'), bMd('Trang B'))
   writeFileSync(join(viewDir, 'img', 'a.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'))
   const treeRow = (t) => `[...document.querySelectorAll('.x2m-tree-row')].find(r => r.querySelector('.x2m-tree-name')?.textContent.trim() === ${JSON.stringify(t)})`
 
@@ -474,6 +480,56 @@ try {
   await ev(`(${filterMode('Tên')})?.click(), 1`)
   await setFilter('')
   check('Tìm nội dung: về chế độ Tên -> cây file quay lại', (await waitFor(`!document.querySelector('.x2m-search-results') && !!(${treeRow('README.md')})`, 3000)) >= 0)
+
+  // Link #anchor, link file#mục, Lùi/Tiến
+  const metaTitle = `document.querySelector('.x2m-meta-title')?.textContent`
+  const scrollTop = `(document.querySelector('.x2m-preview')?.scrollTop ?? 0)`
+  const headingInView = (t) =>
+    `(() => { const c = document.querySelector('.x2m-preview'); const h = [...document.querySelectorAll('.md-body h2')].find(x => x.textContent === ${JSON.stringify(t)}); if (!c || !h) return false; const d = h.getBoundingClientRect().top - c.getBoundingClientRect().top; return c.scrollTop > 100 && d > -5 && d < 120 })()`
+  const clickLink = (t) => ev(`[...document.querySelectorAll('.md-body a')].find(a => a.textContent === ${JSON.stringify(t)})?.click(), 1`)
+  await ev(`(${treeRow('README.md')})?.querySelector('button')?.click(), 1`)
+  await waitFor(`${metaTitle} === 'README.md' && document.querySelector('.md-body h1')?.textContent === 'Trang chính'`, 5000)
+  await clickLink('Tới mục cuối')
+  check('Link #mục-cuối: cuộn tới tiêu đề "Mục cuối" trong file', (await waitFor(headingInView('Mục cuối'), 4000)) >= 0,
+    await ev(`[${scrollTop}, [...document.querySelectorAll('.md-body a')].map(x => x.getAttribute('href'))]`))
+  await clickLink('Sang B phần 2')
+  check('Link docs/b.md#Phần%202: mở b.md rồi cuộn tới "Phần 2"',
+    (await waitFor(`${metaTitle} === 'docs/b.md' && ${headingInView('Phần 2')}`, 5000)) >= 0, await ev(metaTitle))
+  await ev(`document.activeElement && document.activeElement.blur(), 1`)
+  await key('ArrowLeft', 'ArrowLeft', 37, 1)
+  check('Alt+←: quay lại README.md, đúng chỗ "Mục cuối"',
+    (await waitFor(`${metaTitle} === 'README.md' && ${headingInView('Mục cuối')}`, 5000)) >= 0, await ev(metaTitle))
+  await key('ArrowLeft', 'ArrowLeft', 37, 1)
+  check('Alt+← lần nữa: cùng README.md, về đầu file', (await waitFor(`${metaTitle} === 'README.md' && ${scrollTop} < 5`, 4000)) >= 0, await ev(scrollTop))
+  await ev(`document.querySelector('button[aria-label="Tiến"]')?.click(), 1`)
+  await ev(`document.querySelector('button[aria-label="Tiến"]')?.click(), 1`)
+  check('Nút Tiến x2: lại docs/b.md ở "Phần 2"', (await waitFor(`${metaTitle} === 'docs/b.md' && ${headingInView('Phần 2')}`, 5000)) >= 0, await ev(metaTitle))
+  check('Nút Tiến bị tắt ở cuối lịch sử, Lùi bật', await ev(`document.querySelector('button[aria-label="Tiến"]')?.disabled === true && document.querySelector('button[aria-label="Lùi"]')?.disabled === false`))
+
+  // Tải lại khi cửa sổ được focus: nội dung mới, giữ vị trí cuộn
+  const topBefore = await ev(scrollTop)
+  writeFileSync(join(viewDir, 'docs', 'b.md'), bMd('Trang B mới'))
+  await ev(`window.dispatchEvent(new Event('focus')), window.dispatchEvent(new Event('focus')), 1`)
+  check('Focus lại cửa sổ: b.md đổi ngoài app -> tải lại, toast Đã tải lại',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B mới' && document.body.innerText.includes('Đã tải lại: b.md')`, 4000)) >= 0)
+  check('Tải lại: không cuộn về đầu', Math.abs((await ev(scrollTop)) - topBefore) < 50, [topBefore, await ev(scrollTop)])
+
+  // Ctrl+K: bảng lệnh
+  await ev(`document.activeElement && document.activeElement.blur(), 1`)
+  await key('k', 'KeyK', 75, 2)
+  check('Ctrl+K: mở bảng lệnh (dialog modal), ô nhập có focus',
+    (await waitFor(`!!document.querySelector('[role="dialog"][aria-modal="true"]') && document.activeElement?.classList.contains('x2m-palette-input')`, 2000)) >= 0)
+  await key('Escape', 'Escape', 27)
+  check('Esc: đóng bảng lệnh', (await waitFor(`!document.querySelector('.x2m-palette')`, 2000)) >= 0)
+  await key('k', 'KeyK', 75, 2)
+  await waitFor(`document.activeElement?.classList.contains('x2m-palette-input')`, 2000)
+  await send('Input.insertText', { text: 'ＡＬＰ' })
+  check('Ctrl+K: gõ ＡＬＰ (toàn角) -> alpha.md đứng đầu',
+    (await waitFor(`document.querySelector('.x2m-palette-item[aria-selected="true"]')?.textContent.includes('alpha.md')`, 2000)) >= 0,
+    await ev(`[...document.querySelectorAll('.x2m-palette-item')].map(x => x.textContent)`))
+  await key('Enter', 'Enter', 13)
+  check('Ctrl+K: Enter mở alpha.md, đóng bảng lệnh',
+    (await waitFor(`!document.querySelector('.x2m-palette') && ${metaTitle} === 'alpha.md' && document.querySelector('.md-body h1')?.textContent === 'Alpha'`, 4000)) >= 0, await ev(metaTitle))
 
   // Trợ lý AI: chọn nhà cung cấp, key riêng từng bên (không gọi mạng)
   const providerBtn = (t) => `[...document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button')].find(b => b.textContent.startsWith(${JSON.stringify(t)}))`

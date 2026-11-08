@@ -8,7 +8,7 @@ import {
   type ConvertResultItem,
   type OutputMode,
 } from '../../shared/types'
-import { imageUrl, resolveRelative } from '../../shared/mdView'
+import { hrefHash, imageUrl, resolveRelative } from '../../shared/mdView'
 import { errMsg } from './lib/api'
 import { baseName, copyText, toast } from './lib/utils'
 import { iconBtn } from './lib/ui'
@@ -20,7 +20,8 @@ import { MdFileList } from './features/md2excel/MdFileList'
 import { MdOptionsPanel } from './features/md2excel/MdOptionsPanel'
 import { MdTreeList } from './features/viewer/MdTreeList'
 import { OptionsPanel } from './features/excel2md/OptionsPanel'
-import { PreviewPane, type ScrollTarget } from './components/PreviewPane'
+import { extractOutline, PreviewPane, type ScrollTarget } from './components/PreviewPane'
+import { CommandPalette, type PaletteItem } from './features/viewer/CommandPalette'
 import { ResultsPanel } from './components/ResultsPanel'
 import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
@@ -28,7 +29,7 @@ import { useExcelConvert } from './features/excel2md/useExcelConvert'
 import { EXCEL_EXT, useFiles } from './features/excel2md/useFiles'
 import { useMdConvert } from './features/md2excel/useMdConvert'
 import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
-import { PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
+import { joinRoot, PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
 import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 
@@ -525,17 +526,95 @@ export default function App(): React.ReactElement {
     [viewerPath]
   )
 
-  /** Link tới file .md khác (tương đối): mở ngay trong app. Link http/mailto: để main mở bằng trình duyệt. */
+  const { record: viewerRecord, showPaste: viewerShowPaste, go: viewerGo } = viewer
+
+  /** Mở `path` (nếu chưa xem) rồi cuộn tới `heading` (anchor / tiêu đề) và tô `text`; ghi vào lịch sử Lùi/Tiến.
+   * `instant`: nhảy ngay như link anchor của trình duyệt (trích dẫn AI / kết quả tìm vẫn cuộn mượt). */
+  const openAt = useCallback(
+    async (path: string, heading: string, text?: string, instant?: boolean) => {
+      if (path === viewerPath) viewerRecord({ path, heading: heading || undefined })
+      else if (path === PASTE_PATH) viewerShowPaste()
+      else await viewerSelect(path, { heading })
+      setScrollTarget({ heading, text, instant, seq: Date.now() })
+    },
+    [viewerPath, viewerRecord, viewerShowPaste, viewerSelect]
+  )
+
+  /** Lùi/Tiến (Alt+←/→, nút chuột 3/4, nút trên thanh preview): mục không có anchor thì về đầu file. */
+  const viewerNavigate = useCallback(
+    async (dir: 'back' | 'forward') => {
+      const entry = await viewerGo(dir)
+      if (entry) setScrollTarget({ heading: entry.heading ?? '', instant: true, seq: Date.now() })
+    },
+    [viewerGo]
+  )
+
+  /** Link `#mục`: cuộn tới tiêu đề trong file. Link tới file .md khác (tương đối, có thể kèm `#mục`): mở ngay
+   * trong app rồi cuộn tới mục. Link http/mailto: để main mở bằng trình duyệt. */
   const viewerLinkClick = useCallback(
     (href: string): boolean => {
       if (/^(https?:|mailto:)/i.test(href)) return false
-      if (href.startsWith('#')) return true
+      const hash = hrefHash(href)
+      if (href.startsWith('#')) {
+        if (hash && viewerPath) void openAt(viewerPath, hash, undefined, true)
+        return true
+      }
       const abs = viewerPath && viewerPath !== PASTE_PATH ? resolveRelative(viewerPath, href) : null
-      if (abs && MD_EXT.test(abs)) viewerOpenFiles([abs])
-      else toast('Chỉ mở được link tới file Markdown hoặc link web', 'err')
+      if (abs && MD_EXT.test(abs)) {
+        if (abs === viewerPath) {
+          if (hash) void openAt(abs, hash, undefined, true)
+        } else {
+          viewerOpenFiles([abs], hash || undefined)
+          if (hash) setScrollTarget({ heading: hash, instant: true, seq: Date.now() })
+        }
+      } else toast('Chỉ mở được link tới file Markdown hoặc link web', 'err')
       return true
     },
-    [viewerPath, viewerOpenFiles]
+    [viewerPath, viewerOpenFiles, openAt]
+  )
+
+  // Quay lại cửa sổ (focus / tab hiện lại): đọc lại file đang xem nếu đã bị sửa ở ngoài.
+  // Gộp focus + visibilitychange dồn dập thành một lần đọc.
+  const viewerReload = viewer.reloadCurrent
+  useEffect(() => {
+    if (!isView) return
+    let t: number | undefined
+    const onBack = (e: Event): void => {
+      if (e.type === 'visibilitychange' && document.visibilityState !== 'visible') return
+      window.clearTimeout(t)
+      t = window.setTimeout(() => void viewerReload(), 250)
+    }
+    window.addEventListener('focus', onBack)
+    document.addEventListener('visibilitychange', onBack)
+    return () => {
+      window.clearTimeout(t)
+      window.removeEventListener('focus', onBack)
+      document.removeEventListener('visibilitychange', onBack)
+    }
+  }, [isView, viewerReload])
+
+  /* Bảng lệnh Ctrl+K: file của thư mục, file lẻ, mục của file đang xem */
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const viewerMarkdown = viewer.doc?.markdown ?? ''
+  const paletteItems = useMemo<PaletteItem[]>(() => {
+    if (!paletteOpen) return []
+    const root = viewer.root
+    return [
+      ...(root ? viewer.relFiles.map((r): PaletteItem => ({ kind: 'file', label: r, value: joinRoot(root, r) })) : []),
+      ...viewer.loose.map((p): PaletteItem => ({ kind: 'file', label: baseName(p), value: p })),
+      ...extractOutline(viewerMarkdown)
+        .filter((i) => i.kind === 'heading')
+        .map((i): PaletteItem => ({ kind: 'heading', label: i.label, value: i.label })),
+    ]
+  }, [paletteOpen, viewer.root, viewer.relFiles, viewer.loose, viewerMarkdown])
+
+  const pickPalette = useCallback(
+    (item: PaletteItem) => {
+      setPaletteOpen(false)
+      if (item.kind === 'file') void viewerSelect(item.value)
+      else if (viewerPath) void openAt(viewerPath, item.value, undefined, true)
+    },
+    [viewerSelect, viewerPath, openAt]
   )
 
   /** Thanh trên preview: đường dẫn tương đối trong thư mục đang mở, file lẻ thì tên file. */
@@ -564,25 +643,12 @@ export default function App(): React.ReactElement {
     [viewer.loose]
   )
 
-  const handleJumpToCitation = useCallback(
-    async (c: RagCitation) => {
-      if (c.filePath === PASTE_PATH) {
-        if (viewerPath !== PASTE_PATH) viewer.showPaste()
-      } else if (c.filePath !== viewerPath) {
-        await viewerSelect(c.filePath)
-      }
-      setScrollTarget({ heading: c.sectionTitle, seq: Date.now() })
-    },
-    [viewerPath, viewer.showPaste, viewerSelect]
-  )
+  const handleJumpToCitation = useCallback((c: RagCitation) => openAt(c.filePath, c.sectionTitle), [openAt])
 
+  const searchQuery = viewer.search?.query ?? ''
   const handleOpenSearchHit = useCallback(
-    async (path: string, hit: MdSearchHit) => {
-      const text = viewer.search?.query ?? ''
-      if (path !== viewerPath) await viewerSelect(path)
-      setScrollTarget({ heading: hit.heading ?? '', text, seq: Date.now() })
-    },
-    [viewer.search, viewerPath, viewerSelect]
+    (path: string, hit: MdSearchHit) => openAt(path, hit.heading ?? '', searchQuery),
+    [openAt, searchQuery]
   )
 
   useShortcuts({
@@ -604,6 +670,8 @@ export default function App(): React.ReactElement {
             ? Math.min(2, Math.round((z + 0.1) * 100) / 100)
             : Math.max(0.5, Math.round((z - 0.1) * 100) / 100)
       ),
+    onPalette: isView ? () => setPaletteOpen((o) => !o) : undefined,
+    onHistory: isView ? (dir) => void viewerNavigate(dir) : undefined,
   })
 
   // Trạng thái + nút convert ở thanh dưới theo chế độ (chế độ Excel giữ nguyên chữ cũ)
@@ -654,7 +722,7 @@ export default function App(): React.ReactElement {
           {isView ? (
             <span>
               Kéo thả thư mục hoặc file Markdown vào đây để đọc — <b>Ctrl+O</b> mở thư mục,
-              <b> ↑/↓</b> chuyển file.
+              <b> ↑/↓</b> chuyển file, <b>Ctrl+K</b> tìm nhanh, <b>Alt+←/→</b> lùi/tiến.
             </span>
           ) : isMd ? (
             <span>
@@ -723,6 +791,28 @@ export default function App(): React.ReactElement {
                 onLinkClick={viewerLinkClick}
                 fullWidth
                 scrollTarget={scrollTarget}
+                leading={
+                  <span className="x2m-nav flex shrink-0 items-center gap-0.5">
+                    <button
+                      className={`icon-btn ${iconBtn}`}
+                      onClick={() => void viewerNavigate('back')}
+                      disabled={!viewer.canBack}
+                      title="Lùi (Alt+←)"
+                      aria-label="Lùi"
+                    >
+                      <span aria-hidden="true">←</span>
+                    </button>
+                    <button
+                      className={`icon-btn ${iconBtn}`}
+                      onClick={() => void viewerNavigate('forward')}
+                      disabled={!viewer.canForward}
+                      title="Tiến (Alt+→)"
+                      aria-label="Tiến"
+                    >
+                      <span aria-hidden="true">→</span>
+                    </button>
+                  </span>
+                }
               />
             </main>
 
@@ -899,6 +989,7 @@ export default function App(): React.ReactElement {
       </div>
       </div>
 
+      {isView && paletteOpen && <CommandPalette items={paletteItems} onPick={pickPalette} onClose={() => setPaletteOpen(false)} />}
       <Toasts />
     </div>
   )

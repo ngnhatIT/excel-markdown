@@ -2,12 +2,39 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMdTree,
   formatRelativeTime,
+  hrefHash,
   imagePathFromUrl,
   imageUrl,
   recentMdFiles,
   resolveRelative,
+  slugifyHeading,
+  uniqueSlugs,
   visibleTreeFiles,
 } from './mdView'
+
+describe('hrefHash / slugifyHeading / uniqueSlugs', () => {
+  it('lấy và giải mã phần #anchor', () => {
+    expect(hrefHash('#M%E1%BB%A5c%201')).toBe('Mục 1')
+    expect(hrefHash('docs/b.md#chi-tiet')).toBe('chi-tiet')
+    expect(hrefHash('docs/b.md')).toBe('')
+    expect(hrefHash('#%E0%A4%A')).toBe('%E0%A4%A')
+  })
+
+  it('slug kiểu GitHub: chữ thường, bỏ dấu câu, giữ tiếng Việt / tiếng Nhật', () => {
+    expect(slugifyHeading('Chi tiết mục 1.2 (mới)!')).toBe('chi-tiết-mục-12-mới')
+    expect(slugifyHeading('【画面項目】一覧')).toBe('画面項目一覧')
+    expect(slugifyHeading('snake_case & dash-ok')).toBe('snake_case--dash-ok')
+  })
+
+  it('slug của slug không đổi (so được #anchor với chữ tiêu đề)', () => {
+    const s = slugifyHeading('Chi tiết mục 1.2 (mới)!')
+    expect(slugifyHeading(s)).toBe(s)
+  })
+
+  it('tiêu đề trùng thêm -1, -2', () => {
+    expect(uniqueSlugs(['A', 'A', 'a-1', 'A'])).toEqual(['a', 'a-1', 'a-1-1', 'a-2'])
+  })
+})
 
 describe('imageUrl / imagePathFromUrl', () => {
   it('khứ hồi đường dẫn Windows có dấu cách, ký tự Nhật, #, %', () => {
