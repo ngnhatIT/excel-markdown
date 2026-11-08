@@ -14,8 +14,16 @@ cũng convert được.
 | Đọc cả thư mục tài liệu `.md` như một trang web | [Đọc Markdown](#3-đọc-markdown) |
 | Hỏi "màn hình nào dùng cột X?", tóm tắt, sinh test case | [Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu) |
 | Cho Claude Code / Codex làm việc trên tài liệu, không cần API key | [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp) |
+| Xem bản thiết kế mới đổi gì so với bản cũ (新旧比較), xuất báo cáo thay đổi | [So sánh](#6-so-sánh-bản-cũ--bản-mới-新旧比較) |
+| Xem thay đổi file Excel ngay trong `git diff` | [textconv](#convert-bằng-dòng-lệnh) |
 
-Ba chế độ đầu đổi bằng công tắc ở thanh trên cùng; app nhớ chế độ dùng lần cuối.
+Bốn chế độ (Excel → Markdown, Markdown → Excel, Đọc Markdown, So sánh) đổi ở thanh trên cùng; app nhớ
+chế độ dùng lần cuối. Giao diện có **tiếng Việt / English / 日本語** (nút VI · EN · 日本語 ở thanh trên;
+lần đầu theo ngôn ngữ hệ điều hành).
+
+**Dịch nhanh**: bôi đen chữ trong khung xem (mọi chế độ) → nút **訳 Dịch** cạnh vùng chọn (hoặc
+`Ctrl+Shift+T`) → popup bản dịch Việt / Anh / Nhật. Dùng nhà cung cấp AI đã cấu hình ở mục
+[Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu); chỉ gửi đoạn đã chọn, khi bạn bấm. Giữ nguyên mã, ID, tên bảng / cột.
 
 ---
 
@@ -74,7 +82,8 @@ Nút **Mặc định** ở đầu cột đưa mọi tùy chọn về ban đầu.
 - **Công thức**: lấy giá trị Excel đã tính (kể cả tham chiếu liên sheet).
 - **Lớp vẽ** (chỉ `.xlsx`): ảnh ghi ra thư mục `<tên>_images/` và chèn đúng chỗ; chữ trong shape / text
   box thành `- 〔図形 B10〕...`; mũi tên nối hai shape thành `- 〔矢印〕A → B`; comment ô thành
-  `- 〔コメント B56〕...`; biểu đồ thành `**〔グラフ B3:H18〕縦棒グラフ「tiêu đề」**` + bảng số liệu
+  `- 〔コメント B56〕...`; danh sách thả xuống (入力規則) thành `- 〔入力規則 C2:C50〕入力 / 選択`; chữ gạch
+  ngang (見え消し) thành `~~…~~`; link sang sheet khác thành link tới mục / file `.md` của sheet đó; biểu đồ thành `**〔グラフ B3:H18〕縦棒グラフ「tiêu đề」**` + bảng số liệu
   (danh mục × series, lấy giá trị Excel đã lưu trong file). Chưa đọc SmartArt / biểu đồ kiểu mới (waterfall, treemap...).
 
 File không phải 基本設計 vẫn convert bình thường: lớp chung (bảng, đoạn văn) luôn chạy, lớp riêng
@@ -93,6 +102,7 @@ Cờ: `--per-workbook`, `--range A1:F40`, `--formulas`, `--front-matter`, `--chu
 
 Đầu vào là thư mục thì convert mọi file Excel bên trong (đệ quy, bỏ `~$*`, giữ cấu trúc thư mục con).
 Chiều ngược lại: `node out/main/cli.js md2xlsx docs/ -o out/Book.xlsx [--overwrite]`.
+`--no-clobber`: bỏ qua workbook đã có file `.md` đầu ra (mặc định ghi đè). `--help`, `--version`.
 
 **Xem thay đổi file Excel bằng `git diff`** (textconv: git so sánh Markdown thay vì file nhị phân):
 
@@ -152,6 +162,12 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
 - **Tìm trong nội dung**: bấm nút **Nội dung** cạnh ô lọc rồi gõ từ khóa (nhiều từ cách nhau bằng
   khoảng trắng = dòng phải chứa đủ các từ, không phân biệt hoa thường). Kết quả theo file và dòng;
   bấm một dòng để mở file, cuộn tới chỗ khớp và tô sáng từ khóa.
+  Không phân biệt hiragana / katakana (`てーぶる` tìm ra `テーブル`).
+- **`Ctrl+K`**: nhảy nhanh tới file hoặc heading (gõ vài chữ, khớp cả chữ toàn角).
+- **Lùi / Tiến** (nút ← → trên thanh xem, `Alt+←` / `Alt+→`, nút chuột lùi/tiến); link `#mục` và
+  `file.md#mục` cuộn đúng tới mục.
+- File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì quay lại cửa sổ app là tự tải lại,
+  giữ vị trí cuộn.
 - **Mở file lẻ** hoặc **Dán Markdown** từ clipboard để xem nhanh.
 - Mỗi lần chọn file đều đọc lại từ đĩa. File > 20 MB không mở.
 - Ảnh đường dẫn tương đối hiện được; ảnh từ mạng không tải. Link tới `.md` khác mở ngay trong app,
@@ -270,7 +286,14 @@ Máy chỉ cài bản `.exe` (không có Node): dùng chính app thay Node:
 | `convert_excel` | Convert file Excel sang Markdown (tùy chọn front-matter, gộp workbook, tách bảng, vùng ô) |
 | `list_docs` | Liệt kê file `.md` trong một thư mục |
 | `search_docs` | Tìm các file / mục liên quan nhất tới câu hỏi, có tiêu đề để trích dẫn |
-| `read_doc` | Đọc nguyên văn một file `.md` |
+| `read_doc` | Đọc một file `.md` theo trang (`offset` / `limit` theo dòng, mặc định 2 000 dòng) |
+| `outline` | Danh sách heading của một file `.md` kèm số dòng |
+| `list_sheets` | Danh sách sheet của file Excel (số dòng, sheet ẩn) |
+| `preview_sheet` | Markdown của một sheet, không ghi file |
+| `build_excel` | Gộp file `.md` (hoặc cả thư mục) thành một `.xlsx`; file đích đã có thì cần `overwrite: true` |
+
+`convert_excel` nhận `files` và/hoặc `dir` (cả thư mục); file `.md` đích đã có thì từ chối, trừ khi
+`overwrite: true`.
 
 ### Ví dụ câu hỏi
 
@@ -283,6 +306,24 @@ cho tool phải là đường dẫn tuyệt đối (agent thường tự lo).
 
 ---
 
+## 6. So sánh bản cũ / bản mới (新旧比較)
+
+Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đổi gì.
+
+1. Bật chế độ **So sánh**.
+2. Chọn **bản cũ (旧)** và **bản mới (新)**: kéo thả 2 file (file đầu là bản cũ), hoặc nút **Chọn file…**
+   ở từng ô. File Excel (`.xlsx` / `.xlsm` / `.xls`) hoặc Markdown; có thể so Excel với Markdown.
+3. Bảng hai cột hiện từng thay đổi: dòng thêm (xanh), xóa (đỏ), sửa (tô đúng chữ đã đổi; chữ Nhật so
+   theo từng ký tự). **Chỉ thay đổi** ẩn phần giống nhau (bấm dòng `⋯` để hiện). `F7` / `Shift+F7` hoặc
+   ↑ ↓ nhảy giữa các thay đổi; cột trái liệt kê các mục 【…】 / sheet có thay đổi.
+4. **Xuất báo cáo** (`.md`) hoặc **Copy báo cáo**: bảng `場所 | 項目 | 旧 | 新` để dán vào review / 改訂履歴.
+
+So theo cấu trúc: sheet → mục → dòng bảng khớp theo cột khóa (`ID`, `項目ID`, `物理名`, `項目名`…), nên
+chèn một dòng giữa bảng (kể cả khi cột No đánh số lại) chỉ báo đúng một dòng thêm. Mọi thứ chạy trên máy,
+không gửi file đi đâu. Nút ⇄ đổi chỗ cũ / mới, ⟳ đọc lại hai file sau khi sửa.
+
+---
+
 ## Phím tắt
 
 | Phím | Tác dụng |
@@ -291,6 +332,11 @@ cho tool phải là đường dẫn tuyệt đối (agent thường tự lo).
 | `Ctrl+Enter` | Convert (Markdown → Excel: tạo file Excel) |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Phóng to / thu nhỏ / đặt lại cỡ chữ xem trước |
 | `↑` / `↓` | Sheet trước / sau (Đọc Markdown: file trước / sau) |
+| `Ctrl+K` | Đọc Markdown: nhảy nhanh tới file / heading |
+| `Alt+←` / `Alt+→` | Đọc Markdown: lùi / tiến |
+| `F7` / `Shift+F7` | So sánh: thay đổi sau / trước |
+| `Ctrl+Shift+T` | Dịch đoạn đang bôi đen |
+| `Esc` | Đóng popup / bảng lệnh, xóa ô lọc |
 
 ---
 

@@ -5,7 +5,27 @@
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
 ## Chưa phát hành
-Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/biểu đồ/comment, Markdown → Excel không đổi.
+Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
+chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).
+- Tính năng: chế độ **So sánh 新旧** hai bản thiết kế (Excel hoặc Markdown): so theo sheet → mục → dòng bảng
+  khớp theo cột khóa, tô chữ đổi trong ô, chỉ hiện thay đổi, F7 / Shift+F7, xuất / copy báo cáo
+  `場所 | 項目 | 旧 | 新`. Lõi `src/shared/specDiff.ts`, IPC `compare:read` (worker riêng, giới hạn 120 giây).
+- Tính năng: **giao diện tiếng Việt / English / 日本語** (VI · EN · 日本語 ở thanh trên, lần đầu theo hệ điều hành).
+- Tính năng: **Dịch nhanh đoạn bôi đen** (popup, Ctrl+Shift+T) qua nhà cung cấp AI đã cấu hình; IPC `ai:translate`.
+- Tính năng: Đọc Markdown có **Ctrl+K** (nhảy tới file / heading), **Lùi / Tiến** (Alt+← / →), link `#mục` /
+  `file.md#mục` cuộn đúng mục, tự tải lại file vừa bị sửa khi quay lại cửa sổ, tìm không phân biệt
+  hiragana / katakana; khung AI có **Xuất .md** cuộc trò chuyện (IPC `export:md`).
+- Tính năng: Excel → Markdown đọc **入力規則** (danh sách thả xuống), chữ **gạch ngang** (見え消し → `~~…~~`),
+  **link sang sheet khác**.
+- Tính năng: CLI `textconv` (git diff file Excel dạng Markdown), `md2xlsx`, đầu vào là thư mục, `--no-clobber`,
+  `--help`, `--version`. MCP thêm `build_excel`, `list_sheets`, `preview_sheet`, `outline`, `read_doc` chia trang,
+  `convert_excel` nhận `dir` và cần `overwrite: true` để ghi đè.
+- Giao diện: font Be Vietnam Pro đóng gói (offline), font Nhật cho giao diện 日本語, màu nhấn dịu hơn, tiêu đề khung
+  không viết hoa, popup / toast / bảng lệnh gần đặc dễ đọc, front-matter YAML hiện thành khối code.
+- Sửa: file text đổi đuôi `.xlsx` không còn được nhận như Excel; lỗi thư viện (zip/CFB) thành thông báo tiếng Việt
+  ở app, CLI và MCP; copy TSV bảng dài đủ dòng; nút Lùi / Tiến không còn bị đẩy ra ngoài ở cửa sổ hẹp; link hỏng
+  không tạo "file ma"; In / PDF không in banner; Hủy ở hộp thoại ghi đè không hiện như lỗi; khung AI hết tràn
+  ngang; lưu khi chưa có key thì nhắc dán key.
 - Tính năng: Excel → Markdown đọc **biểu đồ** (.xlsx): cột/thanh/đường/tròn/vùng/phân tán/radar..., cả biểu đồ
   kết hợp, thành `**〔グラフ B3:H18〕縦棒グラフ・折れ線グラフ「tiêu đề」**` + bảng số liệu (giá trị cache trong file,
   tối đa 1 000 danh mục). AI/RAG/MCP đọc được số liệu biểu đồ.
