@@ -13,6 +13,7 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../../../shared/types'
+import type { SpecIndex } from '../../../shared/specIndex'
 import { errCodeText } from '../i18n'
 
 export interface SheetListItem {
@@ -55,6 +56,7 @@ export interface WindowApi {
   openMarkdownFolder(): Promise<string | null>
   listMarkdownFolder(root: string): Promise<MdFolderListing>
   searchMarkdownFolder(root: string, query: string): Promise<MdSearchResult>
+  specIndex(root: string): Promise<SpecIndex>
   readMarkdown(path: string): Promise<string>
   aiGetConfig(): Promise<AiConfigInfo>
   aiSetConfig(payload: AiSetConfigPayload): Promise<AiConfigInfo>

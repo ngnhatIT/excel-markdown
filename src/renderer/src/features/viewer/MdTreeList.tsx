@@ -3,7 +3,7 @@ import { joinRoot, PASTE_PATH, type MdContentSearch } from './useMdViewer'
 import type { MdSearchHit } from '../../../../shared/types'
 import { baseName, cn } from '../../lib/utils'
 import { btnPrimary, btnSm, cx, iconBtn, input } from '../../lib/ui'
-import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from '../../components/icons'
+import { IconChevronDown, IconCopy, IconFile, IconFolder, IconMap, IconRefresh, IconX } from '../../components/icons'
 import { LOCALES, useLang, useT } from '../../i18n'
 
 interface Props {
@@ -38,6 +38,9 @@ interface Props {
   onRefresh: () => void
   onCloseFolder: () => void
   onRemoveLoose: (absPath: string) => void
+  /** Bản đồ thiết kế + 影響調査 của thư mục đang mở */
+  specMapOpen: boolean
+  onToggleSpecMap: () => void
 }
 
 const INDENT = 14
@@ -124,6 +127,18 @@ export function MdTreeList(p: Props): React.ReactElement {
           </button>
           {p.root && (
             <>
+              <button
+                className={cn(
+                  'x2m-specmap-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent',
+                  p.specMapOpen && 'bg-accent-soft text-accent-ink'
+                )}
+                onClick={p.onToggleSpecMap}
+                aria-pressed={p.specMapOpen}
+                title={t('sm.buttonTitle')}
+                aria-label={t('sm.button')}
+              >
+                <IconMap size={14} />
+              </button>
               <button
                 className="x2m-move-btn x2m-reload-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink"
                 onClick={p.onRefresh}

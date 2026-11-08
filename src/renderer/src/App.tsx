@@ -31,6 +31,7 @@ import { useMdConvert } from './features/md2excel/useMdConvert'
 import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
 import { joinRoot, PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
 import { ComparePane } from './features/compare/ComparePane'
+import { SpecMapPane } from './features/viewer/SpecMapPane'
 import { useCompare } from './features/compare/useCompare'
 import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
@@ -93,6 +94,8 @@ export default function App(): React.ReactElement {
   const [leftWidth, setLeftWidth] = useState(300)
   const [rightWidth, setRightWidth] = useState(304)
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null)
+  /** Bản đồ thiết kế + 影響調査 thay vùng xem của chế độ Đọc Markdown */
+  const [specMapOpen, setSpecMapOpen] = useState(false)
 
   const persist = useCallback((key: string, value: unknown) => {
     window.api.storeSet(key, value).catch(() => undefined)
@@ -657,6 +660,7 @@ export default function App(): React.ReactElement {
   const pickPalette = useCallback(
     (item: PaletteItem) => {
       setPaletteOpen(false)
+      setSpecMapOpen(false)
       if (item.kind === 'file') void viewerSelect(item.value)
       else if (viewerPath) void openAt(viewerPath, item.value, undefined, true)
     },
@@ -688,6 +692,16 @@ export default function App(): React.ReactElement {
     () => viewer.loose.map((p) => ({ path: p, name: baseName(p) })),
     [viewer.loose]
   )
+
+  /* Bản đồ thiết kế: mở tài liệu từ bản đồ (hoặc chọn file trên cây / bảng lệnh) thì đóng bản đồ */
+  const openFromMap = useCallback(
+    (rel: string, heading: string, text: string) => {
+      setSpecMapOpen(false)
+      if (viewerRoot) void openAt(joinRoot(viewerRoot, rel), heading, text)
+    },
+    [viewerRoot, openAt]
+  )
+  const closeSpecMap = useCallback(() => setSpecMapOpen(false), [])
 
   const handleJumpToCitation = useCallback((c: RagCitation) => openAt(c.filePath, c.sectionTitle), [openAt])
 
@@ -800,8 +814,16 @@ export default function App(): React.ReactElement {
               contentSearch={viewer.contentSearch}
               onContentSearchChange={viewer.setContentSearch}
               search={viewer.search}
-              onOpenHit={(p, h) => void handleOpenSearchHit(p, h)}
-              onSelect={(p) => void viewerSelect(p)}
+              onOpenHit={(p, h) => {
+                setSpecMapOpen(false)
+                void handleOpenSearchHit(p, h)
+              }}
+              onSelect={(p) => {
+                setSpecMapOpen(false)
+                void viewerSelect(p)
+              }}
+              specMapOpen={specMapOpen && !!viewer.root}
+              onToggleSpecMap={() => setSpecMapOpen((o) => !o)}
               onToggleDir={viewer.toggleDir}
               onOpenFolder={() => void pickViewerFolder()}
               onOpenFiles={() => void pickViewerFiles()}
@@ -810,6 +832,9 @@ export default function App(): React.ReactElement {
               onRemoveLoose={viewer.removeLoose}
             />
 
+            {specMapOpen && viewer.root ? (
+              <SpecMapPane root={viewer.root} onOpen={openFromMap} onClose={closeSpecMap} />
+            ) : (
             <main className="x2m-main flex min-w-0 flex-1 flex-col overflow-hidden bg-editor">
               <PreviewPane
                 title={viewerTitle}
@@ -849,6 +874,7 @@ export default function App(): React.ReactElement {
                 }
               />
             </main>
+            )}
 
             {!sideCollapsed && (
               <div
