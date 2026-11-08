@@ -159,9 +159,10 @@ export const AI_PROVIDER_IDS: AiProvider[] = ['gemini', 'claude', 'openai']
 export const AI_PROVIDERS: Record<AiProvider, { label: string; defaultModel: AiModelId; suggested: AiModelId[]; keyHint: string; site: string }> = {
   gemini: {
     label: 'Gemini',
-    defaultModel: 'gemini-2.5-flash',
-    suggested: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    keyHint: 'Dán Gemini API Key (AIza...)',
+    // Alias do Google trỏ tới model flash / pro mới nhất: model cố định (vd gemini-2.5-flash) bị ngừng cấp cho key mới
+    defaultModel: 'gemini-flash-latest',
+    suggested: ['gemini-flash-latest', 'gemini-pro-latest'],
+    keyHint: 'Dán Gemini API Key (AIza… / AQ.…)',
     site: 'aistudio.google.com',
   },
   claude: {

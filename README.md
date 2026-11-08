@@ -216,7 +216,7 @@ Việt, kèm trích dẫn `file › mục` bấm được để mở đúng ch�
 
 | Nhà cung cấp | Lấy key ở | Dạng key | Model mặc định |
 |---|---|---|---|
-| Gemini | aistudio.google.com | `AIza...` | `gemini-2.5-flash` |
+| Gemini | aistudio.google.com | `AIza...` / `AQ....` | `gemini-flash-latest` (luôn trỏ tới bản flash mới nhất) |
 | Claude | console.anthropic.com | `sk-ant-...` | `claude-opus-5-5` |
 | OpenAI / Codex | platform.openai.com | `sk-...` | `gpt-5` |
 

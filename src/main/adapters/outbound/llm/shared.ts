@@ -34,6 +34,8 @@ export function trimHistory(history: AiChatTurn[] = []): AiChatTurn[] {
 export function redactApiKey(text: string, apiKey?: string): string {
   let out = text.replace(/([?&]key=)[^&\s"')]+/gi, '$1***')
   out = out.replace(/AIza[0-9A-Za-z_-]{20,}/g, 'AIza***')
+  // Key Gemini dạng mới (AQ.…)
+  out = out.replace(/\bAQ\.[0-9A-Za-z_-]{20,}/g, 'AQ.***')
   out = out.replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, 'sk-ant-***')
   out = out.replace(/sk-[0-9A-Za-z_-]{16,}/g, 'sk-***')
   const trimmedKey = (apiKey ?? '').trim()

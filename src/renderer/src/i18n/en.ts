@@ -312,7 +312,7 @@ export const en: Dict = {
   'ai.model': 'Model:',
   'ai.refreshModels': 'Reload the latest models this key can use',
   'ai.keyInUse': 'Using {key} (enter a new key to change)',
-  'ai.keyHint.gemini': 'Paste your Gemini API key (AIza...)',
+  'ai.keyHint.gemini': 'Paste your Gemini API key (AIza… / AQ.…)',
   'ai.keyHint.claude': 'Paste your Claude API key (sk-ant-...)',
   'ai.keyHint.openai': 'Paste your OpenAI API key (sk-...)',
   'ai.clearKeyTitle': 'Remove the saved API key',

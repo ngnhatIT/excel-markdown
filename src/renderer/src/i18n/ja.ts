@@ -311,7 +311,7 @@ export const ja: Dict = {
   'ai.model': 'モデル：',
   'ai.refreshModels': 'このキーで使える最新のモデル一覧を再取得',
   'ai.keyInUse': '{key} を使用中（変更するには新しいキーを入力）',
-  'ai.keyHint.gemini': 'Gemini API キーを貼り付け（AIza...）',
+  'ai.keyHint.gemini': 'Gemini API キーを貼り付け（AIza… / AQ.…）',
   'ai.keyHint.claude': 'Claude API キーを貼り付け（sk-ant-...）',
   'ai.keyHint.openai': 'OpenAI API キーを貼り付け（sk-...）',
   'ai.clearKeyTitle': '保存した API キーを削除',

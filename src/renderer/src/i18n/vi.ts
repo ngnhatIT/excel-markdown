@@ -312,7 +312,7 @@ export const vi = {
   'ai.model': 'Model:',
   'ai.refreshModels': 'Lấy lại danh sách model mới nhất mà key này dùng được',
   'ai.keyInUse': 'Đang dùng {key} (nhập mới để đổi)',
-  'ai.keyHint.gemini': 'Dán Gemini API Key (AIza...)',
+  'ai.keyHint.gemini': 'Dán Gemini API Key (AIza… / AQ.…)',
   'ai.keyHint.claude': 'Dán Claude API Key (sk-ant-...)',
   'ai.keyHint.openai': 'Dán OpenAI API Key (sk-...)',
   'ai.clearKeyTitle': 'Xóa API Key đã lưu',
