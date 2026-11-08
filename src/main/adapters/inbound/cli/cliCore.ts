@@ -9,11 +9,12 @@ import { parseTableDefs, SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDiale
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
 import { workbookMarkdownForDiff } from '../../outbound/workbookText'
-import { listMarkdownFiles, readMarkdownFile, walkFiles } from '../../outbound/mdFolder'
+import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, walkFiles } from '../../outbound/mdFolder'
+import { buildSpecIndex, impactOf, type ImpactResult, type SpecIndex, type SpecIssue } from '../../../../shared/specIndex'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { workbookMdFiles } from '../../../domain/excel/output'
-import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
+import { EXCEL_EXT_RE, isInsideDir, isOpenableDirectory } from '../../../domain/guards'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
 
@@ -23,6 +24,8 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
      cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)
      cli ddl <file.md|thư mục|file.xlsx...> [--dialect generic|postgres|mysql|oracle|sqlserver]
           [--format sql|json|mermaid] [-o out.sql]   (テーブル定義書 → DDL / JSON / ER; không -o thì in ra stdout)
+     cli impact <thư mục> <bảng|TBL.COL|cột|画面ID|画面名>   (影響調査: tài liệu / màn hình bị ảnh hưởng)
+     cli lint <thư mục>   (整合性チェック: 画面ID / bảng trùng, 遷移 treo, TBL.COL không có; lỗi -> mã thoát 1)
      cli --help | --version
   Mặc định file .md đã có bị ghi đè; --no-clobber: bỏ qua workbook có file .md / thư mục ảnh đầu ra đã tồn tại.`
 
@@ -193,6 +196,63 @@ async function runDdl(argv: string[], log: (s: string) => void): Promise<number>
   return 0
 }
 
+/** Chỉ mục 影響調査 của thư mục (mọi .md bên trong, thứ tự như Đọc Markdown). */
+export async function loadSpecIndex(root: string): Promise<SpecIndex> {
+  if (!(await isOpenableDirectory(root))) throw new Error('Không phải thư mục đang tồn tại: ' + root)
+  const { files } = await listMarkdownFiles(root)
+  return buildSpecIndex((await readMarkdownFolder(root, files)) ?? [])
+}
+
+const REASON: Record<string, string> = { definition: 'định nghĩa', reference: 'tham chiếu', transition: '遷移', related: 'liên quan' }
+
+/** Báo cáo 影響調査 dạng chữ (CLI + MCP). */
+export function formatImpact(query: string, r: ImpactResult): string {
+  if (r.kind === 'none') return `Không tìm thấy bảng / cột / màn hình nào khớp "${query}".`
+  const out = [`影響調査: ${r.targets.join(', ')} (${r.kind === 'table' ? 'bảng' : r.kind === 'column' ? 'cột' : 'màn hình'})`]
+  if (r.screens.length > 0) {
+    out.push('', 'Màn hình:')
+    for (const s of r.screens) out.push(`  ${s.relation === 'direct' ? '*' : '~'} ${s.id}${s.name ? ' ' + s.name : ''}${s.relation === 'related' ? ' (liên quan qua 画面遷移)' : ''}`)
+  }
+  for (const g of r.groups) {
+    out.push('', g.rel)
+    for (const h of g.hits) out.push(`  ${h.line}: [${REASON[h.reason]}] ${h.snippet}`)
+  }
+  return out.join('\n') + '\n'
+}
+
+const ISSUE_TEXT: Record<SpecIssue['code'], (i: SpecIssue) => string> = {
+  'duplicate-screen': (i) => `画面ID trùng: ${i.subject} (đã định nghĩa ở ${i.other?.rel}:${i.other?.line})`,
+  'duplicate-table': (i) => `Bảng trùng: ${i.subject} (đã định nghĩa ở ${i.other?.rel}:${i.other?.line})`,
+  'unknown-column': (i) => `Cột không có trong テーブル定義: ${i.subject}`,
+  'dangling-transition': (i) => `画面遷移 tới màn hình chưa định nghĩa: ${i.subject}`,
+}
+
+/** Một dòng mỗi lỗi: `file:dòng: error|warning: nội dung` (dạng trình biên dịch, CI đọc được). */
+export const formatIssues = (issues: SpecIssue[]): string[] => issues.map((i) => `${i.rel}:${i.line}: ${i.severity}: ${ISSUE_TEXT[i.code](i)}`)
+
+async function runSpec(cmd: 'impact' | 'lint', argv: string[], log: (s: string) => void): Promise<number> {
+  const bad = argv.find((a) => a.startsWith('-'))
+  if (bad) throw new Error('Tuỳ chọn không hợp lệ: ' + bad)
+  if (cmd === 'impact' ? argv.length !== 2 : argv.length !== 1) throw new Error(cmd === 'impact' ? 'Dùng: cli impact <thư mục> <truy vấn>' : 'Dùng: cli lint <thư mục>')
+  if (cmd === 'impact' && (argv[1].trim() === '' || argv[1].length > 200)) throw new Error('Truy vấn phải có 1–200 ký tự')
+  let index: SpecIndex
+  try {
+    index = await loadSpecIndex(resolve(argv[0]))
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  if (cmd === 'impact') {
+    const r = impactOf(index, argv[1])
+    process.stdout.write(formatImpact(argv[1], r))
+    return r.kind === 'none' ? 1 : 0
+  }
+  for (const line of formatIssues(index.issues)) log(line)
+  const errors = index.issues.filter((i) => i.severity === 'error').length
+  log(`${index.docCount} file, ${index.screens.length} màn hình, ${index.tables.length} bảng: ${errors} lỗi, ${index.issues.length - errors} cảnh báo`)
+  return errors > 0 ? 1 : 0
+}
+
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
   const inputs: string[] = []
   let outPath = ''
@@ -236,6 +296,7 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
   }
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
   if (argv[0] === 'ddl') return runDdl(argv.slice(1), log)
+  if (argv[0] === 'impact' || argv[0] === 'lint') return runSpec(argv[0], argv.slice(1), log)
   if (argv[0] === 'textconv') {
     if (argv.length !== 2) throw new Error('Dùng: cli textconv <file.xlsx>')
     // stdout là nội dung diff: lỗi chỉ ra stderr, mã thoát khác 0

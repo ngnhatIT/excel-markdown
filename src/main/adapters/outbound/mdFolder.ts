@@ -112,6 +112,24 @@ async function readMarkdownCached(path: string): Promise<string> {
   return text
 }
 
+/** Nội dung các file `rels` dưới `root` (qua cache), 8 file một đợt như tìm kiếm. File không đọc được / quá lớn
+ * thì bỏ qua. `isStale` true giữa chừng -> null (đã có yêu cầu mới hơn). */
+export async function readMarkdownFolder(
+  root: string,
+  rels: string[],
+  isStale: () => boolean = () => false
+): Promise<{ rel: string; text: string }[] | null> {
+  const out: { rel: string; text: string }[] = []
+  for (let i = 0; i < rels.length; i += 8) {
+    if (isStale()) return null
+    const batch = await Promise.all(
+      rels.slice(i, i + 8).map((rel) => readMarkdownCached(join(root, rel)).then((text) => ({ rel, text }), () => null))
+    )
+    for (const d of batch) if (d) out.push(d)
+  }
+  return out
+}
+
 /** Tìm `query` trong nội dung mọi file .md dưới `root` (cùng danh sách với `listMarkdownFiles`).
  * File không đọc được / quá lớn thì bỏ qua. Dừng khi đủ `maxFiles` file khớp. */
 export async function searchMarkdownFolder(

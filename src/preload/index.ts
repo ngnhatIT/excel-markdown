@@ -15,6 +15,7 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../shared/types'
+import type { SpecIndex } from '../shared/specIndex'
 
 interface SheetListItem {
   name: string
@@ -107,6 +108,8 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
   searchMarkdownFolder: (root: string, query: string): Promise<MdSearchResult> =>
     unwrap(ipcRenderer.invoke('mdv:search', root, query) as Promise<ApiResult<MdSearchResult>>),
+  /** Bản đồ thiết kế + 影響調査 của thư mục đã mở. */
+  specIndex: (root: string): Promise<SpecIndex> => unwrap(ipcRenderer.invoke('mdv:specIndex', root) as Promise<ApiResult<SpecIndex>>),
 
   // Trợ lý AI (RAG: Gemini / Claude / OpenAI)
   aiGetConfig: (): Promise<AiConfigInfo> =>

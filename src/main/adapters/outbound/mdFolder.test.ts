@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { chmodSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { listMarkdownFiles, readMarkdownFile, searchMarkdownFolder, walkFiles } from './mdFolder'
+import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, searchMarkdownFolder, walkFiles } from './mdFolder'
 
 function makeTree(): string {
   const root = mkdtempSync(join(tmpdir(), 'x2m-mdv-'))
@@ -97,5 +97,16 @@ describe('walkFiles', () => {
 
   it('quá giới hạn -> truncated', async () => {
     expect((await walkFiles(makeTree(), () => true, 2)).truncated).toBe(true)
+  })
+})
+
+describe('readMarkdownFolder', () => {
+  it('đọc theo danh sách, bỏ file lỗi; có yêu cầu mới hơn -> null', async () => {
+    const root = makeTree()
+    expect(await readMarkdownFolder(root, ['README.md', 'khong-co.md', 'docs/a.md'])).toEqual([
+      { rel: 'README.md', text: '# x\n' },
+      { rel: 'docs/a.md', text: '# x\n' },
+    ])
+    expect(await readMarkdownFolder(root, ['README.md'], () => true)).toBeNull()
   })
 })

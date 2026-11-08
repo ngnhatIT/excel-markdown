@@ -577,6 +577,44 @@ try {
   const erCsp = await ev(`window.__csp.splice(${cspBeforeEr})`)
   check('ER: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', erCsp.every((v) => v.startsWith('style-src')), erCsp.slice(0, 3))
 
+  // Bản đồ thiết kế + 影響調査: mở thư mục fixture, sơ đồ 画面遷移 (SVG), bấm nút màn hình, 影響調査 -> mở tài liệu
+  await dropFiles([join(root, 'test', 'fixtures', 'specmap')])
+  check('Bản đồ: mở thư mục specmap -> có nút Bản đồ thiết kế trên cây', (await waitFor(`!!(${treeRow('flow.md')}) && !!document.querySelector('.x2m-specmap-btn')`, 5000)) >= 0)
+  const cspBeforeMap = await ev(`window.__csp.length`)
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  check('Bản đồ: 画面遷移図 vẽ SVG, chip 5 màn hình / 2 bảng / 5 vấn đề',
+    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 màn hình.*2 bảng.*5 vấn đề/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap')?.innerText ?? null`))
+  check('Bản đồ: nút màn hình bấm được bằng bàn phím (tabindex, role=button), nút treo không',
+    await ev(`document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"][tabindex="0"]').length === 4 && document.querySelectorAll('.x2m-specmap-diagram g.node').length === 7`),
+    await ev(`[...document.querySelectorAll('.x2m-specmap-diagram g.node')].map(g => g.getAttribute('aria-label'))`))
+  await ev(`(() => { const g = [...document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"]')].find(g => g.getAttribute('aria-label').includes('SCR011')); g.focus(); return 1 })()`)
+  await key('Enter', 'Enter', 13)
+  check('Bản đồ: Enter trên nút SCR011 -> đóng bản đồ, mở screens/SCR011_detail.md',
+    (await waitFor(`!document.querySelector('.x2m-specmap') && document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR011_detail.md'`, 5000)) >= 0, await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '影響調査')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-query')`, 3000)
+  await ev(`(() => { const i = document.querySelector('.x2m-specmap-query'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'TBL_CUSTOMER.CUST_CD'); i.dispatchEvent(new Event('input', { bubbles: true })); i.form.requestSubmit(); return 1 })()`)
+  check('影響調査: TBL_CUSTOMER.CUST_CD -> kết quả theo tài liệu, có SCR010 bị ảnh hưởng',
+    (await waitFor(`document.querySelectorAll('.x2m-specmap-group').length === 4 && (document.querySelector('.x2m-specmap-impact')?.innerText ?? '').includes('SCR010 顧客検索画面')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-impact')?.innerText ?? null`))
+  await ev(`[...document.querySelectorAll('.x2m-specmap-hit')].find(b => b.textContent.includes('検索キー'))?.click(), 1`)
+  check('影響調査: bấm kết quả -> mở screens/SCR010_search.md, tô sáng chỗ khớp',
+    (await waitFor(`document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR010_search.md' && CSS.highlights.get('x2m-search')?.size >= 1`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '整合性チェック')?.click(), 1`)
+  check('整合性チェック: 2 lỗi trước, 3 cảnh báo', (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')]; return b.length === 5 && b[0].innerText.startsWith('Lỗi') && b[4].innerText.startsWith('Cảnh báo') })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-lint')?.innerText ?? null`))
+  await ev(`document.querySelector('.x2m-specmap-close')?.click(), 1`)
+  check('Bản đồ: nút đóng -> về bản xem', (await waitFor(`!document.querySelector('.x2m-specmap') && !!document.querySelector('.x2m-preview')`, 2000)) >= 0)
+  // Như bước ER: chỉ bỏ báo style-src tạm của mermaid khi vẽ sơ đồ
+  const mapCsp = await ev(`window.__csp.splice(${cspBeforeMap})`)
+  check('Bản đồ: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', mapCsp.every((v) => v.startsWith('style-src')), mapCsp.slice(0, 3))
+
   // So sánh 新旧: hai file Markdown, chèn một dòng giữa bảng + sửa một ô
   const cmpDir = join(tmp, 'cmp')
   mkdirSync(cmpDir, { recursive: true })

@@ -9,7 +9,8 @@ import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { buildExcel, collectTableDefs, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
+import { buildExcel, collectTableDefs, formatImpact, formatIssues, loadSpecIndex, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
+import { impactOf } from '../../../../shared/specIndex'
 import { SQL_DIALECTS, type SqlDialect } from '../../../../shared/tableDef'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
@@ -141,6 +142,20 @@ export const MCP_TOOLS = [
         format: { type: 'string', enum: [...TABLE_DEF_FORMATS], description: 'sql (mặc định) | json | mermaid' },
       },
       required: ['path'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'impact',
+    description:
+      '影響調査 (phân tích ảnh hưởng) trên thư mục tài liệu Markdown đã convert, chạy cục bộ, không AI: cho một bảng (TBL_CUSTOMER), cột (TBL_CUSTOMER.CUST_CD hoặc CUST_CD, tên logic 顧客コード) hoặc màn hình (画面ID SCR010 hoặc 画面名), liệt kê nơi định nghĩa, mọi dòng nhắc tới (theo file, kèm số dòng) và màn hình bị ảnh hưởng + màn hình liên quan qua 画面遷移. Kèm 整合性チェック (画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, TBL.COL không có cột).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', description: 'Thư mục tuyệt đối chứa file .md (đệ quy)' },
+        query: { type: 'string', description: 'Tên bảng, TBL.COL, tên cột, 画面ID hoặc 画面名 (1–200 ký tự)' },
+      },
+      required: ['root', 'query'],
       additionalProperties: false,
     },
   },
@@ -309,6 +324,17 @@ async function callTool(name: string, a: Args): Promise<string> {
       const text = renderTableDefs(defs, format, dialect)
       if (text.length <= PREVIEW_MAX_CHARS) return text
       return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`ddl -o\` để lấy đủ.)`
+    }
+    case 'impact': {
+      const root = absDir(a, 'root')
+      const query = str(a, 'query')
+      if (query.length > 200) throw new Error('"query" tối đa 200 ký tự')
+      // loadSpecIndex kiểm thư mục tồn tại (không đọc file bất kỳ)
+      const index = await loadSpecIndex(root)
+      const issues = formatIssues(index.issues)
+      const text = formatImpact(query, impactOf(index, query)) + (issues.length > 0 ? `\n整合性チェック (${issues.length}):\n` + issues.join('\n') + '\n' : '')
+      if (text.length <= PREVIEW_MAX_CHARS) return text
+      return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`impact\` để lấy đủ.)`
     }
     default:
       throw new UnknownToolError('Không có tool: ' + name)
