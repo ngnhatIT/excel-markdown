@@ -697,7 +697,7 @@ export default function App(): React.ReactElement {
   /* -------------------------------- render --------------------------------- */
   return (
     <div
-      className="x2m-app flex h-screen flex-col bg-canvas text-ink"
+      className="x2m-app flex h-screen flex-col gap-2 p-2 text-ink"
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -721,7 +721,7 @@ export default function App(): React.ReactElement {
       />
 
       {showOnboarding && (
-        <div className="x2m-onboarding flex items-center justify-between border-b border-line bg-accent-soft px-4 py-1.5 text-xs text-dim [&_b]:text-ink">
+        <div className="x2m-onboarding glass flex items-center justify-between rounded-xl !bg-accent-soft px-4 py-1.5 text-xs text-dim [&_b]:text-ink">
           {isView ? (
             <span>
               Kéo thả thư mục hoặc file Markdown vào đây để đọc — <b>Ctrl+O</b> mở thư mục,
@@ -744,7 +744,7 @@ export default function App(): React.ReactElement {
         </div>
       )}
 
-      <div className="x2m-body flex min-h-0 flex-1">
+      <div className="x2m-body flex min-h-0 flex-1 gap-2">
         {isView ? (
           <>
             <MdTreeList
@@ -775,7 +775,7 @@ export default function App(): React.ReactElement {
               onRemoveLoose={viewer.removeLoose}
             />
 
-            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
+            <main className="x2m-main glass flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
               <PreviewPane
                 title={viewerTitle}
                 md={viewer.doc?.markdown ?? ''}
@@ -826,7 +826,7 @@ export default function App(): React.ReactElement {
               onRemove={removeMdFile}
             />
 
-            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
+            <main className="x2m-main glass flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
               <PreviewPane
                 title={mdSel ? mdSel.name : null}
                 md={mdSel?.markdown ?? ''}
@@ -900,7 +900,7 @@ export default function App(): React.ReactElement {
               />
             )}
 
-            <main className="x2m-main flex min-w-0 flex-1 flex-col bg-canvas">
+            <main className="x2m-main glass flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl">
               <PreviewPane
                 title={selFile && selSheet ? `${selFile.name} / ${selSheet}` : null}
                 md={preview.md}

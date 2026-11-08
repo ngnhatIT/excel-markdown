@@ -54,4 +54,12 @@ describe('sanitizeHtml + resolveImage (chế độ Đọc Markdown)', () => {
   it('không truyền resolveImage -> bỏ mọi ảnh (như cũ)', () => {
     expect(sanitizeHtml('<img src="img/a.png" alt="x">')).toBe('')
   })
+
+  it('giữ class language-* của khối code, bỏ class khác', () => {
+    expect(sanitizeHtml('<pre><code class="language-mermaid">A--&gt;B</code></pre>')).toBe(
+      '<pre><code class="language-mermaid">A--&gt;B</code></pre>'
+    )
+    expect(sanitizeHtml('<code class="x" onclick="a()">y</code>')).toBe('<code>y</code>')
+    expect(sanitizeHtml('<code class="language-a&quot; onclick=&quot;x">y</code>')).toBe('<code>y</code>')
+  })
 })

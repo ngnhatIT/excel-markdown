@@ -19,6 +19,7 @@ interface ChatEntry {
   docCount?: number
   isError?: boolean
   failedPrompt?: string
+  failedScope?: 'folder' | 'active'
 }
 
 interface Props {
@@ -202,6 +203,7 @@ export function AiChatPanel({
               text: `⚠️ **Không thể hoàn tất:** ${msg}`,
               isError: true,
               failedPrompt: q,
+              failedScope: effectiveScope,
             },
           ])
         }
@@ -299,7 +301,7 @@ export function AiChatPanel({
             <button
               className={cn(
                 'x2m-ai-scope-btn flex-1 text-center rounded-md py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
-                scope === 'folder' && 'active bg-soft text-accent-ink shadow-xs'
+                scope === 'folder' && 'active seg-on'
               )}
               onClick={() => setScope('folder')}
               title="Tìm kiếm ngữ cảnh trên toàn bộ các file Markdown đang mở"
@@ -309,7 +311,7 @@ export function AiChatPanel({
             <button
               className={cn(
                 'x2m-ai-scope-btn flex-1 text-center rounded-md py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
-                scope === 'active' && 'active bg-soft text-accent-ink shadow-xs'
+                scope === 'active' && 'active seg-on'
               )}
               onClick={() => setScope('active')}
               title="Gửi trọn vẹn 100% nội dung file đang xem"
@@ -374,7 +376,7 @@ export function AiChatPanel({
                       {entry.isError && entry.failedPrompt ? (
                         <button
                           className="inline-flex items-center gap-1 rounded border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-ink hover:text-accent hover:border-accent-line transition-colors"
-                          onClick={() => sendQuestion(entry.failedPrompt!)}
+                          onClick={() => sendQuestion(entry.failedPrompt!, entry.failedScope)}
                           disabled={busy}
                         >
                           🔄 Thử lại

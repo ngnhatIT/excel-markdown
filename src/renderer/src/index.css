@@ -31,14 +31,33 @@
   --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
 }
 
-/* ============================== Theme vars ============================== */
+/* ============================== Theme vars ==============================
+ * Liquid glass: bề mặt trong suốt nằm trên nền "ambient" (--backdrop). Chỉ các
+ * khung lớn (class `glass`) mới làm mờ nền; phần bên trong dùng màu bán trong suốt. */
 :root {
-  --bg: #0d1117;
-  --bg-soft: #131922;
-  --bg-raised: #1a222e;
-  --bg-hover: #212b3a;
-  --border: #283344;
-  --border-subtle: #1e2736;
+  --backdrop-base: #0a0f17;
+  --backdrop:
+    radial-gradient(60vw 55vh at 8% 0%, rgba(59, 130, 246, 0.38), transparent 70%),
+    radial-gradient(55vw 60vh at 100% 100%, rgba(45, 168, 160, 0.28), transparent 70%),
+    radial-gradient(40vw 40vh at 70% 20%, rgba(120, 140, 180, 0.14), transparent 70%),
+    radial-gradient(35vw 45vh at 30% 95%, rgba(230, 170, 120, 0.08), transparent 70%);
+  --glass: rgba(18, 25, 36, 0.46);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-highlight: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 18px 50px -18px rgba(2, 8, 20, 0.75), 0 2px 6px -2px rgba(2, 8, 20, 0.4);
+  /* Ánh sáng chiếu từ góc trên-trái: mép trên-trái sáng, mép dưới-phải tối */
+  --rim-hi: rgba(255, 255, 255, 0.16);
+  --rim-lo: rgba(255, 255, 255, 0.03);
+  --sheen: rgba(255, 255, 255, 0.07);
+  --glass-glow: rgba(140, 180, 255, 0.04);
+  --pill-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  --pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 4px 12px -4px rgba(0, 0, 0, 0.55);
+  --bg: rgba(6, 10, 16, 0.38);
+  --bg-soft: rgba(255, 255, 255, 0.045);
+  --bg-raised: rgba(255, 255, 255, 0.07);
+  --bg-hover: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.06);
   --text: #e8edf4;
   --text-dim: #98a6b8;
   --text-faint: #7d8b9e;
@@ -52,18 +71,33 @@
   --warning-soft: rgba(229, 169, 59, 0.14);
   --danger: #ef5350;
   --danger-soft: rgba(239, 83, 80, 0.14);
-  --code-bg: #090d12;
-  --shadow: 0 10px 32px rgba(0, 0, 0, 0.48);
-  --radius: 10px;
+  --code-bg: rgba(4, 7, 12, 0.62);
+  --shadow: 0 14px 40px -10px rgba(2, 8, 20, 0.65);
+  --radius: 12px;
 }
 
 [data-theme='light'] {
-  --bg: #f6f8fb;
-  --bg-soft: #ffffff;
-  --bg-raised: #eef2f7;
-  --bg-hover: #e3e9f2;
-  --border: #d5dde8;
-  --border-subtle: #e5ebf3;
+  --backdrop-base: #e9eef5;
+  --backdrop:
+    radial-gradient(60vw 55vh at 8% 0%, rgba(96, 150, 235, 0.32), transparent 70%),
+    radial-gradient(55vw 60vh at 100% 100%, rgba(110, 200, 190, 0.26), transparent 70%),
+    radial-gradient(40vw 40vh at 70% 15%, rgba(245, 214, 190, 0.35), transparent 70%);
+  --glass: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 18px 44px -18px rgba(30, 55, 95, 0.35), 0 2px 6px -2px rgba(30, 55, 95, 0.12);
+  --rim-hi: rgba(255, 255, 255, 0.95);
+  --rim-lo: rgba(30, 55, 95, 0.06);
+  --sheen: rgba(255, 255, 255, 0.55);
+  --glass-glow: rgba(255, 255, 255, 0.35);
+  --pill-bg: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.82));
+  --pill-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(30, 55, 95, 0.12), 0 4px 12px -4px rgba(30, 55, 95, 0.25);
+  --bg: rgba(255, 255, 255, 0.55);
+  --bg-soft: rgba(255, 255, 255, 0.5);
+  --bg-raised: rgba(255, 255, 255, 0.72);
+  --bg-hover: rgba(30, 55, 95, 0.07);
+  --border: rgba(30, 55, 95, 0.12);
+  --border-subtle: rgba(30, 55, 95, 0.07);
   --text: #161f2c;
   --text-dim: #526175;
   --text-faint: #68778c;
@@ -77,8 +111,68 @@
   --warning-soft: rgba(184, 122, 17, 0.1);
   --danger: #d13838;
   --danger-soft: rgba(209, 56, 56, 0.1);
-  --code-bg: #f3f6fa;
-  --shadow: 0 8px 26px rgba(20, 40, 70, 0.11);
+  --code-bg: rgba(243, 246, 250, 0.82);
+  --shadow: 0 12px 32px -10px rgba(30, 55, 95, 0.25);
+}
+
+/* Khung kính: làm mờ + tăng bão hòa nền phía sau. Viền sáng/tối theo một hướng ánh sáng
+ * (trên-trái), vệt bóng chéo mép trên và quầng sáng trong để giả khúc xạ của kính dày.
+ * Dùng box-shadow inset (không dùng ::before) để khung có thanh cuộn vẫn giữ viền. */
+@utility glass {
+  background:
+    linear-gradient(160deg, var(--sheen), transparent 32%),
+    linear-gradient(var(--glass), var(--glass));
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 1px 1px 0 var(--rim-hi),
+    inset -1px -1px 0 var(--rim-lo),
+    inset 0 0 28px var(--glass-glow),
+    var(--glass-shadow);
+  backdrop-filter: blur(40px) saturate(190%);
+}
+
+/* Kính lồng trong khung kính (thẻ file, nhóm tùy chọn, chip): không làm mờ thêm cho nhẹ GPU. */
+@utility glass-chip {
+  background: var(--bg-soft);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+}
+
+/* Ô đang chọn trong nhóm segmented: viên kính nổi */
+@utility seg-on {
+  background: var(--pill-bg);
+  color: var(--text);
+  box-shadow: var(--pill-shadow);
+}
+
+/* Các khung lớn hiện lần lượt khi mở app (một lần, chỉ dùng transform/opacity) */
+@keyframes glass-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+}
+.x2m-app > *,
+.x2m-body > * {
+  animation: glass-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.x2m-body > :nth-child(2) {
+  animation-delay: 60ms;
+}
+.x2m-body > :nth-child(3) {
+  animation-delay: 120ms;
+}
+
+/* Biểu tượng trạng thái trống đặt trong một ô kính */
+.x2m-empty > svg:first-child {
+  box-sizing: content-box;
+  padding: 14px;
+  border-radius: 18px;
+  color: var(--accent-text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  margin-bottom: 6px;
 }
 
 @layer base {
@@ -88,7 +182,26 @@
     height: 100%;
   }
   body {
-    @apply overflow-hidden bg-canvas font-sans text-[14px] text-ink antialiased;
+    @apply overflow-hidden font-sans text-[14px] text-ink antialiased;
+    background: var(--backdrop), var(--backdrop-base);
+  }
+  /* Hạt nhiễu rất nhẹ để nền kính không bị phẳng "kỹ thuật số" */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+  .tabular,
+  table {
+    font-variant-numeric: tabular-nums;
   }
   button {
     font: inherit;
@@ -108,7 +221,7 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--border);
+    background: color-mix(in srgb, var(--text-faint) 35%, transparent);
     border-radius: 5px;
     border: 2px solid transparent;
     background-clip: padding-box;

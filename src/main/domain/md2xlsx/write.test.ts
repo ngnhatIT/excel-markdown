@@ -11,7 +11,8 @@ import { estimateLines } from './layout'
 import type { Block, SheetModel } from './model'
 import { safeSheetName } from './names'
 import { parseMarkdownFile } from './parse'
-import { buildWorkbook, injectIgnoredErrors, LINE_HEIGHT, MAX_ROW_HEIGHT, saveWorkbook } from './write'
+import { buildWorkbook, injectIgnoredErrors, LINE_HEIGHT, MAX_ROW_HEIGHT } from './write'
+import { saveWorkbook } from '../../adapters/outbound/xlsxWriter'
 
 const T = (h: string[], ...rows: string[][]): Block => ({
   kind: 'table',

@@ -145,9 +145,40 @@ describe('callGeminiApi stability & resilience', () => {
       })
       expect(urlsCalled.some((u) => u.includes('gemini-deprecated-model'))).toBe(true)
       expect(urlsCalled.some((u) => u.includes('gemini-2.5-flash'))).toBe(true)
-      expect(res.answer).toBe('Trả lời từ fallback')
+      expect(res.answer).toContain('Trả lời từ fallback')
+      // người dùng phải biết câu trả lời đến từ model khác model đã chọn
+      expect(res.answer).toContain('model "gemini-deprecated-model" không còn dùng được')
     } finally {
       globalThis.fetch = originalFetch
+    }
+  })
+
+  it('quá giờ thì báo lỗi ngay, không thử lại', async () => {
+    vi.useFakeTimers()
+    const originalFetch = globalThis.fetch
+    const fetchMock = vi.fn().mockImplementation(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => init.signal!.addEventListener('abort', () => reject(init.signal!.reason)))
+    )
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+
+    try {
+      const check = expect(
+        callGeminiApi({
+          apiKey: 'AIzaSyFakeKey123456789',
+          model: 'gemini-2.5-flash',
+          question: 'Câu hỏi dài',
+          contextText: '',
+          history: [],
+          availableCitations: [],
+        })
+      ).rejects.toThrow('Quá thời gian')
+      await vi.advanceTimersByTimeAsync(120_000)
+      await check
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    } finally {
+      globalThis.fetch = originalFetch
+      vi.useRealTimers()
     }
   })
 

@@ -34,7 +34,7 @@ Xây dựng bằng **Electron + TypeScript + React 18**.
 
 ## Cách convert hiểu file Excel
 
-Engine nằm ở `src/main/converter.ts`:
+Engine nằm ở `src/main/domain/excel/converter.ts`:
 
 1. **Banner 基本設計**: dòng đầu `基本設計` + tiêu đề tài liệu (画面項目定義書...)
 thành quote; khối 版数/作成日/作成者 thành bảng nhỏ (kể cả version ghi inline
@@ -239,19 +239,19 @@ npm run build      # build renderer + main
 npm run dist       # đóng gói Windows (chạy trên Windows)
 ```
 
-Engine convert nằm ở `src/main/converter.ts`, test ở `src/main/converter.test.ts`.
+Engine convert nằm ở `src/main/domain/excel/converter.ts`, test ở `src/main/domain/excel/converter.test.ts`.
 File Excel mẫu (dữ liệu hư cấu) ở `test/fixtures`, output đã duyệt ở `test/golden`.
 Sinh lại file mẫu: `node scripts/make-fixtures.mjs`, rồi (cần Excel)
 `powershell -ExecutionPolicy Bypass -File scripts/make-excel-fixture.ps1`.
 
-Engine Markdown → Excel nằm ở `src/main/md2xlsx/`; test golden + round-trip ở
-`src/main/md2xlsx/golden.test.ts`, output đã duyệt ở `test/golden-md2xlsx`
+Engine Markdown → Excel nằm ở `src/main/domain/md2xlsx/`; test golden + round-trip ở
+`src/main/domain/md2xlsx/golden.test.ts`, output đã duyệt ở `test/golden-md2xlsx`
 (đổi bố cục có chủ ý: `npm run test:update` rồi review diff).
 
 ### Kiểm file Excel bằng Excel thật
 
 Unit test không phát hiện được việc Excel đòi "sửa file" hay chữ bị che. Sau khi đổi
-`src/main/md2xlsx/write.ts` hoặc `layout.ts`, tạo file Excel bằng app rồi chạy (cần Microsoft
+`src/main/domain/md2xlsx/write.ts` hoặc `layout.ts`, tạo file Excel bằng app rồi chạy (cần Microsoft
 Excel, Windows PowerShell 5.1):
 
 ```bash

@@ -1,14 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { marked } from 'marked'
-import { buildGuideHtml } from '../../../shared/guideHtml'
+import { buildGuideHtml, guideFileStem } from '../../../shared/guideHtml'
 import { errMsg } from '../api'
 import { sanitizeHtml } from '../sanitize'
+import { inlineMermaid, renderMermaidIn } from '../mermaid'
 import { cn, copyText, matchHeadingText, toast } from '../utils'
 import { btnGhost, btnSm, cx } from '../ui'
 import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
 
 /** Preview dài hơn số dòng này thì cắt, bấm "Hiện thêm" để xem hết. */
 const PREVIEW_LINE_LIMIT = 300
+
+/** Theo dõi data-theme trên <html> (App đổi khi bấm Sáng/Tối). */
+function subscribeTheme(cb: () => void): () => void {
+  const mo = new MutationObserver(cb)
+  mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+  return () => mo.disconnect()
+}
+const readTheme = (): string => document.documentElement.dataset.theme ?? 'dark'
 
 interface OutlineItem {
   kind: 'heading' | 'table'
@@ -156,6 +165,14 @@ export function PreviewPane({
     }
   }, [display, resolveImage])
 
+  // Khối ```mermaid -> sơ đồ SVG; vẽ lại khi đổi tab hoặc đổi giao diện sáng/tối
+  const theme = useSyncExternalStore(subscribeTheme, readTheme)
+  useEffect(() => {
+    const root = previewRef.current
+    if (!root || loading || !html.includes('language-mermaid')) return
+    void renderMermaidIn(root, theme === 'light' ? 'default' : 'dark')
+  }, [html, tab, theme, loading])
+
   useEffect(() => {
     if (loading || !html || !scrollTarget?.heading) return
     if (tab === 'source') {
@@ -207,16 +224,18 @@ export function PreviewPane({
     if (!md) return
     try {
       // Bản xuất đứng riêng: chỉ ảnh data: còn dùng được, ảnh cục bộ không đi theo file.
-      const body = sanitizeHtml(marked.parse(md, { breaks: false }) as string, {
-        resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
-      })
-      const cleanName = (title ?? 'ghi-chu')
-        .replace(/\.[a-zA-Z0-9]+$/g, '')
-        .replace(/[\\/]/g, ' - ')
-        .trim() || 'ghi-chu'
-      const docHeading = (md.match(/^#\s+(.+)$/m) || md.match(/^##\s+(.+)$/m))?.[1]?.replace(/<[^>]*>/g, '').trim()
-      const pageTitle = docHeading || cleanName
-      const saved = await window.api.saveHtml(cleanName, buildGuideHtml(pageTitle, body, { date: new Date().toLocaleDateString('vi-VN') }))
+      // Sơ đồ Mermaid được vẽ sẵn thành SVG (giao diện sáng) để trang xuất không cần thư viện
+      const body = await inlineMermaid(
+        sanitizeHtml(marked.parse(md, { breaks: false }) as string, {
+          resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
+        }),
+        'default'
+      )
+      // Tiêu đề trang: h1 (không có thì h2) đầu tiên của bản đã render, nên không dính "# ..." trong khối code.
+      const doc = new DOMParser().parseFromString(body, 'text/html')
+      const docHeading = (doc.querySelector('h1') ?? doc.querySelector('h2'))?.textContent?.trim()
+      const stem = guideFileStem(title)
+      const saved = await window.api.saveHtml(stem, buildGuideHtml(docHeading || stem, body, { date: new Date().toLocaleDateString('vi-VN') }))
       if (saved) toast('Đã lưu HTML: ' + saved, 'ok')
     } catch (err) {
       toast('Xuất HTML thất bại: ' + errMsg(err), 'err')
@@ -249,12 +268,12 @@ export function PreviewPane({
 
   return (
     <>
-      <div className="x2m-preview-bar flex flex-wrap items-center justify-between gap-3 border-b border-line bg-soft px-4 py-2">
+      <div className="x2m-preview-bar flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-2">
         <div className="x2m-tabs flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5">
           <button
             className={cn(
               'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
-              tab === 'rendered' && 'active bg-soft text-accent-ink shadow-sm'
+              tab === 'rendered' && 'active seg-on'
             )}
             onClick={() => setTab('rendered')}
           >
@@ -263,7 +282,7 @@ export function PreviewPane({
           <button
             className={cn(
               'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
-              tab === 'split' && 'active bg-soft text-accent-ink shadow-sm'
+              tab === 'split' && 'active seg-on'
             )}
             onClick={() => setTab('split')}
             title="Xem song song Mã Markdown và Bản hiển thị"
@@ -273,7 +292,7 @@ export function PreviewPane({
           <button
             className={cn(
               'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
-              tab === 'source' && 'active bg-soft text-accent-ink shadow-sm'
+              tab === 'source' && 'active seg-on'
             )}
             onClick={() => setTab('source')}
           >
@@ -337,12 +356,12 @@ export function PreviewPane({
       </div>
 
       {showOutline && outline.length > 1 && tab !== 'source' && !loading && !error && md && (
-        <div className="x2m-outline-bar border-b border-line bg-raised/40 px-3 py-1.5 overflow-x-auto" role="navigation" aria-label="Mục lục nhanh">
-          <div className="x2m-outline-items flex items-center gap-1.5">
+        <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label="Mục lục nhanh">
+          <div className="x2m-outline-items flex w-max items-center gap-1.5">
             {outline.map((item, idx) => (
-              <div key={idx} className={cn('x2m-outline-chip inline-flex items-center overflow-hidden rounded-md border border-line bg-soft text-xs shadow-xs', item.kind === 'table' && 'is-table')}>
+              <div key={idx} className={cn('x2m-outline-chip glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-full text-xs', item.kind === 'table' && 'is-table')}>
                 <button
-                  className="x2m-outline-jump inline-flex items-center gap-1 px-2 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
+                  className="x2m-outline-jump inline-flex items-center gap-1 px-2.5 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
                   onClick={() => jumpToItem(item)}
                   title={
                     item.kind === 'table'
@@ -384,7 +403,7 @@ export function PreviewPane({
 
       <div
         ref={previewRef}
-        className={cn('x2m-preview relative flex-1 overflow-auto bg-canvas p-6', tab === 'split' && 'is-split !p-4')}
+        className={cn('x2m-preview relative flex-1 overflow-auto p-6', tab === 'split' && 'is-split !p-4')}
         style={{ zoom }}
       >
         {loading ? (
@@ -420,7 +439,7 @@ export function PreviewPane({
             </div>
             <div className="x2m-split-col x2m-split-rendered flex flex-col overflow-hidden rounded-lg border border-line">
               <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">Bản hiển thị</div>
-              <div className="flex-1 overflow-auto p-4 bg-canvas">
+              <div className="flex-1 overflow-auto p-4">
                 <div
                   className={cn('md-body', fullWidth && 'full', wrapTables && 'wrap-cells')}
                   onClick={clickBody}

@@ -80,6 +80,9 @@ export function sanitizeHtml(html: string, opts: SanitizeOptions = {}): string {
       const hm = /href\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i.exec(raw)
       const href = hm ? cleanHref(hm[1]) : null
       out += href ? `<a href="${href.replace(/"/g, '&quot;')}">` : '<a>'
+    } else if (tag === 'code' && /^language-[\w-]+$/.test(attr(raw, 'class') ?? '')) {
+      // Giữ nhãn ngôn ngữ của khối code (vd language-mermaid để vẽ sơ đồ)
+      out += `<code class="${attr(raw, 'class')}">`
     } else {
       out += `<${tag}>`
     }

@@ -7,17 +7,20 @@ export const cx = (...parts: Array<string | false | null | undefined>): string =
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export const btn = cx(
-  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-line bg-raised px-3 py-1.5',
-  'text-[13px] font-medium text-ink transition-colors duration-150',
-  'enabled:hover:bg-hover disabled:opacity-50',
+  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-line bg-raised px-3 py-1.5',
+  'text-[13px] font-medium text-ink shadow-[inset_0_1px_0_var(--glass-highlight)]',
+  'transition-[background-color,color,transform,filter,box-shadow] duration-200 ease-out',
+  'enabled:hover:bg-hover enabled:active:scale-[0.97] disabled:opacity-50',
   focusRing
 )
+// Nút chính: "giọt kính" màu accent, vệt sáng mép trên + bóng cùng tông màu.
 export const btnPrimary = cx(
   btn,
-  '!border-accent !bg-accent font-semibold !text-white shadow-sm enabled:hover:!bg-accent enabled:hover:brightness-110'
+  '!border-white/20 !bg-accent font-semibold !text-white enabled:hover:!bg-accent enabled:hover:brightness-110',
+  'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-6px_var(--accent)]'
 )
 export const btnDanger = cx(btn, '!border-danger !bg-danger-soft !text-danger')
-export const btnGhost = cx(btn, '!border-transparent !bg-transparent !px-2 !py-1 !text-dim enabled:hover:!bg-hover enabled:hover:!text-ink')
+export const btnGhost = cx(btn, '!border-transparent !bg-transparent !shadow-none !px-2 !py-1 !text-dim enabled:hover:!bg-hover enabled:hover:!text-ink')
 export const btnSm = '!px-2.5 !py-1 !text-xs'
 export const btnMini = '!px-[7px] !py-0.5 !text-[11.5px] !rounded-md'
 export const btnPill = '!border-accent-line !bg-accent-soft !text-accent-ink'
@@ -29,7 +32,7 @@ export const iconBtn = cx(
 )
 
 export const input = cx(
-  'w-full rounded-[7px] border border-line bg-canvas px-2.5 py-1.5 text-xs text-ink outline-none',
+  'w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs text-ink outline-none',
   'placeholder:text-faint transition-[border-color,box-shadow] duration-150',
   'focus:border-accent focus:ring-[3px] focus:ring-accent-soft'
 )

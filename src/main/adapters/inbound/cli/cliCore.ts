@@ -2,7 +2,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../types'
-import { convertWorkbook, listSheets } from '../../../domain/excel/converter'
+import { convertWorkbook, listSheets } from '../../outbound/xlsxFiles'
 import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName } from '../../../domain/excel/output'
 
 export const USAGE = `Dùng: cli <file.xlsx...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]

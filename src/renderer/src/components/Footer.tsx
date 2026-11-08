@@ -28,7 +28,7 @@ interface Props {
 export function Footer(p: Props): React.ReactElement {
   const { outDir, progress, converting } = p
   return (
-    <footer className="x2m-footer flex shrink-0 items-center justify-between gap-4 border-t border-line bg-soft px-4 py-2.5">
+    <footer className="x2m-footer glass flex shrink-0 items-center justify-between gap-4 rounded-2xl px-4 py-2.5">
       <div className="x2m-outdir flex min-w-0 flex-1 items-center gap-2 text-dim" title={outDir || 'Chưa chọn thư mục lưu'}>
         <IconFolder size={16} />
         <span className={cn('x2m-outdir-text max-w-[420px] truncate text-[12.5px]', !outDir && 'dim text-faint')}>{outDir || (p.outDirPlaceholder ?? 'Chưa chọn thư mục lưu file.md')}</span>

@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 import { readdirSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { convertWorkbook, joinWorkbookMarkdown, listSheets } from './converter'
+import { joinWorkbookMarkdown } from './converter'
+import { convertWorkbook, listSheets } from '../../adapters/outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../types'
 
 const FIXTURES = fileURLToPath(new URL('../../../../test/fixtures/', import.meta.url))

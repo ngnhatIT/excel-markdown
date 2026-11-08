@@ -4,14 +4,14 @@ import { SidePanel } from './SidePanel'
 import { btnGhost, btnSm, cx, input } from '../ui'
 
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
-const segGroup = 'grid grid-cols-3 gap-1 rounded-lg border border-line bg-canvas p-[3px]'
+const segGroup = 'grid grid-cols-3 gap-1 rounded-xl border border-line-subtle bg-canvas p-[3px]'
 const segBtn = cx(
-  'cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap rounded-md px-1 py-[5px] text-center text-[11.5px] font-semibold transition-colors duration-150',
+  'cursor-pointer rounded-lg px-1 py-1.5 text-center text-[11.5px] font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200',
   focusRing
 )
-const segState = (on: boolean): string => (on ? 'active bg-accent-soft text-accent-ink' : 'text-dim hover:bg-hover hover:text-ink')
+const segState = (on: boolean): string => (on ? 'active seg-on' : 'text-dim hover:bg-hover hover:text-ink')
 const optRow = 'flex cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] [&_.dim]:mt-px [&_.dim]:block [&_.dim]:text-[11px] [&_.dim]:text-dim'
-const optGroup = 'flex flex-col gap-[7px] border-b border-line-subtle pb-3 last-of-type:border-b-0 last-of-type:pb-0'
+const optGroup = 'glass-chip flex flex-col gap-2 rounded-xl p-3'
 const chk = 'chk size-3.5 shrink-0 cursor-pointer accent-accent'
 const fieldCls = 'flex flex-col gap-1 mt-1 text-xs text-dim'
 
@@ -73,9 +73,9 @@ export function OptionsPanel({
         </button>
       }
     >
-      <div className="x2m-opts flex flex-col gap-3.5 px-3.5 pb-6 pt-0.5">
+      <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-0.5">
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Cấu hình nhanh (Preset)</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Cấu hình nhanh (Preset)</div>
           <div className={`x2m-presets ${segGroup}`} role="group" aria-label="Cấu hình nhanh">
             <button
               type="button"
@@ -129,7 +129,7 @@ export function OptionsPanel({
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Chế độ xuất file</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Chế độ xuất file</div>
           <label className={`x2m-radio ${optRow}`}>
             <input
               type="radio"
@@ -157,7 +157,7 @@ export function OptionsPanel({
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Bố cục Bảng &amp; Sheet</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Bố cục Bảng &amp; Sheet</div>
           <label className={`x2m-check ${optRow}`}>
             <input
               type="checkbox"
@@ -224,7 +224,7 @@ export function OptionsPanel({
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Ô gộp dọc (Vertical Merge)</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Ô gộp dọc (Vertical Merge)</div>
           <div className={`x2m-seg-group ${segGroup}`} role="radiogroup" aria-label="Xử lý ô gộp dọc">
             <button
               type="button"
@@ -254,7 +254,7 @@ export function OptionsPanel({
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Ô nhiều dòng</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Ô nhiều dòng</div>
           <label className={`x2m-radio ${optRow}`}>
             <input
               type="radio"
@@ -276,7 +276,7 @@ export function OptionsPanel({
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[11.5px] font-bold uppercase tracking-[0.03em] text-dim">Nâng cao</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Nâng cao</div>
           <label className={`x2m-check ${optRow}`}>
             <input
               type="checkbox"

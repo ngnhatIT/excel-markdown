@@ -223,10 +223,10 @@ ipcMain.handle('export:html', async (_e, defaultName: unknown, html: unknown) =>
     if (typeof defaultName !== 'string' || typeof html !== 'string' || html.length > 20_000_000) {
       return { ok: false, error: 'Dữ liệu xuất HTML không hợp lệ.' }
     }
-    const base = defaultName.replace(/\.(md|markdown|xlsx|xls|html)$/i, '')
     const res = await dialog.showSaveDialog({
       title: 'Lưu trang HTML',
-      defaultPath: safeFileName(base || 'ghi-chu') + '.html',
+      // Renderer đã bỏ đuôi file (guideFileStem); ở đây chỉ lọc ký tự cấm vì dữ liệu từ renderer.
+      defaultPath: safeFileName(defaultName) + '.html',
       filters: [{ name: 'HTML', extensions: ['html'] }],
     })
     if (res.canceled || !res.filePath) return { ok: true, data: null }

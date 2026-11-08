@@ -125,6 +125,9 @@
   top: -20px;
   z-index: 2;
   box-shadow: 0 1px 0 var(--border);
+  /* Header dính phía trên các dòng đang cuộn: kính mờ để chữ bên dưới không lẫn vào */
+  background: var(--glass);
+  backdrop-filter: blur(18px) saturate(170%);
 }
 
 .md-body tbody tr:nth-child(even) td {
@@ -219,3 +222,30 @@
 }
 
 
+
+/* ================== Sơ đồ Mermaid ================== */
+.md-body .mmd {
+  margin: 16px 0;
+  padding: 18px;
+  border-radius: 14px;
+  background: var(--bg-soft);
+  border: 1px solid var(--border-subtle);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  overflow-x: auto;
+  text-align: center;
+}
+
+.md-body .mmd svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.md-body pre.mmd-error {
+  border-color: var(--danger);
+}
+
+.md-body .mmd-error-msg {
+  margin: -6px 0 14px;
+  color: var(--danger);
+  font-size: 12px;
+}
