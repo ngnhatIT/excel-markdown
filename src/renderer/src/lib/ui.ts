@@ -36,7 +36,7 @@ export const input = cx(
 )
 
 export const paneTitle =
-  'flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-faint [&_button]:normal-case [&_button]:tracking-normal'
+  'flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[11.5px] font-semibold text-dim'
 
 /** Class dùng chung cho danh sách file cột trái (FileList, MdFileList). */
 export const filesAside =
