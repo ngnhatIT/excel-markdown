@@ -32,15 +32,19 @@ import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
 import { joinRoot, PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
 import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
+import { detectLang, getLocale, isLang, setLang, t as tr, useT, type Lang } from './i18n'
 
 /** Gợi ý khi thả nhầm loại file so với chế độ đang chọn (không tự chuyển chế độ). */
-const HINT_EXCEL_FILE = 'File Excel: chuyển sang chế độ Excel → Markdown để convert'
-const HINT_MD_FILE = 'File Markdown: chuyển sang chế độ Markdown → Excel để tạo file Excel'
+const hintExcelFile = (): string => tr('app.hint.excelFile')
+const hintMdFile = (): string => tr('app.hint.mdFile')
 
 /** Thời điểm convert hiện ở thanh dưới. */
 function timeLabel(): string {
-  return new Date().toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+  return new Date().toLocaleString(getLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
 }
+
+/** `**chữ**` trong câu dịch -> <b>chữ</b> (onboarding). */
+const withBold = (s: string): React.ReactNode[] => s.split('**').map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part))
 
 /** Theme mặc định lần đầu chạy: theo OS thay vì cứng dark. */
 function systemTheme(): 'dark' | 'light' {
@@ -52,6 +56,7 @@ function systemTheme(): 'dark' | 'light' {
 }
 
 export default function App(): React.ReactElement {
+  const t = useT()
   const [options, setOptions] = useState<ConvertOptions>(DEFAULT_OPTIONS)
   const [outputMode, setOutputMode] = useState<OutputMode>('per-sheet')
   const [outDir, setOutDir] = useState<string>('')
@@ -115,16 +120,18 @@ export default function App(): React.ReactElement {
     let alive = true
     ;(async () => {
       try {
-        const [t, d, o, m, sc, am] = await Promise.all([
+        const [th, d, o, m, sc, am, lg] = await Promise.all([
           window.api.storeGet<'dark' | 'light'>('theme'),
           window.api.storeGet<string>('outDir'),
           window.api.storeGet<ConvertOptions>('options'),
           window.api.storeGet<OutputMode>('outputMode'),
           window.api.storeGet<Record<string, string[]>>('checkedSheets'),
           window.api.storeGet<AppMode>('mode'),
+          window.api.storeGet<string>('lang'),
         ])
         if (!alive) return
-        if (t === 'dark' || t === 'light') setTheme(t)
+        setLang(isLang(lg) ? lg : detectLang())
+        if (th === 'dark' || th === 'light') setTheme(th)
         if (d) setOutDir(d)
         window.api
           .storeGet<string[]>('recentDirs')
@@ -213,7 +220,7 @@ export default function App(): React.ReactElement {
     () =>
       window.api.onOpenFiles((paths) => {
         void addPathsRef.current(paths)
-        if (appModeRef.current !== 'excel2md') toast(HINT_EXCEL_FILE, 'err')
+        if (appModeRef.current !== 'excel2md') toast(hintExcelFile(), 'err')
       }),
     []
   )
@@ -235,6 +242,14 @@ export default function App(): React.ReactElement {
     (m: AppMode) => {
       setAppMode(m)
       persist('mode', m)
+    },
+    [persist]
+  )
+
+  const changeLang = useCallback(
+    (l: Lang) => {
+      setLang(l)
+      persist('lang', l)
     },
     [persist]
   )
@@ -284,14 +299,14 @@ export default function App(): React.ReactElement {
   const dropPaths = useCallback(
     (paths: string[]) => {
       if (appMode === 'mdview') {
-        if (paths.some((p) => EXCEL_EXT.test(p))) toast(HINT_EXCEL_FILE, 'err')
+        if (paths.some((p) => EXCEL_EXT.test(p))) toast(hintExcelFile(), 'err')
         viewerOpenFiles(paths.filter((p) => MD_EXT.test(p)))
         const dir = paths.find((p) => !MD_EXT.test(p) && !EXCEL_EXT.test(p))
         if (dir) void viewerOpenFolder(dir)
         return
       }
       const [foreign, hint, add] =
-        appMode === 'md2excel' ? [EXCEL_EXT, HINT_EXCEL_FILE, addMdPaths] : [MD_EXT, HINT_MD_FILE, addPaths]
+        appMode === 'md2excel' ? [EXCEL_EXT, hintExcelFile(), addMdPaths] : [MD_EXT, hintMdFile(), addPaths]
       if (paths.some((p) => foreign.test(p))) toast(hint, 'err')
       const rest = paths.filter((p) => !foreign.test(p))
       if (rest.length > 0) void add(rest)
@@ -397,7 +412,7 @@ export default function App(): React.ReactElement {
     persist('options', DEFAULT_OPTIONS)
     setOutputMode('per-sheet')
     persist('outputMode', 'per-sheet')
-    toast('Đã khôi phục tùy chọn mặc định', 'ok')
+    toast(tr('toast.optionsReset'), 'ok')
   }, [persist])
 
   /* ------------------------------- out dir --------------------------------- */
@@ -433,7 +448,7 @@ export default function App(): React.ReactElement {
   const copyOutDir = useCallback(async () => {
     if (!outDir) return
     const ok = await copyText(outDir)
-    toast(ok ? 'Đã copy đường dẫn thư mục' : 'Copy thất bại', ok ? 'ok' : 'err')
+    toast(tr(ok ? 'toast.dirCopied' : 'common.copyFailed'), ok ? 'ok' : 'err')
   }, [outDir])
 
   const openOutDir = useCallback(async () => {
@@ -567,7 +582,7 @@ export default function App(): React.ReactElement {
           viewerOpenFiles([abs], hash || undefined)
           if (hash) setScrollTarget({ heading: hash, instant: true, seq: Date.now() })
         }
-      } else toast('Chỉ mở được link tới file Markdown hoặc link web', 'err')
+      } else toast(tr('toast.linkUnsupported'), 'err')
       return true
     },
     [viewerPath, viewerOpenFiles, openAt]
@@ -621,10 +636,10 @@ export default function App(): React.ReactElement {
   const viewerRoot = viewer.root
   const viewerTitle = useMemo(() => {
     if (!viewerPath) return null
-    if (viewerPath === PASTE_PATH) return 'Dán từ clipboard'
+    if (viewerPath === PASTE_PATH) return t('viewer.paste')
     if (viewerRoot && viewerPath.startsWith(viewerRoot)) return viewerPath.slice(viewerRoot.length).replace(/^[\\/]+/, '')
     return baseName(viewerPath)
-  }, [viewerPath, viewerRoot])
+  }, [viewerPath, viewerRoot, t])
 
   /** Dán Markdown từ clipboard để xem; clipboard rỗng hoặc bị từ chối thì báo lỗi, giữ nguyên tài liệu đang xem. */
   const pasteViewer = useCallback(async () => {
@@ -634,7 +649,7 @@ export default function App(): React.ReactElement {
     } catch {
       /* bị từ chối quyền: xử lý như clipboard rỗng */
     }
-    if (text.trim() === '') toast('Clipboard trống hoặc không đọc được', 'err')
+    if (text.trim() === '') toast(tr('toast.clipboardEmpty'), 'err')
     else viewer.pasteText(text)
   }, [viewer.pasteText])
 
@@ -677,14 +692,14 @@ export default function App(): React.ReactElement {
   // Trạng thái + nút convert ở thanh dưới theo chế độ (chế độ Excel giữ nguyên chữ cũ)
   const footerMode = isMd
     ? {
-        status: `${mdFiles.length} file, ${mdSheetCount} sheet sẽ tạo`,
-        convertLabel: `Tạo file Excel (${mdSheetCount} sheet)`,
+        status: t('app.md.status', { files: mdFiles.length, sheets: mdSheetCount }),
+        convertLabel: t('app.md.convert', { n: mdSheetCount }),
         canConvert: mdCanConvert,
         onConvert: doMdConvert,
       }
     : {
-        status: `${files.length} file, ${checkedCount} sheet được chọn`,
-        convertLabel: `Convert ${checkedCount > 0 ? `${checkedCount} sheet ` : ''}sang Markdown`,
+        status: t('app.excel.status', { files: files.length, n: checkedCount }),
+        convertLabel: checkedCount > 0 ? t('app.excel.convertN', { n: checkedCount }) : t('app.excel.convert'),
         canConvert: files.length > 0 && checkedCount > 0,
         onConvert: doConvert,
       }
@@ -715,27 +730,13 @@ export default function App(): React.ReactElement {
         onPickFiles={isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
         mode={appMode}
         onModeChange={changeAppMode}
+        onLangChange={changeLang}
       />
 
       {showOnboarding && (
         <div className="x2m-onboarding flex shrink-0 items-center justify-between border-b border-accent-line/40 bg-accent-soft px-4 py-1.5 text-xs text-dim [&_b]:font-semibold [&_b]:text-ink">
-          {isView ? (
-            <span>
-              Kéo thả thư mục hoặc file Markdown vào đây để đọc — <b>Ctrl+O</b> mở thư mục,
-              <b> ↑/↓</b> chuyển file, <b>Ctrl+K</b> tìm nhanh, <b>Alt+←/→</b> lùi/tiến.
-            </span>
-          ) : isMd ? (
-            <span>
-              Kéo thả file Markdown vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
-              <b> Ctrl+Enter</b> để tạo file Excel.
-            </span>
-          ) : (
-            <span>
-              Kéo thả file Excel vào đây để bắt đầu — <b>Ctrl+O</b> thêm file,
-              <b> Ctrl+Enter</b> để convert.
-            </span>
-          )}
-          <button className={`icon-btn ${iconBtn}`} onClick={dismissOnboarding} title="Đóng" aria-label="Đóng">
+          <span>{withBold(t(`onboarding.${appMode}`))}</span>
+          <button className={`icon-btn ${iconBtn}`} onClick={dismissOnboarding} title={t('common.close')} aria-label={t('common.close')}>
             <IconX size={14} />
           </button>
         </div>
@@ -784,9 +785,9 @@ export default function App(): React.ReactElement {
                 error={viewer.doc?.error ?? ''}
                 zoom={zoom}
                 onResetZoom={() => setZoom(1)}
-                noSelectionText="Chưa chọn file"
-                loadingText="Đang đọc..."
-                emptyText={viewer.doc ? 'File rỗng' : 'Chọn một file Markdown bên trái để đọc'}
+                noSelectionText={t('common.noFile')}
+                loadingText={t('common.reading')}
+                emptyText={t(viewer.doc ? 'viewer.emptyFile' : 'viewer.pickFile')}
                 resolveImage={resolveViewerImage}
                 onLinkClick={viewerLinkClick}
                 fullWidth
@@ -797,8 +798,8 @@ export default function App(): React.ReactElement {
                       className={`icon-btn ${iconBtn}`}
                       onClick={() => void viewerNavigate('back')}
                       disabled={!viewer.canBack}
-                      title="Lùi (Alt+←)"
-                      aria-label="Lùi"
+                      title={t('viewer.backTitle')}
+                      aria-label={t('viewer.back')}
                     >
                       <span aria-hidden="true">←</span>
                     </button>
@@ -806,8 +807,8 @@ export default function App(): React.ReactElement {
                       className={`icon-btn ${iconBtn}`}
                       onClick={() => void viewerNavigate('forward')}
                       disabled={!viewer.canForward}
-                      title="Tiến (Alt+→)"
-                      aria-label="Tiến"
+                      title={t('viewer.forwardTitle')}
+                      aria-label={t('viewer.forward')}
                     >
                       <span aria-hidden="true">→</span>
                     </button>
@@ -820,7 +821,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
-                title="Kéo để thay đổi độ rộng cột Trợ lý AI"
+                title={t('app.resize.ai')}
               />
             )}
 
@@ -857,9 +858,9 @@ export default function App(): React.ReactElement {
                 error={mdSel?.error ?? ''}
                 zoom={zoom}
                 onResetZoom={() => setZoom(1)}
-                noSelectionText="Chưa chọn file"
-                loadingText="Đang đọc..."
-                emptyText="Chọn một file Markdown để xem trước"
+                noSelectionText={t('common.noFile')}
+                loadingText={t('common.reading')}
+                emptyText={t('app.md.pickToPreview')}
               />
               {mdResult && (
                 <ResultsPanel
@@ -870,8 +871,8 @@ export default function App(): React.ReactElement {
                   onClose={() => setMdResult(null)}
                   onOpenDir={openOutDir}
                   onCopyDir={copyOutDir}
-                  unitLabel="sheet"
-                  openDirLabel="Mở thư mục chứa file Excel"
+                  unitLabel={t('results.unit.sheet')}
+                  openDirLabel={t('app.md.openDir')}
                 />
               )}
             </main>
@@ -880,7 +881,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
-                title="Kéo để thay đổi độ rộng cột Tùy chọn"
+                title={t('app.resize.options')}
               />
             )}
 
@@ -919,7 +920,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('left', e)}
-                title="Kéo để thay đổi độ rộng cột File Excel"
+                title={t('app.resize.files')}
               />
             )}
 
@@ -950,7 +951,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
-                title="Kéo để thay đổi độ rộng cột Tùy chọn"
+                title={t('app.resize.options')}
               />
             )}
 
@@ -982,7 +983,7 @@ export default function App(): React.ReactElement {
           onCancel={cancelConvert}
           appVersion={appVersion}
           lastConvertAt={lastConvertAt}
-          outDirPlaceholder={isMd ? 'Chưa chọn thư mục lưu file Excel' : undefined}
+          outDirPlaceholder={isMd ? t('app.md.noOutDir') : undefined}
           {...footerMode}
         />
       )}

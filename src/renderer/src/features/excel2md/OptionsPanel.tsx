@@ -2,6 +2,7 @@ import type { ConvertOptions, OutputMode, VerticalMergeMode } from '../../../../
 import { cn } from '../../lib/utils'
 import { SidePanel } from '../../components/SidePanel'
 import { btnGhost, btnSm, cx, input } from '../../lib/ui'
+import { useT } from '../../i18n'
 
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const segGroup = 'grid grid-cols-3 gap-1 rounded-xl border border-line-subtle bg-canvas p-[3px]'
@@ -39,6 +40,7 @@ export function OptionsPanel({
   onToggleCollapsed,
   width,
 }: Props): React.ReactElement {
+  const t = useT()
   const vMerge: VerticalMergeMode = options.verticalMerge ?? 'repeat'
   const alignTables = options.alignTables === true
 
@@ -68,15 +70,15 @@ export function OptionsPanel({
       onToggle={onToggleCollapsed}
       width={width}
       actions={
-        <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={onReset} title="Khôi phục mặc định">
-          Mặc định
+        <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={onReset} title={t('opts.resetTitle')}>
+          {t('opts.reset')}
         </button>
       }
     >
       <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-3">
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Cấu hình nhanh (Preset)</div>
-          <div className={`x2m-presets ${segGroup}`} role="group" aria-label="Cấu hình nhanh">
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.preset')}</div>
+          <div className={`x2m-presets ${segGroup}`} role="group" aria-label={t('opts.presetAria')}>
             <button
               type="button"
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'spec'), activePreset === 'spec' && 'active')}
@@ -89,9 +91,9 @@ export function OptionsPanel({
                   chunkRows: 0,
                 })
               }
-              title="Tối ưu cho tài liệu thiết kế (Backlog / 基本設計書)"
+              title={t('opts.preset.specTitle')}
             >
-              Chuẩn tài liệu
+              {t('opts.preset.spec')}
             </button>
             <button
               type="button"
@@ -105,9 +107,9 @@ export function OptionsPanel({
                   chunkRows: 0,
                 })
               }
-              title="Tối ưu cho bảng dữ liệu, giữ ô gộp dọc trống như Excel và căn thẳng cột"
+              title={t('opts.preset.gridTitle')}
             >
-              Bảng dữ liệu
+              {t('opts.preset.grid')}
             </button>
             <button
               type="button"
@@ -121,15 +123,15 @@ export function OptionsPanel({
                   chunkRows: 50,
                 })
               }
-              title="Tối ưu cho AI / LLM / RAG: lặp đủ giá trị ô gộp, thêm YAML front-matter, chia khối 50 dòng"
+              title={t('opts.preset.ragTitle')}
             >
-              AI / RAG
+              {t('opts.preset.rag')}
             </button>
           </div>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Chế độ xuất file</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.output')}</div>
           <label className={`x2m-radio ${optRow}`}>
             <input
               type="radio"
@@ -138,8 +140,8 @@ export function OptionsPanel({
               onChange={() => onSetMode('per-sheet')}
             />
             <span>
-              Mỗi sheet 1 file
-              <span className="dim text-dim">TênFile__TênSheet.md</span>
+              {t('opts.perSheet')}
+              <span className="dim text-dim">{t('opts.perSheetHint')}</span>
             </span>
           </label>
           <label className={`x2m-radio ${optRow}`}>
@@ -150,14 +152,14 @@ export function OptionsPanel({
               onChange={() => onSetMode('per-workbook')}
             />
             <span>
-              Gộp cả workbook 1 file
-              <span className="dim text-dim">TênFile.md, các sheet nối nhau</span>
+              {t('opts.perWorkbook')}
+              <span className="dim text-dim">{t('opts.perWorkbookHint')}</span>
             </span>
           </label>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Bố cục Bảng &amp; Sheet</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.layout')}</div>
           <label className={`x2m-check ${optRow}`}>
             <input
               type="checkbox"
@@ -165,7 +167,7 @@ export function OptionsPanel({
               checked={options.skipDelSheets}
               onChange={(e) => onSetOption('skipDelSheets', e.target.checked)}
             />
-            Bỏ qua sheet DEL_ (đã xóa)
+            {t('opts.skipDel')}
           </label>
           <label className={`x2m-check ${optRow}`}>
             <input
@@ -174,7 +176,7 @@ export function OptionsPanel({
               checked={options.skipEmptySheets}
               onChange={(e) => onSetOption('skipEmptySheets', e.target.checked)}
             />
-            Bỏ qua sheet rỗng
+            {t('opts.skipEmpty')}
           </label>
           <label className={`x2m-check ${optRow}`}>
             <input
@@ -183,7 +185,7 @@ export function OptionsPanel({
               checked={options.includeSheetTitle}
               onChange={(e) => onSetOption('includeSheetTitle', e.target.checked)}
             />
-            Thêm tiêu đề tên sheet
+            {t('opts.sheetTitle')}
           </label>
           <label className={`x2m-check ${optRow}`}>
             <input
@@ -193,8 +195,8 @@ export function OptionsPanel({
               onChange={(e) => onSetOption('detectTwoColTables', e.target.checked)}
             />
             <span>
-              Nhận diện bảng 2 cột
-              <span className="dim text-dim">Chuyển khối 2 cột liên tiếp thành bảng Markdown</span>
+              {t('opts.twoCol')}
+              <span className="dim text-dim">{t('opts.twoColHint')}</span>
             </span>
           </label>
           <label className={`x2m-check ${optRow}`}>
@@ -205,8 +207,8 @@ export function OptionsPanel({
               onChange={(e) => onSetOption('alignTables', e.target.checked)}
             />
             <span>
-              Căn thẳng cột bảng Markdown
-              <span className="dim text-dim">Đệm khoảng trắng cho mã nguồn bảng dễ đọc</span>
+              {t('opts.align')}
+              <span className="dim text-dim">{t('opts.alignHint')}</span>
             </span>
           </label>
           <label className={`x2m-check ${optRow}`}>
@@ -217,44 +219,44 @@ export function OptionsPanel({
               onChange={(e) => onSetOption('escapeMarkdown', e.target.checked)}
             />
             <span>
-              Escape ký tự Markdown/HTML trong ô
-              <span className="dim text-dim">Tắt nếu ô Excel cố ý chứa cú pháp Markdown</span>
+              {t('opts.escape')}
+              <span className="dim text-dim">{t('opts.escapeHint')}</span>
             </span>
           </label>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Ô gộp dọc (Vertical Merge)</div>
-          <div className={`x2m-seg-group ${segGroup}`} role="radiogroup" aria-label="Xử lý ô gộp dọc">
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.vmerge')}</div>
+          <div className={`x2m-seg-group ${segGroup}`} role="radiogroup" aria-label={t('opts.vmergeAria')}>
             <button
               type="button"
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'repeat'), vMerge === 'repeat' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'repeat')}
-              title="Lặp lại giá trị xuống các dòng dưới (tốt cho tìm kiếm / lọc / AI)"
+              title={t('opts.vmerge.repeatTitle')}
             >
-              Lặp giá trị
+              {t('opts.vmerge.repeat')}
             </button>
             <button
               type="button"
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'empty'), vMerge === 'empty' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'empty')}
-              title="Để trống các dòng dưới giống giao diện Excel"
+              title={t('opts.vmerge.emptyTitle')}
             >
-              Để trống
+              {t('opts.vmerge.empty')}
             </button>
             <button
               type="button"
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'ditto'), vMerge === 'ditto' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'ditto')}
-              title="Điền ký hiệu ↑ cho các dòng gộp phía dưới"
+              title={t('opts.vmerge.dittoTitle')}
             >
-              Ký hiệu ↑
+              {t('opts.vmerge.ditto')}
             </button>
           </div>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Ô nhiều dòng</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.multiline')}</div>
           <label className={`x2m-radio ${optRow}`}>
             <input
               type="radio"
@@ -262,7 +264,7 @@ export function OptionsPanel({
               checked={options.multiline === 'br'}
               onChange={() => onSetOption('multiline', 'br')}
             />
-            Xuống dòng bằng &lt;br&gt;
+            {t('opts.multiline.br')}
           </label>
           <label className={`x2m-radio ${optRow}`}>
             <input
@@ -271,12 +273,12 @@ export function OptionsPanel({
               checked={options.multiline === 'space'}
               onChange={() => onSetOption('multiline', 'space')}
             />
-            Gộp thành một dòng
+            {t('opts.multiline.space')}
           </label>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>
-          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Nâng cao</div>
+          <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.advanced')}</div>
           <label className={`x2m-check ${optRow}`}>
             <input
               type="checkbox"
@@ -285,8 +287,8 @@ export function OptionsPanel({
               onChange={(e) => onSetOption('showFormulas', e.target.checked)}
             />
             <span>
-              Hiện công thức
-              <span className="dim text-dim">Giá trị kèm `=công thức`</span>
+              {t('opts.formulas')}
+              <span className="dim text-dim">{t('opts.formulasHint')}</span>
             </span>
           </label>
           <label className={`x2m-check ${optRow}`}>
@@ -297,22 +299,22 @@ export function OptionsPanel({
               onChange={(e) => onSetOption('frontMatter', e.target.checked)}
             />
             <span>
-              Front-matter YAML
-              <span className="dim text-dim">File nguồn + sheet, dùng cho RAG/LLM</span>
+              {t('opts.frontMatter')}
+              <span className="dim text-dim">{t('opts.frontMatterHint')}</span>
             </span>
           </label>
           <label className={`x2m-field ${fieldCls}`}>
-            Vùng ô (vd A1:F40)
+            {t('opts.range')}
             <input
               type="text"
               className={cx('input', input, '!bg-canvas !text-[12.5px]')}
               value={options.range}
-              placeholder="Cả sheet"
+              placeholder={t('opts.rangePlaceholder')}
               onChange={(e) => onSetOption('range', e.target.value)}
             />
           </label>
           <label className={`x2m-field ${fieldCls}`}>
-            Tách bảng mỗi N dòng (0 = tắt)
+            {t('opts.chunk')}
             <input
               type="number"
               className={cx('input', input, '!bg-canvas !text-[12.5px]')}
@@ -324,8 +326,7 @@ export function OptionsPanel({
         </div>
 
         <div className="x2m-opt-note border-t border-line pt-2.5 text-[11.5px] leading-[1.55] text-faint">
-          App tự nhận diện banner 基本設計, meta 機能ID/画面ID/テーブルID, section,
-          bảng No/№/項番, header 2 tầng, ô merge ngang/dọc, ghi chú ※ cuối bảng và công thức liên sheet. Phím tắt: Ctrl+O thêm file, Ctrl+Enter để convert.
+          {t('opts.note')}
         </div>
       </div>
     </SidePanel>

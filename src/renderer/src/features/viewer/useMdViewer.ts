@@ -4,6 +4,7 @@ import type { MdSearchResult } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
 import { EMPTY_NAV, navReducer, type NavEntry, type NavHistory } from '../../lib/navHistory'
 import { baseName, toast } from '../../lib/utils'
+import { t } from '../../i18n'
 
 export interface MdViewerDoc {
   path: string
@@ -153,7 +154,7 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
       const markdown = await window.api.readMarkdown(d.path)
       if (seq !== readSeq.current || markdown === docRef.current?.markdown) return
       setDoc({ ...d, markdown })
-      toast(`Đã tải lại: ${baseName(d.path)} (file vừa thay đổi)`, 'ok')
+      toast(t('toast.viewer.reloaded', { name: baseName(d.path) }), 'ok')
     } catch {
       /* giữ nguyên bản đang xem */
     }
@@ -198,8 +199,8 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
         setMtimes(res.mtimes ?? {})
         setTruncated(res.truncated)
         persist('viewerRoot', res.root)
-        if (res.truncated) toast(`Thư mục có quá nhiều file, chỉ hiện ${res.files.length} file đầu`, 'err')
-        else if (res.files.length === 0 && !quiet) toast('Thư mục không có file Markdown nào', 'err')
+        if (res.truncated) toast(t('toast.viewer.truncated', { n: res.files.length }), 'err')
+        else if (res.files.length === 0 && !quiet) toast(t('toast.viewer.noMd'), 'err')
         return res.files.map((r) => joinRoot(res.root, r))
       } catch (err) {
         if (!quiet && seq === listSeq.current) toast(errMsg(err), 'err')

@@ -139,23 +139,30 @@ describe('formatRelativeTime', () => {
   const HOUR = 60 * MIN
   const DAY = 24 * HOUR
 
-  it('vừa xong: dưới 1 phút và tương lai', () => {
-    expect(formatRelativeTime(ago(30_000), now)).toBe('vừa xong')
-    expect(formatRelativeTime(now + HOUR, now)).toBe('vừa xong')
+  it('bây giờ: dưới 1 phút và tương lai', () => {
+    expect(formatRelativeTime(ago(30_000), now)).toBe('bây giờ')
+    expect(formatRelativeTime(now + HOUR, now)).toBe('bây giờ')
   })
 
   it('phút, giờ', () => {
-    expect(formatRelativeTime(ago(5 * MIN), now)).toBe('5 phút')
-    expect(formatRelativeTime(ago(3 * HOUR), now)).toBe('3 giờ')
+    expect(formatRelativeTime(ago(5 * MIN), now)).toBe('5 phút trước')
+    expect(formatRelativeTime(ago(3 * HOUR), now)).toBe('3 giờ trước')
   })
 
   it('dưới 24 giờ luôn tính giờ; từ 24 giờ: hôm qua theo ngày lịch, rồi N ngày', () => {
-    expect(formatRelativeTime(new Date(2026, 9, 27, 23, 0, 0).getTime(), now)).toBe('16 giờ')
+    expect(formatRelativeTime(new Date(2026, 9, 27, 23, 0, 0).getTime(), now)).toBe('16 giờ trước')
     expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now)).toBe('hôm qua')
-    expect(formatRelativeTime(ago(4 * DAY), now)).toBe('4 ngày')
+    expect(formatRelativeTime(ago(4 * DAY), now)).toBe('4 ngày trước')
   })
 
   it('quá 30 ngày -> dd/MM/yyyy', () => {
     expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now)).toBe('05/09/2026')
+  })
+
+  it('theo locale en / ja', () => {
+    expect(formatRelativeTime(ago(5 * MIN), now, 'en-US')).toBe('5 min. ago')
+    expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now, 'en-US')).toBe('yesterday')
+    expect(formatRelativeTime(ago(4 * DAY), now, 'ja-JP')).toBe('4 日前')
+    expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now, 'ja-JP')).toBe('2026/09/05')
   })
 })

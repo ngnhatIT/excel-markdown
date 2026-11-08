@@ -3,6 +3,7 @@ import type { FileItem, SheetInfo } from '../../../../shared/types'
 import type { SheetListItem } from '../../lib/api'
 import { errMsg } from '../../lib/api'
 import { baseName, toast, uid } from '../../lib/utils'
+import { t } from '../../i18n'
 
 export const EXCEL_EXT = /\.(xlsx|xlsm|xls|xltx|xltm)$/i
 /** Số file tối đa được nhớ lựa chọn sheet. */
@@ -30,7 +31,7 @@ export function useFiles(skipDelSheets: boolean, persist: (key: string, value: u
     async (paths: string[]) => {
       const fresh = paths.filter((p) => EXCEL_EXT.test(p))
       const skipped = paths.length - fresh.length
-      if (skipped > 0) toast(`Bỏ qua ${skipped} file không phải Excel (.xlsx/.xlsm/.xls)`, 'err')
+      if (skipped > 0) toast(t('toast.excel.skipped', { n: skipped }), 'err')
       if (fresh.length === 0) return
       setFiles((prev) => {
         const known = new Set(prev.map((f) => f.path))

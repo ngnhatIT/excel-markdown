@@ -3,6 +3,7 @@ import { fuzzyRank } from '../../lib/fuzzy'
 import { cn } from '../../lib/utils'
 import { input } from '../../lib/ui'
 import { IconFile, IconList } from '../../components/icons'
+import { useT } from '../../i18n'
 
 export interface PaletteItem {
   kind: 'file' | 'heading'
@@ -20,6 +21,7 @@ interface Props {
 
 /** Bảng lệnh Ctrl+K: gõ để tìm file của thư mục / file lẻ / mục của file đang xem. Chỉ ô nhập nhận focus (Tab bị giữ lại). */
 export function CommandPalette({ items, onPick, onClose }: Props): React.ReactElement {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const listRef = useRef<HTMLUListElement | null>(null)
@@ -59,12 +61,12 @@ export function CommandPalette({ items, onPick, onClose }: Props): React.ReactEl
         className="x2m-palette glass flex max-h-[60vh] w-[min(560px,90vw)] flex-col overflow-hidden rounded-xl border border-line bg-canvas shadow-lg"
         role="dialog"
         aria-modal="true"
-        aria-label="Bảng lệnh: mở file hoặc nhảy tới mục"
+        aria-label={t('palette.aria')}
       >
         <input
           autoFocus
           className={cn('x2m-palette-input m-2', input)}
-          placeholder="Gõ tên file hoặc tên mục..."
+          placeholder={t('palette.placeholder')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
@@ -72,10 +74,10 @@ export function CommandPalette({ items, onPick, onClose }: Props): React.ReactEl
           aria-expanded="true"
           aria-controls="x2m-palette-list"
           aria-activedescendant={results.length > 0 ? `x2m-palette-${active}` : undefined}
-          aria-label="Tìm file hoặc mục"
+          aria-label={t('palette.inputAria')}
         />
-        <ul ref={listRef} id="x2m-palette-list" role="listbox" className="x2m-palette-list flex-1 overflow-y-auto px-2 pb-2" aria-label="Kết quả">
-          {results.length === 0 && <li className="px-2 py-3 text-center text-xs text-faint">Không có kết quả</li>}
+        <ul ref={listRef} id="x2m-palette-list" role="listbox" className="x2m-palette-list flex-1 overflow-y-auto px-2 pb-2" aria-label={t('palette.results')}>
+          {results.length === 0 && <li className="px-2 py-3 text-center text-xs text-faint">{t('palette.none')}</li>}
           {results.map((it, i) => (
             <li
               key={it.kind + ':' + it.value}
@@ -92,7 +94,7 @@ export function CommandPalette({ items, onPick, onClose }: Props): React.ReactEl
             >
               {it.kind === 'file' ? <IconFile size={14} /> : <IconList size={14} />}
               <span className="truncate">{it.label}</span>
-              <span className="ml-auto shrink-0 text-[11px] text-faint">{it.kind === 'file' ? 'File' : 'Mục'}</span>
+              <span className="ml-auto shrink-0 text-[11px] text-faint">{t(it.kind === 'file' ? 'palette.file' : 'palette.heading')}</span>
             </li>
           ))}
         </ul>

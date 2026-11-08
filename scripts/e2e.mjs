@@ -18,7 +18,8 @@ const tmp = mkdtempSync(join(tmpdir(), 'x2m-e2e-'))
 const userData = join(tmp, 'userdata')
 const outDir = join(tmp, 'out')
 mkdirSync(userData, { recursive: true })
-writeFileSync(join(userData, 'store.json'), JSON.stringify({ outDir }))
+// lang: 'vi' -> chạy bằng tiếng Việt kể cả khi locale máy test là en/ja
+writeFileSync(join(userData, 'store.json'), JSON.stringify({ outDir, lang: 'vi' }))
 const wrapper = join(tmp, 'wrapper.cjs')
 writeFileSync(
   wrapper,
@@ -102,6 +103,20 @@ try {
   check('onboarding hiện lần đầu', await ev(`!!document.querySelector('.x2m-onboarding')`))
   await ev(`document.querySelector('.x2m-onboarding button').click(), 1`)
   check('đóng onboarding', (await waitFor(`!document.querySelector('.x2m-onboarding')`, 2000)) >= 0)
+  // Ngôn ngữ giao diện: lấy 'vi' từ store; đổi EN -> 日本語 -> VI
+  check('ngôn ngữ từ store: <html lang="vi">', (await waitFor(`document.documentElement.lang === 'vi'`, 3000)) >= 0, await ev(`document.documentElement.lang`))
+  const langBtn = (t) => `[...document.querySelectorAll('.x2m-lang button')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
+  const viewModeText = `document.querySelector('.x2m-mode-btn:last-child')?.textContent.trim()`
+  const langState = `[${viewModeText}, document.documentElement.lang]`
+  await ev(`(${langBtn('EN')}).click(), 1`)
+  check('đổi sang English: chữ nút chế độ tiếng Anh, <html lang="en">',
+    (await waitFor(`${viewModeText} === 'Markdown Reader' && document.documentElement.lang === 'en'`, 2000)) >= 0, await ev(langState))
+  await ev(`(${langBtn('日本語')}).click(), 1`)
+  check('đổi sang 日本語: chữ nút chế độ tiếng Nhật, <html lang="ja">',
+    (await waitFor(`${viewModeText} === 'Markdown 閲覧' && document.documentElement.lang === 'ja'`, 2000)) >= 0, await ev(langState))
+  await ev(`(${langBtn('VI')}).click(), 1`)
+  check('về lại VI', (await waitFor(`${viewModeText} === 'Đọc Markdown' && document.documentElement.lang === 'vi'`, 2000)) >= 0, await ev(langState))
+
   const theme0 = await ev(`document.documentElement.dataset.theme`)
   const themeBtn = `[...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').startsWith('Chuyển sang nền'))`
   await ev(`(${themeBtn}).click(), 1`)
