@@ -129,7 +129,7 @@ describe('callGeminiApi stability & resilience', () => {
     }
   })
 
-  it('tự động fallback sang gemini-2.5-flash nếu model cũ trả về 404', async () => {
+  it('tự động fallback sang gemini-flash-latest (alias model flash mới nhất) nếu model cũ trả về 404', async () => {
     const urlsCalled: string[] = []
     const originalFetch = globalThis.fetch
     globalThis.fetch = vi.fn().mockImplementation(async (url: string) => {
@@ -157,7 +157,7 @@ describe('callGeminiApi stability & resilience', () => {
         history: [],
       })
       expect(urlsCalled.some((u) => u.includes('gemini-deprecated-model'))).toBe(true)
-      expect(urlsCalled.some((u) => u.includes('gemini-2.5-flash'))).toBe(true)
+      expect(urlsCalled.some((u) => u.includes('gemini-flash-latest'))).toBe(true)
       expect(res.text).toContain('Trả lời từ fallback')
       // người dùng phải biết câu trả lời đến từ model khác model đã chọn
       expect(res.text).toContain('model "gemini-deprecated-model" không còn dùng được')

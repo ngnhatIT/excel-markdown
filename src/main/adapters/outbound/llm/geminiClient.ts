@@ -15,12 +15,13 @@ import {
 export function buildGeminiRequestBody(
   question: string,
   contextText: string,
-  history: AiChatTurn[] = []
+  history: AiChatTurn[] = [],
+  system = SYSTEM_INSTRUCTION
 ): Record<string, unknown> {
   const ctx = contextBlock(contextText)
   return {
     systemInstruction: {
-      parts: [{ text: SYSTEM_INSTRUCTION }, ...(ctx ? [{ text: ctx }] : [])],
+      parts: [{ text: system }, ...(ctx ? [{ text: ctx }] : [])],
     },
     contents: [
       ...trimHistory(history).map((h) => ({ role: h.role === 'model' ? 'model' : 'user', parts: [{ text: h.text }] })),
@@ -95,13 +96,14 @@ export async function callGeminiApi(opts: {
   history: AiChatTurn[]
   signal?: AbortSignal
   onDelta?: (text: string) => void
+  system?: string
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
   if (!key) {
     throw new Error('Chưa cấu hình Gemini API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
   }
 
-  const body = buildGeminiRequestBody(opts.question, opts.contextText, opts.history)
+  const body = buildGeminiRequestBody(opts.question, opts.contextText, opts.history, opts.system)
   // Key đi trong header (như listGeminiModels), không nằm trên URL nên không lọt vào log proxy/thông báo lỗi
   const post = (model: AiModelId): Promise<Response> =>
     postJsonWithRetry({

@@ -9,9 +9,12 @@ import type {
   ConvertResultItem,
   MdConvertResult,
   MdFolderListing,
+  MdSearchResult,
   MdInspectResult,
   OutputMode,
 } from '../../../shared/types'
+import type { SpecIndex } from '../../../shared/specIndex'
+import { errCodeText } from '../i18n'
 
 export interface SheetListItem {
   name: string
@@ -29,11 +32,15 @@ export interface WindowApi {
   storeSet(key: string, value: unknown): Promise<void>
   openExcelFiles(): Promise<string[]>
   openMarkdownFiles(): Promise<string[]>
+  openCompareFile(): Promise<string | null>
+  compareRead(path: string): Promise<string>
   openDirectory(): Promise<string | null>
   saveHtml(defaultName: string, html: string): Promise<string | null>
+  saveMarkdown(defaultName: string, md: string): Promise<string | null>
   openPath(target: string): Promise<void>
   getVersion(): Promise<string>
   getPathForFile(file: File): string
+  logRenderer(msg: string): void
   onOpenFiles(cb: (paths: string[]) => void): () => void
   onProgress(cb: (p: ConvertProgress) => void): () => void
   listSheets(filePath: string, skipDelSheets: boolean): Promise<SheetListItem[]>
@@ -49,12 +56,15 @@ export interface WindowApi {
   convertMarkdown(payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult>
   openMarkdownFolder(): Promise<string | null>
   listMarkdownFolder(root: string): Promise<MdFolderListing>
+  searchMarkdownFolder(root: string, query: string): Promise<MdSearchResult>
+  specIndex(root: string): Promise<SpecIndex>
   readMarkdown(path: string): Promise<string>
   aiGetConfig(): Promise<AiConfigInfo>
   aiSetConfig(payload: AiSetConfigPayload): Promise<AiConfigInfo>
   aiAsk(req: AiAskRequest): Promise<AiAskResponse>
   aiListModels(provider?: AiProvider): Promise<string[]>
   onAiDelta(cb: (text: string) => void): () => void
+  aiTranslate(text: string, target: string): Promise<string>
   aiCancel(): Promise<void>
 }
 
@@ -64,5 +74,8 @@ declare global {
   }
 }
 
-/** Message lỗi để hiện cho người dùng. */
-export const errMsg = (err: unknown): string => (err instanceof Error ? err.message : String(err))
+/** Chữ lỗi để hiện: main trả mã `E_…` (có thể kèm tham số `E_…|x`) dịch theo ngôn ngữ giao diện, còn lại giữ nguyên chữ. */
+export const errMsg = (err: unknown): string => {
+  const msg = err instanceof Error ? err.message : String(err)
+  return errCodeText(msg) ?? msg
+}

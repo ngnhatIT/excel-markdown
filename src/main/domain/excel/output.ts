@@ -2,6 +2,7 @@
  * Main process chỉ import file này (không nạp SheetJS); parse Excel chạy trong worker.
  */
 import type { ConvertOptions } from '../../../shared/types'
+import { slugifyHeading } from '../../../shared/mdView'
 
 export interface SheetResult {
   sheet: string
@@ -36,11 +37,40 @@ export function inlineAssets(md: string, media: Record<string, Uint8Array>): str
   })
 }
 
-/** Thay link ảnh bằng đường dẫn tương đối `dir/tên` (encode ký tự làm gãy cú pháp link). */
+/** Encode ký tự làm gãy cú pháp link Markdown trong đường dẫn tương đối. */
+const encPath = (p: string): string => p.replace(/[ ()<>#%]/g, (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase())
+
+/** Thay link ảnh bằng đường dẫn tương đối `dir/tên`. */
 function linkAssets(md: string, dir: string): string {
-  const d = dir.replace(/[ ()<>#%]/g, (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase())
+  const d = encPath(dir)
   return md.replace(ASSET_LINK, (_m, enc: string) => '](' + d + '/' + enc + ')')
 }
+
+/** Tiền tố link sang sheet khác do converter sinh (`[参照](x2m-sheet:<tên sheet đã encode>)`). Đích thật tùy
+ * cách ghi file nên thay ở đây (linkSheets): gộp workbook -> `#heading`, mỗi sheet một file -> tên file .md. */
+export const SHEET_TOKEN = 'x2m-sheet:'
+// Nhãn do converter sinh luôn escape `[`/`]` nên không chứa ngoặc trần. Giới hạn độ dài nhãn để chuỗi `\[\[\[...`
+// (chế độ không escape) không làm regex quét O(n²). shortcut: nhãn > 2000 ký tự giữ nguyên token (link chết).
+const SHEET_LINK = /\[((?:\\[\s\S]|[^\\[\]]){0,2000})\]\(x2m-sheet:([^)\s]*)\)/g
+
+/** Thay link sheet bằng `href(tên sheet)`; undefined (sheet không được ghi) -> chỉ giữ chữ. */
+export function linkSheets(md: string, href: (sheet: string) => string | undefined): string {
+  return md.replace(SHEET_LINK, (_m, label: string, enc: string) => {
+    let h: string | undefined
+    try {
+      h = href(decodeURIComponent(enc))
+    } catch {
+      h = undefined
+    }
+    return h ? '[' + label + '](' + h + ')' : label
+  })
+}
+
+/** Anchor của heading `## tên sheet`: cùng quy tắc slugify của trang HTML xuất từ app (shared/guideHtml.ts);
+ * tên chỉ gồm chữ/số/khoảng trắng (đa số tên sheet) cho kết quả giống GitHub.
+ * shortcut: không tính hậu tố `-2` khi trùng heading khác (vd tên sheet trùng tên workbook), thêm khi gặp thật. */
+// Cùng slug với trình đọc của app và GitHub (shared/mdView), để link `#tên sheet` mở đúng mục ở mọi nơi
+const headingSlug = slugifyHeading
 
 export type FrontMatterValue = string | string[] | Record<string, string>
 
@@ -78,7 +108,10 @@ export function frontMatter(fields: Record<string, FrontMatterValue | undefined>
 /** Gộp markdown các sheet cho per-workbook mode: bỏ sheet rỗng để không
  * tạo separator `---` thừa giữa các khoảng trống. `source` có thì thêm front-matter. */
 export function joinWorkbookMarkdown(base: string, sheets: SheetResult[], escape = true, source?: string): string {
-  const parts = sheets.map((s) => s.markdown.trim()).filter((m) => m !== '')
+  // Link sang sheet khác -> heading của sheet đó trong cùng file (chỉ khi sheet có heading `## tên`)
+  const titled = new Set(sheets.filter((s) => s.markdown.startsWith('## ')).map((s) => s.sheet))
+  const href = (sheet: string): string | undefined => (titled.has(sheet) && headingSlug(sheet) ? '#' + headingSlug(sheet) : undefined)
+  const parts = sheets.map((s) => linkSheets(s.markdown.trim(), href)).filter((m) => m !== '')
   const fm = source ? frontMatter({ source, sheets: sheets.map((s) => s.sheet) }) : ''
   return fm + '# ' + (escape ? escapeMarkdownInline(base) : base) + '\n\n' + parts.join('\n\n---\n\n') + '\n'
 }
@@ -168,13 +201,15 @@ export function workbookMdFiles(
     return [withImages({ name, text }, sheets)]
   }
   const names = mdNamesFor(base, sheets.map((s) => s.sheet), false, used)
+  // Link sang sheet khác -> file .md của sheet đó trong lần ghi này
+  const fileOf = new Map(sheets.map((s, i) => [s.sheet, encPath(names[i])]))
   return sheets.map((s, i) =>
     withImages(
       {
         name: names[i],
         text:
           (options.frontMatter ? frontMatter({ source: sourceName, sheet: s.sheet, title: s.title, meta: s.meta }) : '') +
-          s.markdown +
+          linkSheets(s.markdown, (sheet) => fileOf.get(sheet)) +
           '\n',
       },
       [s]

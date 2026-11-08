@@ -85,7 +85,25 @@ export interface ApiResult<T> {
 }
 
 /** Chế độ làm việc của app: Excel → Markdown (mặc định), Markdown → Excel hoặc Đọc Markdown. */
-export type AppMode = 'excel2md' | 'md2excel' | 'mdview'
+export type AppMode = 'excel2md' | 'md2excel' | 'mdview' | 'compare'
+
+/** Một dòng khớp khi tìm theo nội dung (chế độ Đọc Markdown). */
+export interface MdSearchHit {
+  /** Số dòng (từ 1) trong file */
+  line: number
+  /** Đoạn trích của dòng (đã cắt nếu quá dài) */
+  text: string
+  /** Heading gần nhất phía trên dòng khớp */
+  heading?: string
+}
+
+/** Kết quả tìm theo nội dung trong thư mục đang mở. */
+export interface MdSearchResult {
+  /** Theo thứ tự file của thư mục; chỉ file có dòng khớp */
+  files: { rel: string; hits: MdSearchHit[] }[]
+  /** Dừng sớm vì quá nhiều file khớp */
+  truncated: boolean
+}
 
 /** Các file Markdown trong một thư mục (chế độ Đọc Markdown). */
 export interface MdFolderListing {
@@ -141,9 +159,10 @@ export const AI_PROVIDER_IDS: AiProvider[] = ['gemini', 'claude', 'openai']
 export const AI_PROVIDERS: Record<AiProvider, { label: string; defaultModel: AiModelId; suggested: AiModelId[]; keyHint: string; site: string }> = {
   gemini: {
     label: 'Gemini',
-    defaultModel: 'gemini-2.5-flash',
-    suggested: ['gemini-2.5-flash', 'gemini-2.5-pro'],
-    keyHint: 'Dán Gemini API Key (AIza...)',
+    // Alias do Google trỏ tới model flash / pro mới nhất: model cố định (vd gemini-2.5-flash) bị ngừng cấp cho key mới
+    defaultModel: 'gemini-flash-latest',
+    suggested: ['gemini-flash-latest', 'gemini-pro-latest'],
+    keyHint: 'Dán Gemini API Key (AIza… / AQ.…)',
     site: 'aistudio.google.com',
   },
   claude: {

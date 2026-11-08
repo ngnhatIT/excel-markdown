@@ -1,0 +1,71 @@
+import { describe, expect, it } from 'vitest'
+import { detectLang, translate } from './index'
+import { vi } from './vi'
+import { en } from './en'
+import { ja } from './ja'
+import { compareEn, compareJa, compareVi } from './compare'
+import { translateEn, translateJa, translateVi } from './translate'
+import { errorsEn, errorsJa, errorsVi } from './errors'
+import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
+import { specMapEn, specMapJa, specMapVi } from './specMap'
+import { testDesignEn, testDesignJa, testDesignVi } from './testDesign'
+import { appEn, appJa, appVi } from './app'
+
+describe('i18n', () => {
+  it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
+    const params = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
+    const pairs: [Record<string, string>, Record<string, string>][] = [
+      [vi, en],
+      [vi, ja],
+      [compareVi, compareEn],
+      [compareVi, compareJa],
+      [translateVi, translateEn],
+      [translateVi, translateJa],
+      [errorsVi, errorsEn],
+      [errorsVi, errorsJa],
+      [tableDefVi, tableDefEn],
+      [tableDefVi, tableDefJa],
+      [specMapVi, specMapEn],
+      [specMapVi, specMapJa],
+      [testDesignVi, testDesignEn],
+      [testDesignVi, testDesignJa],
+      [appVi, appEn],
+      [appVi, appJa],
+    ]
+    for (const [base, d] of pairs) {
+      expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())
+      for (const k of Object.keys(base)) {
+        expect(d[k].trim(), k).not.toBe('')
+        expect(params(d[k]), k).toEqual(params(base[k]))
+      }
+    }
+  })
+
+  it('thay tham số, giữ nguyên tham số không truyền', () => {
+    expect(translate('en', 'lang.label')).toBe('Language')
+    expect(translate('ja', 'lang.label')).toBe('言語')
+  })
+
+  it('ngôn ngữ mặc định theo locale hệ điều hành', () => {
+    expect(detectLang('ja-JP')).toBe('ja')
+    expect(detectLang('en-US')).toBe('en')
+    expect(detectLang('vi')).toBe('vi')
+    expect(detectLang('fr-FR')).toBe('vi')
+  })
+})
+
+describe('errCodeText', () => {
+  it('mã lỗi E_… dịch theo ngôn ngữ; chữ thường giữ nguyên (null)', async () => {
+    const { errCodeText, setLang } = await import('./index')
+    setLang('ja')
+    expect(errCodeText('E_SEARCH_NOT_OPENED')).toBe('このフォルダは開かれていません。')
+    expect(errCodeText('E_UNKNOWN_CODE')).toBeNull()
+    expect(errCodeText('Lỗi bất kỳ')).toBeNull()
+    // Tham số sau `|` (đường dẫn có thể chứa `|` trên macOS/Linux: lấy hết phần còn lại)
+    expect(errCodeText('E_WORKER_TIMEOUT|120')).toContain('120 秒')
+    setLang('en')
+    expect(errCodeText('E_OUTDIR_NOT_WRITABLE|/a|b')).toBe('Cannot write to the folder: /a|b')
+    expect(errCodeText('E_BUSY')).toBe('A conversion is running. Please wait or click Cancel.')
+    setLang('vi')
+  })
+})

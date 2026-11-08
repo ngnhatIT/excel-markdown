@@ -15,10 +15,10 @@ import { joinWorkbookMarkdown } from '../excel/converter'
 import { convertWorkbook, listSheets } from '../../adapters/outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../shared/types'
 import type { SheetModel } from './model'
-import { assignSheetNames } from './names'
+import { assignSheetNames, nameAndLinkSheets } from './names'
 import { parseMarkdownFile } from './parse'
 import { buildWorkbook } from './write'
-import { saveWorkbook } from '../../adapters/outbound/xlsxWriter'
+import { finalizeXlsx, saveWorkbook } from '../../adapters/outbound/xlsxWriter'
 
 const INPUT_DIR = fileURLToPath(new URL('../../../../test/golden/', import.meta.url))
 const files = readdirSync(INPUT_DIR).filter((f) => f.endsWith('.md'))
@@ -28,6 +28,7 @@ interface CellDump {
   t: string
   z?: string
   l?: string
+  note?: string
 }
 interface SheetDump {
   name: string
@@ -35,11 +36,11 @@ interface SheetDump {
   cells: Record<string, CellDump>
 }
 
-/** Mô hình -> buffer .xlsx -> SheetJS -> JSON ổn định (ô theo thứ tự dòng rồi cột, chỉ ô có giá trị). */
-async function dumpWorkbook(sheets: SheetModel[]): Promise<{ sheets: SheetDump[] }> {
-  const buf = (await buildWorkbook(assignSheetNames(sheets)).xlsx.writeBuffer()) as ArrayBuffer
+/** Mô hình -> buffer .xlsx (như file app ghi) -> SheetJS -> JSON ổn định (ô theo thứ tự dòng rồi cột, chỉ ô có giá trị). */
+async function dumpWorkbook(sheets: SheetModel[], path: string): Promise<{ sheets: SheetDump[] }> {
+  const raw = Buffer.from((await buildWorkbook(nameAndLinkSheets([{ path, sheets }])).xlsx.writeBuffer()) as ArrayBuffer)
   // cellNF: giữ định dạng số (`z`); `General` là mặc định nên không ghi vào JSON (vắng `z` = General).
-  const wb = XLSX.read(Buffer.from(buf), { cellNF: true })
+  const wb = XLSX.read(await finalizeXlsx(raw), { cellNF: true })
   return {
     sheets: wb.SheetNames.map((name) => {
       const ws = wb.Sheets[name]
@@ -57,6 +58,8 @@ async function dumpWorkbook(sheets: SheetModel[]): Promise<{ sheets: SheetDump[]
         const dump: CellDump = { v: c.v as CellDump['v'], t: c.t }
         if (c.z !== undefined && c.z !== 'General') dump.z = c.z
         if (c.l?.Target !== undefined) dump.l = c.l.Target
+        // ghi chú Excel (từ dòng 〔コメント〕)
+        if (c.c?.length) dump.note = c.c.map((x: XLSX.Comment) => x.t).join('\n')
         cells[addr] = dump
       }
       return { name, merges, cells }
@@ -158,7 +161,7 @@ describe('golden md2xlsx: Markdown do app tạo', () => {
   async function toMarkdown(md: string, fileName: string, tag: string): Promise<string> {
     const parsed = parseMarkdownFile(md, fileName)
     const out = join(tmp, `${tag}.xlsx`)
-    await saveWorkbook(buildWorkbook(assignSheetNames(parsed.sheets)), out)
+    await saveWorkbook(buildWorkbook(nameAndLinkSheets([{ path: join(INPUT_DIR, fileName), sheets: parsed.sheets }])), out)
     // Giống mặc định của UI: sheet ẩn không được tick.
     const names = listSheets(out, DEFAULT_OPTIONS.skipDelSheets)
       .filter((s) => !s.hidden)
@@ -174,7 +177,7 @@ describe('golden md2xlsx: Markdown do app tạo', () => {
     const md = readFileSync(join(INPUT_DIR, f), 'utf8')
 
     it(`${f}: golden`, async () => {
-      const dump = await dumpWorkbook(parseMarkdownFile(md, f).sheets)
+      const dump = await dumpWorkbook(parseMarkdownFile(md, f).sheets, join(INPUT_DIR, f))
       await expect(JSON.stringify(dump, null, 2) + '\n').toMatchFileSnapshot(
         `../../../../test/golden-md2xlsx/${f}.json`
       )

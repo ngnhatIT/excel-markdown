@@ -20,6 +20,51 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: npm audit (chỉ dependency đóng gói vào app)
+        if: matrix.os == 'ubuntu-latest'
+        run: npm audit --omit=dev --audit-level=high
       - run: npm run typecheck
       - run: npm run test
       - run: npm run build
+
+  package:
+    # Bắt lỗi đóng gói sớm (asar thiếu file, extraResources, wrapper CLI, script NSIS resources/installer.nsh)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx electron-builder --dir --win --x64 --publish never
+      # Dựng cả installer từ bản --dir ở trên (thêm ~1 phút): makensis mới bắt được lỗi trong installer.nsh
+      - run: npx electron-builder --win nsis --x64 --publish never --prepackaged release/win-unpacked
+      - name: Kiểm app.asar và wrapper x2m.cmd
+        shell: bash
+        run: |
+          list=$(npx asar list release/win-unpacked/resources/app.asar)
+          for f in index.js worker.js cli.js mcp.js; do
+            echo "$list" | grep -qx "/out/main/$f" || { echo "thiếu out/main/$f trong app.asar"; exit 1; }
+          done
+          test -f release/win-unpacked/resources/bin/x2m.cmd
+          test -f release/win-unpacked/resources/bin/x2m-mcp.cmd
+      - name: x2m.cmd chạy được CLI trong bản đóng gói
+        shell: cmd
+        run: release\win-unpacked\resources\bin\x2m.cmd --version
+
+  e2e:
+    # Runner Windows của GitHub có phiên desktop nên Electron mở cửa sổ được.
+    # continue-on-error: còn đang theo dõi độ ổn định trên runner (timing, GPU); bỏ khi chạy xanh ổn định.
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx install-electron
+      - run: npm run e2e

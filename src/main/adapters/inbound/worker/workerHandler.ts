@@ -8,6 +8,7 @@ import {
   type WorkBook,
 } from '../../../domain/excel/converter'
 import { frontMatter } from '../../../domain/excel/output'
+import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import type { WorkerRequest, WorkerResponse } from '../../../application/ports/workerProtocol'
 
 export interface WorkbookSource {
@@ -31,6 +32,8 @@ export function handleRequest(src: WorkbookSource, req: WorkerRequest): WorkerRe
       }
       case 'convert':
         return { id: req.id, ok: true, data: convertSheetsInWorkbook(src.get(req.path), req.sheets, req.options) }
+      case 'workbookMarkdown':
+        return { id: req.id, ok: true, data: workbookMarkdownForDiff(src.get(req.path)) }
       default:
         throw new Error('Yêu cầu không hợp lệ: ' + String((req as { type?: unknown }).type))
     }

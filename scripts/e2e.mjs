@@ -18,7 +18,8 @@ const tmp = mkdtempSync(join(tmpdir(), 'x2m-e2e-'))
 const userData = join(tmp, 'userdata')
 const outDir = join(tmp, 'out')
 mkdirSync(userData, { recursive: true })
-writeFileSync(join(userData, 'store.json'), JSON.stringify({ outDir }))
+// lang: 'vi' -> chạy bằng tiếng Việt kể cả khi locale máy test là en/ja
+writeFileSync(join(userData, 'store.json'), JSON.stringify({ outDir, lang: 'vi' }))
 const wrapper = join(tmp, 'wrapper.cjs')
 writeFileSync(
   wrapper,
@@ -102,6 +103,20 @@ try {
   check('onboarding hiện lần đầu', await ev(`!!document.querySelector('.x2m-onboarding')`))
   await ev(`document.querySelector('.x2m-onboarding button').click(), 1`)
   check('đóng onboarding', (await waitFor(`!document.querySelector('.x2m-onboarding')`, 2000)) >= 0)
+  // Ngôn ngữ giao diện: lấy 'vi' từ store; đổi EN -> 日本語 -> VI
+  check('ngôn ngữ từ store: <html lang="vi">', (await waitFor(`document.documentElement.lang === 'vi'`, 3000)) >= 0, await ev(`document.documentElement.lang`))
+  const langBtn = (t) => `[...document.querySelectorAll('.x2m-lang button')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
+  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[2]?.textContent.trim()`
+  const langState = `[${viewModeText}, document.documentElement.lang]`
+  await ev(`(${langBtn('EN')}).click(), 1`)
+  check('đổi sang English: chữ nút chế độ tiếng Anh, <html lang="en">',
+    (await waitFor(`${viewModeText} === 'Markdown Reader' && document.documentElement.lang === 'en'`, 2000)) >= 0, await ev(langState))
+  await ev(`(${langBtn('日本語')}).click(), 1`)
+  check('đổi sang 日本語: chữ nút chế độ tiếng Nhật, <html lang="ja">',
+    (await waitFor(`${viewModeText} === 'Markdown 閲覧' && document.documentElement.lang === 'ja'`, 2000)) >= 0, await ev(langState))
+  await ev(`(${langBtn('VI')}).click(), 1`)
+  check('về lại VI', (await waitFor(`${viewModeText} === 'Đọc Markdown' && document.documentElement.lang === 'vi'`, 2000)) >= 0, await ev(langState))
+
   const theme0 = await ev(`document.documentElement.dataset.theme`)
   const themeBtn = `[...document.querySelectorAll('button')].find(b => (b.getAttribute('aria-label') || '').startsWith('Chuyển sang nền'))`
   await ev(`(${themeBtn}).click(), 1`)
@@ -402,10 +417,16 @@ try {
   const viewDir = join(tmp, 'view')
   mkdirSync(join(viewDir, 'docs'), { recursive: true })
   mkdirSync(join(viewDir, 'img'), { recursive: true })
-  writeFileSync(join(viewDir, 'README.md'), '# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n')
+  // Đoạn đệm để có chỗ cuộn (link #anchor, giữ vị trí cuộn khi tải lại)
+  const filler = Array.from({ length: 60 }, (_, i) => `Đoạn đệm ${i + 1}`).join('\n\n')
+  writeFileSync(
+    join(viewDir, 'README.md'),
+    `# Trang chính\n\n![sơ đồ](img/a.png)\n\n[Sang trang B](docs/b.md)\n\n[Tới mục cuối](#mục-cuối)\n\n[Sang B phần 2](docs/b.md#Ph%E1%BA%A7n%202)\n\n${filler}\n\n## Mục cuối\n\nHết.\n\n${filler}\n`
+  )
   writeFileSync(join(viewDir, 'alpha.md'), '# Alpha\n')
   utimesSync(join(viewDir, 'alpha.md'), new Date(2020, 0, 1), new Date(2020, 0, 1))
-  writeFileSync(join(viewDir, 'docs', 'b.md'), '# Trang B\n\n```js\nconst x = 1\n```\n')
+  const bMd = (h1) => `# ${h1}\n\n\`\`\`js\nconst x = 1\n\`\`\`\n\n${filler}\n\n## Phần 2\n\nCuối B.\n\n${filler}\n`
+  writeFileSync(join(viewDir, 'docs', 'b.md'), bMd('Trang B'))
   writeFileSync(join(viewDir, 'img', 'a.png'), Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'))
   const treeRow = (t) => `[...document.querySelectorAll('.x2m-tree-row')].find(r => r.querySelector('.x2m-tree-name')?.textContent.trim() === ${JSON.stringify(t)})`
 
@@ -458,6 +479,197 @@ try {
     (await waitFor(`document.body.innerText.includes('Clipboard trống') && document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)
   await ev(`(${treeRow('docs')})?.querySelector('button')?.click(), 1`)
   check('Đọc Markdown: thu gọn thư mục docs -> ẩn b.md', (await waitFor(`!(${treeRow('b.md')})`, 2000)) >= 0)
+  // Tìm trong nội dung
+  const filterMode = (t) => `[...document.querySelectorAll('.x2m-filter .x2m-sort-btn')].find(b => b.textContent === ${JSON.stringify(t)})`
+  await ev(`(${filterMode('Nội dung')})?.click(), 1`)
+  await setFilter('CONST x')
+  check('Tìm nội dung: ra b.md (cả khi thư mục đang thu gọn), dòng 4, không phân biệt hoa thường',
+    (await waitFor(`!!(${treeRow('docs/b.md')}) && [...document.querySelectorAll('.x2m-search-hit')].some(h => h.textContent === '4const x = 1')`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-files')?.innerText`).catch(() => null))
+  await ev(`document.querySelector('.x2m-search-hit')?.click(), 1`)
+  check('Tìm nội dung: bấm kết quả -> mở b.md, tô sáng chỗ khớp trong preview',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B' && CSS.highlights.get('x2m-search')?.size >= 1`, 5000)) >= 0)
+  await ev(`(${treeRow('docs/b.md')})?.querySelector('button')?.click(), 1`)
+  await setFilter('khong-co-dau')
+  check('Tìm nội dung: không khớp -> báo Không tìm thấy', (await waitFor(`document.querySelector('.x2m-search-results')?.innerText.includes('Không tìm thấy')`, 5000)) >= 0)
+  await ev(`(${filterMode('Tên')})?.click(), 1`)
+  await setFilter('')
+  check('Tìm nội dung: về chế độ Tên -> cây file quay lại', (await waitFor(`!document.querySelector('.x2m-search-results') && !!(${treeRow('README.md')})`, 3000)) >= 0)
+
+  // Link #anchor, link file#mục, Lùi/Tiến
+  const metaTitle = `document.querySelector('.x2m-meta-title')?.textContent`
+  const scrollTop = `(document.querySelector('.x2m-preview')?.scrollTop ?? 0)`
+  const headingInView = (t) =>
+    `(() => { const c = document.querySelector('.x2m-preview'); const h = [...document.querySelectorAll('.md-body h2')].find(x => x.textContent === ${JSON.stringify(t)}); if (!c || !h) return false; const d = h.getBoundingClientRect().top - c.getBoundingClientRect().top; return c.scrollTop > 100 && d > -5 && d < 120 })()`
+  const clickLink = (t) => ev(`[...document.querySelectorAll('.md-body a')].find(a => a.textContent === ${JSON.stringify(t)})?.click(), 1`)
+  await ev(`(${treeRow('README.md')})?.querySelector('button')?.click(), 1`)
+  await waitFor(`${metaTitle} === 'README.md' && document.querySelector('.md-body h1')?.textContent === 'Trang chính'`, 5000)
+  await clickLink('Tới mục cuối')
+  check('Link #mục-cuối: cuộn tới tiêu đề "Mục cuối" trong file', (await waitFor(headingInView('Mục cuối'), 4000)) >= 0,
+    await ev(`[${scrollTop}, [...document.querySelectorAll('.md-body a')].map(x => x.getAttribute('href'))]`))
+  await clickLink('Sang B phần 2')
+  check('Link docs/b.md#Phần%202: mở b.md rồi cuộn tới "Phần 2"',
+    (await waitFor(`${metaTitle} === 'docs/b.md' && ${headingInView('Phần 2')}`, 5000)) >= 0, await ev(metaTitle))
+  await ev(`document.activeElement && document.activeElement.blur(), 1`)
+  await key('ArrowLeft', 'ArrowLeft', 37, 1)
+  check('Alt+←: quay lại README.md, đúng chỗ "Mục cuối"',
+    (await waitFor(`${metaTitle} === 'README.md' && ${headingInView('Mục cuối')}`, 5000)) >= 0, await ev(metaTitle))
+  await key('ArrowLeft', 'ArrowLeft', 37, 1)
+  check('Alt+← lần nữa: cùng README.md, về đầu file', (await waitFor(`${metaTitle} === 'README.md' && ${scrollTop} < 5`, 4000)) >= 0, await ev(scrollTop))
+  await ev(`document.querySelector('button[aria-label="Tiến"]')?.click(), 1`)
+  await ev(`document.querySelector('button[aria-label="Tiến"]')?.click(), 1`)
+  check('Nút Tiến x2: lại docs/b.md ở "Phần 2"', (await waitFor(`${metaTitle} === 'docs/b.md' && ${headingInView('Phần 2')}`, 5000)) >= 0, await ev(metaTitle))
+  check('Nút Tiến bị tắt ở cuối lịch sử, Lùi bật', await ev(`document.querySelector('button[aria-label="Tiến"]')?.disabled === true && document.querySelector('button[aria-label="Lùi"]')?.disabled === false`))
+
+  // Tải lại khi cửa sổ được focus: nội dung mới, giữ vị trí cuộn
+  const topBefore = await ev(scrollTop)
+  writeFileSync(join(viewDir, 'docs', 'b.md'), bMd('Trang B mới'))
+  await ev(`window.dispatchEvent(new Event('focus')), window.dispatchEvent(new Event('focus')), 1`)
+  check('Focus lại cửa sổ: b.md đổi ngoài app -> tải lại, toast Đã tải lại',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B mới' && document.body.innerText.includes('Đã tải lại: b.md')`, 4000)) >= 0)
+  check('Tải lại: không cuộn về đầu', Math.abs((await ev(scrollTop)) - topBefore) < 50, [topBefore, await ev(scrollTop)])
+
+  // Ctrl+K: bảng lệnh
+  await ev(`document.activeElement && document.activeElement.blur(), 1`)
+  await key('k', 'KeyK', 75, 2)
+  check('Ctrl+K: mở bảng lệnh (dialog modal), ô nhập có focus',
+    (await waitFor(`!!document.querySelector('[role="dialog"][aria-modal="true"]') && document.activeElement?.classList.contains('x2m-palette-input')`, 2000)) >= 0)
+  await key('Escape', 'Escape', 27)
+  check('Esc: đóng bảng lệnh', (await waitFor(`!document.querySelector('.x2m-palette')`, 2000)) >= 0)
+  await key('k', 'KeyK', 75, 2)
+  await waitFor(`document.activeElement?.classList.contains('x2m-palette-input')`, 2000)
+  await send('Input.insertText', { text: 'ＡＬＰ' })
+  check('Ctrl+K: gõ ＡＬＰ (toàn角) -> alpha.md đứng đầu',
+    (await waitFor(`document.querySelector('.x2m-palette-item[aria-selected="true"]')?.textContent.includes('alpha.md')`, 2000)) >= 0,
+    await ev(`[...document.querySelectorAll('.x2m-palette-item')].map(x => x.textContent)`))
+  await key('Enter', 'Enter', 13)
+  check('Ctrl+K: Enter mở alpha.md, đóng bảng lệnh',
+    (await waitFor(`!document.querySelector('.x2m-palette') && ${metaTitle} === 'alpha.md' && document.querySelector('.md-body h1')?.textContent === 'Alpha'`, 4000)) >= 0, await ev(metaTitle))
+
+  // Dịch nhanh đoạn bôi đen: chưa có key -> popup hướng dẫn, không gọi mạng
+  await ev(`(() => { const h = document.querySelector('.md-body h1'); const r = document.createRange(); r.selectNodeContents(h); const s = getSelection(); s.removeAllRanges(); s.addRange(r); document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true })); return 1 })()`)
+  check('Dịch: bôi đen chữ trong bản xem -> hiện nút Dịch', (await waitFor(`!!document.querySelector('.x2m-tr-btn')`, 2000)) >= 0)
+  await ev(`document.querySelector('.x2m-tr-btn')?.click(), 1`)
+  check('Dịch: chưa có API Key -> popup báo cần nhập key, có chọn ngôn ngữ đích',
+    (await waitFor(`!!document.querySelector('.x2m-tr-popup') && document.querySelector('.x2m-tr-popup').innerText.includes('API Key') && document.querySelectorAll('.x2m-tr-popup [role="radio"]').length === 3`, 4000)) >= 0,
+    await ev(`document.querySelector('.x2m-tr-popup')?.innerText ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('Dịch: Esc đóng popup', (await waitFor(`!document.querySelector('.x2m-tr-popup')`, 2000)) >= 0)
+
+  // テーブル定義書 → DDL / ER: dán Markdown có bảng định nghĩa (không thêm file vào cây)
+  const tableDefMd = readFileSync(join(root, 'test', 'fixtures', 'table-def.md'), 'utf8')
+  await ev(`navigator.clipboard.readText = async () => ${JSON.stringify(tableDefMd)}; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  check('DDL: bảng định nghĩa có nút DDL trên chip, thanh xem có nút ER',
+    (await waitFor(`document.querySelectorAll('.x2m-outline-ddl').length === 2 && !!document.querySelector('.x2m-er-btn')`, 3000)) >= 0)
+  await ev(`document.querySelector('.x2m-outline-ddl')?.click(), 1`)
+  check('DDL: bấm DDL -> popover xem trước CREATE TABLE',
+    (await waitFor(`(document.querySelector('.x2m-ddl-preview')?.textContent ?? '').includes('CREATE TABLE M_CUSTOMER')`, 2000)) >= 0)
+  await key('Escape', 'Escape', 27)
+  check('DDL: Esc đóng popover', (await waitFor(`!document.querySelector('.x2m-ddl-pop')`, 2000)) >= 0)
+  const cspBeforeEr = await ev(`window.__csp.length`)
+  await ev(`document.querySelector('.x2m-er-btn')?.click(), 1`)
+  check('ER: hộp thoại vẽ sơ đồ Mermaid (SVG)', (await waitFor(`!!document.querySelector('.x2m-er-dialog .mmd svg')`, 8000)) >= 0,
+    await ev(`document.querySelector('.x2m-er-dialog')?.innerText ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('ER: Esc đóng hộp thoại', (await waitFor(`!document.querySelector('.x2m-er-dialog')`, 2000)) >= 0)
+  // mermaid.render tự gắn DOM đo chữ tạm (có <style> / style="") vào trang: CSP chặn và báo, sơ đồ vẫn đúng
+  // (lib/mermaid.ts áp CSS lại qua CSSOM). Chỉ bỏ các báo style-src của bước này; vi phạm khác vẫn bị bắt ở cuối.
+  const erCsp = await ev(`window.__csp.splice(${cspBeforeEr})`)
+  check('ER: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', erCsp.every((v) => v.startsWith('style-src')), erCsp.slice(0, 3))
+
+  // テスト観点表: dán 画面設計書 (golden kihon-sekkei) -> nút 観点表 -> bảng có dòng 未入力, Esc đóng
+  await ev(`navigator.clipboard.readText = async () => ${JSON.stringify(golden)}; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-testdesign-btn')`, 3000)
+  await ev(`document.querySelector('.x2m-testdesign-btn')?.click(), 1`)
+  check('観点表: hộp thoại sinh dòng 必須 (未入力), focus nằm trong hộp thoại',
+    (await waitFor(`(document.querySelector('.x2m-testdesign-table')?.innerText ?? '').includes('「顧客コード」を未入力のまま登録') && !!document.activeElement?.closest('.x2m-testdesign')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-testdesign')?.innerText.slice(0, 300) ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('観点表: Esc đóng hộp thoại', (await waitFor(`!document.querySelector('.x2m-testdesign')`, 2000)) >= 0)
+
+  // Bản đồ thiết kế + 影響調査: mở thư mục fixture, sơ đồ 画面遷移 (SVG), bấm nút màn hình, 影響調査 -> mở tài liệu
+  await dropFiles([join(root, 'test', 'fixtures', 'specmap')])
+  check('Bản đồ: mở thư mục specmap -> có nút Bản đồ thiết kế trên cây', (await waitFor(`!!(${treeRow('flow.md')}) && !!document.querySelector('.x2m-specmap-btn')`, 5000)) >= 0)
+  const cspBeforeMap = await ev(`window.__csp.length`)
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  check('Bản đồ: 画面遷移図 vẽ SVG, chip 5 màn hình / 2 bảng / 5 vấn đề',
+    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 màn hình.*2 bảng.*5 vấn đề/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap')?.innerText ?? null`))
+  check('Bản đồ: nút màn hình bấm được bằng bàn phím (tabindex, role=button), nút treo không',
+    await ev(`document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"][tabindex="0"]').length === 4 && document.querySelectorAll('.x2m-specmap-diagram g.node').length === 7`),
+    await ev(`[...document.querySelectorAll('.x2m-specmap-diagram g.node')].map(g => g.getAttribute('aria-label'))`))
+  await ev(`(() => { const g = [...document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"]')].find(g => g.getAttribute('aria-label').includes('SCR011')); g.focus(); return 1 })()`)
+  await key('Enter', 'Enter', 13)
+  check('Bản đồ: Enter trên nút SCR011 -> đóng bản đồ, mở screens/SCR011_detail.md',
+    (await waitFor(`!document.querySelector('.x2m-specmap') && document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR011_detail.md'`, 5000)) >= 0, await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '影響調査')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-query')`, 3000)
+  await ev(`(() => { const i = document.querySelector('.x2m-specmap-query'); Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(i, 'TBL_CUSTOMER.CUST_CD'); i.dispatchEvent(new Event('input', { bubbles: true })); i.form.requestSubmit(); return 1 })()`)
+  check('影響調査: TBL_CUSTOMER.CUST_CD -> kết quả theo tài liệu, có SCR010 bị ảnh hưởng',
+    (await waitFor(`document.querySelectorAll('.x2m-specmap-group').length === 4 && (document.querySelector('.x2m-specmap-impact')?.innerText ?? '').includes('SCR010 顧客検索画面')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-impact')?.innerText ?? null`))
+  await ev(`[...document.querySelectorAll('.x2m-specmap-hit')].find(b => b.textContent.includes('検索キー'))?.click(), 1`)
+  check('影響調査: bấm kết quả -> mở screens/SCR010_search.md, tô sáng chỗ khớp',
+    (await waitFor(`document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR010_search.md' && CSS.highlights.get('x2m-search')?.size >= 1`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '整合性チェック')?.click(), 1`)
+  check('整合性チェック: 2 lỗi trước, 3 cảnh báo (ô rẽ nhánh 権限あり？ không bị báo)', (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')]; return b.length === 5 && b[0].innerText.startsWith('Lỗi') && b[4].innerText.startsWith('Cảnh báo') })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-lint')?.innerText ?? null`))
+  check('整合性チェック: cảnh báo cách viết mơ hồ 「要確認」 ở screens/SCR002_menu.md:17',
+    await ev(`[...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')].some(b => b.innerText.startsWith('Cảnh báo') && b.innerText.includes('Cách viết mơ hồ') && b.innerText.includes('要確認') && b.innerText.includes('screens/SCR002_menu.md:17'))`),
+    await ev(`document.querySelector('.x2m-specmap-lint')?.innerText ?? null`))
+  // CRUD図: ma trận 画面 × テーブル, header dính, bấm ô -> bằng chứng -> mở tài liệu
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === 'CRUD図')?.click(), 1`)
+  const crudCell = (label) => `document.querySelector('.x2m-crud-cell[aria-label=${JSON.stringify(label)}]')`
+  check('CRUD図: ma trận có SCR011 × TBL_CUSTOMER = RUD, SCR011 × TBL_ORDER = C, SCR010 × TBL_CUSTOMER = R, header sticky',
+    (await waitFor(`${crudCell('SCR011 × TBL_CUSTOMER: RUD')}?.textContent === 'RUD' && ${crudCell('SCR011 × TBL_ORDER: C')}?.textContent === 'C' && !!${crudCell('SCR010 × TBL_CUSTOMER: R')} && getComputedStyle(document.querySelector('.x2m-crud-grid thead th')).position === 'sticky'`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-crud')?.innerText ?? null`))
+  await ev(`${crudCell('SCR011 × TBL_CUSTOMER: RUD')}?.click(), 1`)
+  check('CRUD図: chọn ô -> 3 dòng bằng chứng (R / U / D)',
+    (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-crud .x2m-specmap-hit')]; return b.length === 3 && b[1].innerText.includes('screens/SCR011_detail.md:14') && b[1].innerText.startsWith('U') })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-crud')?.innerText ?? null`))
+  await ev(`[...document.querySelectorAll('.x2m-specmap-crud .x2m-specmap-hit')][2]?.click(), 1`)
+  check('CRUD図: bấm bằng chứng -> mở screens/SCR011_detail.md',
+    (await waitFor(`!document.querySelector('.x2m-specmap') && document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR011_detail.md'`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  // 用語集: đọc 用語集.md ở gốc, có nút copy gợi ý
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '用語集')?.click(), 1`)
+  check('用語集: hiện bảng 3 mục từ 用語集.md, nút Copy gợi ý 用語集 bật',
+    (await waitFor(`(() => { const g = document.querySelector('.x2m-specmap-glossary'); return !!g && g.querySelectorAll('tbody tr').length === 3 && g.innerText.includes('khách hàng') && [...g.querySelectorAll('button')].some(b => b.textContent.startsWith('Copy gợi ý 用語集') && !b.disabled) })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-glossary')?.innerText ?? null`))
+  await ev(`document.querySelector('.x2m-specmap-close')?.click(), 1`)
+  check('Bản đồ: nút đóng -> về bản xem', (await waitFor(`!document.querySelector('.x2m-specmap') && !!document.querySelector('.x2m-preview')`, 2000)) >= 0)
+  // Như bước ER: chỉ bỏ báo style-src tạm của mermaid khi vẽ sơ đồ
+  const mapCsp = await ev(`window.__csp.splice(${cspBeforeMap})`)
+  check('Bản đồ: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', mapCsp.every((v) => v.startsWith('style-src')), mapCsp.slice(0, 3))
+
+  // So sánh 新旧: hai file Markdown, chèn một dòng giữa bảng + sửa một ô
+  const cmpDir = join(tmp, 'cmp')
+  mkdirSync(cmpDir, { recursive: true })
+  const tbl = (rows) => '## 画面\n\n### 【項目定義】\n\n| No | 項目ID | 項目名 |\n|---|---|---|\n' + rows.map((r, i) => `| ${i + 1} | ${r[0]} | ${r[1]} |`).join('\n') + '\n'
+  writeFileSync(join(cmpDir, 'old.md'), tbl([['C01', '顧客コード'], ['C02', '顧客名'], ['C03', '電話番号']]))
+  writeFileSync(join(cmpDir, 'new.md'), tbl([['C01', '顧客コード'], ['C09', 'メール'], ['C02', '顧客名称'], ['C03', '電話番号']]))
+  await ev(`(${modeBtn('So sánh')})?.click(), 1`)
+  check('So sánh: chế độ mới, không có thanh convert', (await waitFor(`!!(${modeBtn('So sánh')})?.classList.contains('active') && !document.querySelector('.x2m-footer') && !!document.querySelector('.x2m-compare-side')`, 2000)) >= 0)
+  await dropFiles([join(cmpDir, 'old.md'), join(cmpDir, 'new.md')])
+  check('So sánh: thả 2 file -> 1 dòng thêm, 1 dòng sửa (chèn giữa bảng không làm lệch phần sau)',
+    (await waitFor(`(() => { const b = document.querySelector('.x2m-compare-bar')?.innerText ?? ''; return b.includes('+1') && b.includes('~1') && b.includes('−0') })()`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-compare-bar')?.innerText ?? document.querySelector('.x2m-compare')?.innerText ?? null`))
+  check('So sánh: ô sửa tô chữ thêm/xóa trong dòng', await ev(`[...document.querySelectorAll('.x2m-compare-list mark')].some(m => m.textContent.includes('称'))`))
+  await ev(`[...document.querySelectorAll('.x2m-compare-bar button')].find(b => b.getAttribute('aria-label')?.startsWith('Thay đổi sau'))?.click(), 1`)
+  check('So sánh: thêm + sửa liền nhau là một cụm; nút thay đổi sau -> vị trí 1 / 1', (await waitFor(`document.querySelector('.x2m-compare-bar')?.innerText.includes('1 / 1')`, 2000)) >= 0)
+  await ev(`[...document.querySelectorAll('.x2m-compare-bar button')].find(b => b.textContent.trim() === '改訂履歴')?.click(), 1`)
+  check('So sánh: 改訂履歴 tự sinh dòng nêu dòng thêm và cột sửa',
+    (await waitFor(`(document.querySelector('.x2m-rev-table')?.innerText ?? '').includes('行追加 1件（C09）') && document.querySelector('.x2m-rev-table').innerText.includes('C02: 項目名')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-rev')?.innerText ?? null`))
+  await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-files')`, 2000)
 
   // Trợ lý AI: chọn nhà cung cấp, key riêng từng bên (không gọi mạng)
   const providerBtn = (t) => `[...document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button')].find(b => b.textContent.startsWith(${JSON.stringify(t)}))`

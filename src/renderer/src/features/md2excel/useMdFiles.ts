@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { MdFileItem } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
 import { baseName, moveItem, toast, uid } from '../../lib/utils'
+import { t } from '../../i18n'
 
 export const MD_EXT = /\.(md|markdown)$/i
 
@@ -21,7 +22,7 @@ export function useMdFiles() {
     async (paths: string[]) => {
       const md = paths.filter((p) => MD_EXT.test(p))
       const skipped = paths.length - md.length
-      if (skipped > 0) toast(`Bỏ qua ${skipped} file không phải Markdown (.md)`, 'err')
+      if (skipped > 0) toast(t('toast.md.skipped', { n: skipped }), 'err')
       const known = new Set(filesRef.current.map((f) => f.path))
       const fresh: MdFileItem[] = []
       for (const p of md) {

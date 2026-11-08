@@ -20,6 +20,7 @@ import {
   reloadBtn,
 } from '../../lib/ui'
 import { IconFile, IconRefresh, IconX } from '../../components/icons'
+import { useT } from '../../i18n'
 
 interface Props {
   files: MdFileItem[]
@@ -33,14 +34,15 @@ interface Props {
 
 /** Cột trái chế độ Markdown → Excel: file .md theo thứ tự sheet, tên sheet sẽ tạo của từng file. */
 export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, onMove, onRemove }: Props): React.ReactElement {
+  const t = useT()
   return (
     <aside className={cn('x2m-files', filesAside, dragOver && 'drag-over', dragOver && filesAsideDrag)}>
-      <div className={cn("x2m-pane-title", paneTitle)}>File Markdown ({files.length})</div>
+      <div className={cn('x2m-pane-title', paneTitle, '!text-[11.5px] !normal-case !tracking-normal')}>{t('mdfiles.title', { n: files.length })}</div>
       {files.length === 0 ? (
         <div className={cn("x2m-empty", emptyBox)}>
           <IconFile size={36} />
-          <p className={emptyP}>Kéo thả file Markdown vào đây</p>
-          <p className={cn("dim", emptyP, emptyHint)}>hoặc bấm nút Thêm file Markdown ở trên</p>
+          <p className={emptyP}>{t('mdfiles.empty')}</p>
+          <p className={cn("dim", emptyP, emptyHint)}>{t('mdfiles.emptyHint')}</p>
         </div>
       ) : (
         <div className="x2m-file-list flex flex-col gap-1.5 px-2 pt-2 pb-4">
@@ -50,15 +52,15 @@ export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, on
                 <button className={cn("x2m-file-name", fileNameBtn)} onClick={() => onSelect(f.id)} title={f.path}>
                   <span className={cn("x2m-file-name-text", fileNameText)}>{f.name}</span>
                   <span className={cn('x2m-md-count text-[11.5px]', f.error ? 'x2m-md-count-err text-danger' : 'dim text-dim')}>
-                    {f.loading ? 'đang đọc...' : f.error ? 'lỗi' : `${f.sheets.length} sheet`}
+                    {f.loading ? t('files.reading') : f.error ? t('mdfiles.error') : t('mdfiles.sheets', { n: f.sheets.length })}
                   </span>
                 </button>
                 <button
                   className={cn("x2m-move-btn x2m-reload-btn", moveBtn, reloadBtn)}
                   onClick={() => onReload(f.id)}
                   disabled={f.loading}
-                  title="Tải lại file (khi đã sửa file .md)"
-                  aria-label="Tải lại"
+                  title={t('mdfiles.reloadTitle')}
+                  aria-label={t('mdfiles.reload')}
                 >
                   <IconRefresh size={14} />
                 </button>
@@ -66,8 +68,8 @@ export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, on
                   className={cn("x2m-move-btn", moveBtn)}
                   onClick={() => onMove(f.id, -1)}
                   disabled={idx === 0}
-                  title="Đưa lên"
-                  aria-label="Đưa lên"
+                  title={t('mdfiles.up')}
+                  aria-label={t('mdfiles.up')}
                 >
                   ↑
                 </button>
@@ -75,16 +77,16 @@ export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, on
                   className={cn("x2m-move-btn", moveBtn)}
                   onClick={() => onMove(f.id, 1)}
                   disabled={idx === files.length - 1}
-                  title="Đưa xuống"
-                  aria-label="Đưa xuống"
+                  title={t('mdfiles.down')}
+                  aria-label={t('mdfiles.down')}
                 >
                   ↓
                 </button>
                 <button
                   className={cn("icon-btn", iconBtn)}
                   onClick={() => onRemove(f.id)}
-                  title="Xóa khỏi danh sách"
-                  aria-label="Xóa khỏi danh sách"
+                  title={t('common.removeFromList')}
+                  aria-label={t('common.removeFromList')}
                 >
                   <IconX size={14} />
                 </button>

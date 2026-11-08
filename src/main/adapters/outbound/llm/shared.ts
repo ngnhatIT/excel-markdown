@@ -18,9 +18,9 @@ export function contextBlock(contextText: string): string {
   return contextText.trim() ? `<context>\n${contextText}\n</context>` : ''
 }
 
-export function systemWithContext(contextText: string): string {
+export function systemWithContext(contextText: string, system = SYSTEM_INSTRUCTION): string {
   const ctx = contextBlock(contextText)
-  return ctx ? `${SYSTEM_INSTRUCTION}\n\n${ctx}` : SYSTEM_INSTRUCTION
+  return ctx ? `${system}\n\n${ctx}` : system
 }
 
 /** Tối đa 12 message gần nhất, bỏ message rỗng và message trả lời đứng đầu (Claude bắt buộc mở đầu bằng user). */
@@ -34,6 +34,8 @@ export function trimHistory(history: AiChatTurn[] = []): AiChatTurn[] {
 export function redactApiKey(text: string, apiKey?: string): string {
   let out = text.replace(/([?&]key=)[^&\s"')]+/gi, '$1***')
   out = out.replace(/AIza[0-9A-Za-z_-]{20,}/g, 'AIza***')
+  // Key Gemini dạng mới (AQ.…)
+  out = out.replace(/\bAQ\.[0-9A-Za-z_-]{20,}/g, 'AQ.***')
   out = out.replace(/sk-ant-[0-9A-Za-z_-]{10,}/g, 'sk-ant-***')
   out = out.replace(/sk-[0-9A-Za-z_-]{16,}/g, 'sk-***')
   const trimmedKey = (apiKey ?? '').trim()
@@ -211,6 +213,8 @@ export async function readSse(
       }
     }
   } catch (err) {
+    // onData ném (sự kiện lỗi / JSON hỏng): đóng luồng, không để kết nối HTTP treo tới khi server tự đóng
+    void reader.cancel().catch(() => {})
     if (signal?.aborted) throw new Error(USER_ABORT_MSG)
     throw err
   }

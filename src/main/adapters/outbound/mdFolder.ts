@@ -3,6 +3,8 @@
  */
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import type { MdSearchResult } from '../../../shared/types'
+import { searchMarkdownText, searchTerms } from '../../domain/mdSearch'
 
 /** Quá số file này thì dừng quét (chọn nhầm ổ C:\ không treo app). */
 export const MD_LIST_LIMIT = 5000
@@ -29,12 +31,14 @@ async function statMtimes(root: string, files: string[]): Promise<Record<string,
   return mtimes
 }
 
-/** Mọi file .md/.markdown dưới `root` (đệ quy, không theo symlink), đường dẫn tương đối phân cách `/`,
- * kèm mtime từng file. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw. */
-export async function listMarkdownFiles(
+/** Mọi file dưới `root` có tên thỏa `test` (đệ quy theo chiều rộng, không theo symlink, bỏ thư mục ẩn và SKIP_DIRS),
+ * đường dẫn tương đối phân cách `/`. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw.
+ * Quá `limit` file thì dừng, `truncated: true`. Dùng chung cho Đọc Markdown và đầu vào thư mục của CLI / MCP. */
+export async function walkFiles(
   root: string,
-  limit = MD_LIST_LIMIT
-): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
+  test: (name: string) => boolean,
+  limit: number
+): Promise<{ files: string[]; truncated: boolean }> {
   const files: string[] = []
   const queue: string[] = ['']
   while (queue.length > 0) {
@@ -50,13 +54,22 @@ export async function listMarkdownFiles(
       const childRel = rel ? `${rel}/${e.name}` : e.name
       if (e.isDirectory()) {
         if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) queue.push(childRel)
-      } else if (e.isFile() && /\.(md|markdown)$/i.test(e.name)) {
-        if (files.length >= limit) return { files, mtimes: await statMtimes(root, files), truncated: true }
+      } else if (e.isFile() && test(e.name)) {
+        if (files.length >= limit) return { files, truncated: true }
         files.push(childRel)
       }
     }
   }
-  return { files, mtimes: await statMtimes(root, files), truncated: false }
+  return { files, truncated: false }
+}
+
+/** Mọi file .md/.markdown dưới `root` (xem walkFiles), kèm mtime từng file. */
+export async function listMarkdownFiles(
+  root: string,
+  limit = MD_LIST_LIMIT
+): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
+  const { files, truncated } = await walkFiles(root, (name) => /\.(md|markdown)$/i.test(name), limit)
+  return { files, mtimes: await statMtimes(root, files), truncated }
 }
 
 /** Nội dung file Markdown (UTF-8, bỏ BOM). Throw lỗi tiếng Việt nếu file quá lớn. */
@@ -67,4 +80,87 @@ export async function readMarkdownFile(path: string): Promise<string> {
   }
   const text = await readFile(path, 'utf-8')
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+}
+
+// Nội dung file cho tìm kiếm: gõ từ khóa nhiều lần không đọc lại cả thư mục. Khóa theo mtime + size; tối đa ~64 MB (LRU).
+const TEXT_CACHE_MAX = 64 * 1024 * 1024
+const textCache = new Map<string, { mtime: number; size: number; text: string }>()
+let textCacheBytes = 0
+
+async function readMarkdownCached(path: string): Promise<string> {
+  const st = await stat(path)
+  const hit = textCache.get(path)
+  if (hit && hit.mtime === st.mtimeMs && hit.size === st.size) {
+    textCache.delete(path)
+    textCache.set(path, hit)
+    return hit.text
+  }
+  const text = await readMarkdownFile(path)
+  if (hit) {
+    textCache.delete(path)
+    textCacheBytes -= hit.text.length * 2
+  }
+  const bytes = text.length * 2
+  if (bytes > TEXT_CACHE_MAX / 4) return text // file rất lớn: không giữ
+  textCache.set(path, { mtime: st.mtimeMs, size: st.size, text })
+  textCacheBytes += bytes
+  for (const [k, v] of textCache) {
+    if (textCacheBytes <= TEXT_CACHE_MAX) break
+    textCache.delete(k)
+    textCacheBytes -= v.text.length * 2
+  }
+  return text
+}
+
+/** Nội dung các file `rels` dưới `root` (qua cache), 8 file một đợt như tìm kiếm. File không đọc được / quá lớn
+ * thì bỏ qua. `isStale` true giữa chừng -> null (đã có yêu cầu mới hơn). */
+export async function readMarkdownFolder(
+  root: string,
+  rels: string[],
+  isStale: () => boolean = () => false
+): Promise<{ rel: string; text: string }[] | null> {
+  const out: { rel: string; text: string }[] = []
+  for (let i = 0; i < rels.length; i += 8) {
+    if (isStale()) return null
+    const batch = await Promise.all(
+      rels.slice(i, i + 8).map((rel) => readMarkdownCached(join(root, rel)).then((text) => ({ rel, text }), () => null))
+    )
+    for (const d of batch) if (d) out.push(d)
+  }
+  return out
+}
+
+/** Tìm `query` trong nội dung mọi file .md dưới `root` (cùng danh sách với `listMarkdownFiles`).
+ * File không đọc được / quá lớn thì bỏ qua. Dừng khi đủ `maxFiles` file khớp. */
+export async function searchMarkdownFolder(
+  root: string,
+  query: string,
+  maxFiles = 200,
+  maxHitsPerFile = 20,
+  /** true = đã có lần tìm mới hơn: dừng sớm, kết quả này sẽ bị bỏ */
+  isStale: () => boolean = () => false
+): Promise<MdSearchResult> {
+  const terms = searchTerms(query)
+  const out: MdSearchResult = { files: [], truncated: false }
+  if (terms.length === 0) return out
+  const { files } = await listMarkdownFiles(root)
+  // 8 file một đợt: file tới 20 MB, đợt lớn hơn làm main process ngốn bộ nhớ
+  for (let i = 0; i < files.length; i += 8) {
+    if (isStale()) return out
+    const batch = await Promise.all(
+      files.slice(i, i + 8).map(async (rel) => {
+        try {
+          return { rel, hits: searchMarkdownText(await readMarkdownCached(join(root, rel)), terms, maxHitsPerFile) }
+        } catch {
+          return { rel, hits: [] }
+        }
+      })
+    )
+    for (const f of batch) {
+      if (f.hits.length === 0) continue
+      if (out.files.length >= maxFiles) return { ...out, truncated: true }
+      out.files.push(f)
+    }
+  }
+  return out
 }

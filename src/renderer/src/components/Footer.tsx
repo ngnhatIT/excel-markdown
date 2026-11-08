@@ -1,5 +1,6 @@
 import type { ConvertProgress } from '../lib/api'
 import { cn } from '../lib/utils'
+import { useT } from '../i18n'
 import { btn, btnGhost, btnSm, cx } from '../lib/ui'
 import { IconCheck, IconFolder, IconOpen } from './icons'
 
@@ -26,17 +27,18 @@ interface Props {
 
 /** Đáy workbench: thanh thao tác (thư mục xuất, tiến độ, Convert) + status bar kiểu IDE. */
 export function Footer(p: Props): React.ReactElement {
+  const t = useT()
   const { outDir, progress, converting } = p
   const disabled = converting || !p.canConvert
   return (
     <footer className="x2m-footer shrink-0 border-t border-line-subtle">
       <div className="flex items-center justify-between gap-4 px-3 py-2">
-        <div className="x2m-outdir flex min-w-0 flex-1 items-center gap-2 text-dim" title={outDir || 'Chưa chọn thư mục lưu'}>
+        <div className="x2m-outdir flex min-w-0 flex-1 items-center gap-2 text-dim" title={outDir || t('footer.noOutDir')}>
           <div className="glass-chip flex min-w-0 items-center gap-2 rounded-lg py-1 pl-2.5 pr-1">
             <IconFolder size={15} />
-            <span className={cn('x2m-outdir-text max-w-[420px] truncate font-mono text-[11.5px]', !outDir && 'dim font-sans text-faint')}>{outDir || (p.outDirPlaceholder ?? 'Chưa chọn thư mục lưu file.md')}</span>
+            <span className={cn('x2m-outdir-text max-w-[420px] truncate font-mono text-[11.5px]', !outDir && 'dim font-sans text-faint')}>{outDir || (p.outDirPlaceholder ?? t('footer.noOutDirMd'))}</span>
             {outDir && (
-              <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, '!p-1')} onClick={p.onOpenDir} title="Mở thư mục" aria-label="Mở thư mục">
+              <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, '!p-1')} onClick={p.onOpenDir} title={t('common.openFolder')} aria-label={t('common.openFolder')}>
                 <IconOpen size={13} />
               </button>
             )}
@@ -48,10 +50,10 @@ export function Footer(p: Props): React.ReactElement {
               onChange={(e) => {
                 if (e.target.value) p.onPickRecentDir(e.target.value)
               }}
-              title="Thư mục gần đây"
-              aria-label="Thư mục gần đây"
+              title={t('footer.recent')}
+              aria-label={t('footer.recent')}
             >
-              <option value="">Gần đây...</option>
+              <option value="">{t('footer.recentPlaceholder')}</option>
               {p.recentDirs.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -60,7 +62,7 @@ export function Footer(p: Props): React.ReactElement {
             </select>
           )}
           <button className={cx('btn btn-sm', btn, btnSm)} onClick={p.onChooseDir}>
-            Chọn thư mục
+            {t('footer.chooseDir')}
           </button>
         </div>
         <div className="x2m-footer-actions flex shrink-0 items-center gap-3">
@@ -72,7 +74,7 @@ export function Footer(p: Props): React.ReactElement {
                 aria-valuenow={progress.done}
                 aria-valuemin={0}
                 aria-valuemax={progress.total}
-                aria-label="Tiến độ convert"
+                aria-label={t('footer.progress')}
               >
                 {/* scaleX thay vì width để chỉ animate transform */}
                 <div className="x2m-progress-fill h-full origin-left bg-accent transition-transform duration-500 ease-spring motion-reduce:transition-none" style={{ transform: `scaleX(${progress.done / progress.total})` }} />
@@ -83,8 +85,8 @@ export function Footer(p: Props): React.ReactElement {
             </div>
           )}
           {converting && (
-            <button className={cx('btn btn-sm', btn, btnSm)} onClick={p.onCancel} title="Dừng convert (file đã ghi được giữ nguyên)">
-              Hủy
+            <button className={cx('btn btn-sm', btn, btnSm)} onClick={p.onCancel} title={t('footer.cancelTitle')}>
+              {t('common.cancel')}
             </button>
           )}
           <button
@@ -97,7 +99,7 @@ export function Footer(p: Props): React.ReactElement {
             disabled={disabled}
             title="Ctrl+Enter"
           >
-            {converting ? 'Đang convert...' : p.convertLabel}
+            {converting ? t('common.converting') : p.convertLabel}
             <span className="flex size-7 items-center justify-center rounded-full bg-white/20 transition-transform duration-300 ease-spring group-enabled:group-hover:-translate-y-px group-enabled:group-hover:translate-x-0.5 group-enabled:group-hover:scale-105">
               <IconCheck size={15} />
             </span>
@@ -107,13 +109,13 @@ export function Footer(p: Props): React.ReactElement {
       <div className="x2m-statusbar flex h-7 items-center gap-4 border-t border-line-subtle bg-canvas/50 px-3 text-[11px] text-faint">
         <span className="flex items-center gap-1.5">
           <span className={cn('size-1.5 rounded-full', converting ? 'animate-pulse bg-warning' : 'bg-success')} aria-hidden="true" />
-          {converting ? 'Đang convert' : 'Sẵn sàng'}
+          {t(converting ? 'footer.busy' : 'footer.ready')}
         </span>
         <span className="dim">{p.status}</span>
         <span className="ml-auto flex items-center gap-4">
-          {p.lastConvertAt && <span>Convert lúc {p.lastConvertAt}</span>}
+          {p.lastConvertAt && <span>{t('footer.lastConvert', { time: p.lastConvertAt })}</span>}
           {p.appVersion && <span className="tabular">v{p.appVersion}</span>}
-          <span className="hidden lg:inline">Ctrl+Enter để convert</span>
+          <span className="hidden lg:inline">{t('footer.shortcut')}</span>
         </span>
       </div>
     </footer>

@@ -62,3 +62,13 @@ describe('guideFileStem', () => {
     expect(guideFileStem('.md')).toBe('ghi-chu')
   })
 })
+
+describe('buildGuideHtml: mục lục', () => {
+  it('chữ có & " < không bị escape hai lần, id sạch', () => {
+    const out = buildGuideHtml('T', '<h2>A &amp; B</h2><h2>C &quot;q&quot; &lt;x&gt;</h2>')
+    expect(out).toContain('>A &amp; B</a>')
+    expect(out).toContain('>C &quot;q&quot; &lt;x&gt;</a>')
+    expect(out).not.toContain('&amp;amp;')
+    expect(out).not.toMatch(/id="[^"]*(amp|quot)/)
+  })
+})

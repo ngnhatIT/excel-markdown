@@ -5,8 +5,9 @@
  */
 import * as XLSX from 'xlsx'
 import type { ConvertOptions, VerticalMergeMode } from '../../../shared/types'
+import { richRuns, sheetExtras, type SheetExtras } from './cellExtras'
 import { sheetDrawings, type DrawingItem } from './drawings'
-import { ASSET_TOKEN, escapeMarkdownInline, inlineAssets, type SheetResult } from './output'
+import { ASSET_TOKEN, SHEET_TOKEN, escapeMarkdownInline, inlineAssets, linkSheets, type SheetResult } from './output'
 
 // Giữ API cũ: test và code cũ import các hàm này từ converter.
 export { dedupeFileName, escapeMarkdownInline, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
@@ -75,25 +76,55 @@ export function parseRange(s: string | undefined): XLSX.Range | null {
   return r.s.r >= 0 && r.s.r <= r.e.r && r.s.c <= r.e.c ? r : null
 }
 
-function getCell(ws: WorkSheet, r: number, c: number, esc: boolean, formulas = false): string {
-  const cell = ws[XLSX.utils.encode_cell({ r, c })]
+/** escapeMarkdownInline chỉ escape `~` khi có >= 2 dấu; ghép thêm `~~` để mọi `~` đều bị escape
+ * (không lẫn với `~~` gạch ngang ta thêm) rồi cắt `\~\~` ở cuối. */
+const escTilde = (s: string): string => escapeMarkdownInline(s + '~~').slice(0, -4)
+
+/** `~~chữ~~` (見え消し). Khoảng trắng đầu/cuối để ngoài: GFM không nhận `~~ chữ~~`. */
+function strikeMd(t: string, esc: boolean): string {
+  const core = t.trim()
+  if (!core) return t
+  const lead = t.slice(0, t.length - t.trimStart().length)
+  const trail = t.slice(t.trimEnd().length)
+  return lead + '~~' + (esc ? escTilde(core) : core) + '~~' + trail
+}
+
+function getCell(ws: WorkSheet, r: number, c: number, esc: boolean, formulas = false, ex: SheetExtras = {}): string {
+  const addr = XLSX.utils.encode_cell({ r, c })
+  const cell = ws[addr]
   if (!cell) return ''
   try {
     const text = XLSX.utils.format_cell(cell).trim()
+    const strike = ex.struck?.has(addr) === true
+    const md = (t: string): string => (strike ? strikeMd(t, esc) : esc ? escapeMarkdownInline(t) : t)
     if (formulas && typeof cell.f === 'string' && cell.f !== '') {
       // shortcut: công thức chứa backtick/xuống dòng bị làm phẳng, đủ cho đọc hiểu
       const f = '`=' + cell.f.replace(/[`\r\n]+/g, ' ') + '`'
-      return text ? (esc ? escapeMarkdownInline(text) : text) + ' ' + f : f
+      return text ? md(text) + ' ' + f : f
     }
     const target = cell.l?.Target?.trim()
+    // Rich text gạch ngang một phần: mọi `~` của ô đều escape cho nhất quán
+    if (!strike && !target && typeof cell.r === 'string' && cell.r.includes('strike')) {
+      const runs = richRuns(cell.r)
+      if (runs.some((x) => x.strike && x.text.trim() !== '')) {
+        return runs.map((x) => (x.strike ? strikeMd(x.text, esc) : esc ? escTilde(x.text) : x.text)).join('').trim()
+      }
+    }
+    if (target?.startsWith('#') && text) {
+      // Link sang sheet khác: đích thật (heading / file .md) do output quyết định; không giải được -> chữ thường
+      const sheet = ex.sheetOf?.(target)
+      if (!sheet) return md(text)
+      const label = md(text).replace(/(?<!\\)[[\]]/g, '\\$&')
+      return '[' + label + '](' + SHEET_TOKEN + encodeURIComponent(sheet).replace(/[()]/g, (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase()) + ')'
+    }
     if (target && text && text !== target) {
-      if (!esc) return '[' + text + '](' + target + ')'
-      const label = escapeMarkdownInline(text).replace(/(?<!\\)[[\]]/g, '\\$&')
+      if (!esc) return '[' + md(text) + '](' + target + ')'
+      const label = md(text).replace(/(?<!\\)[[\]]/g, '\\$&')
       // encodeURIComponent không encode ( ) nên tự map; ngoặc/khoảng trắng làm gãy cú pháp link
       const href = target.replace(/[ ()<>]/g, (ch: string) => '%' + ch.charCodeAt(0).toString(16).toUpperCase())
       return '[' + label + '](' + href + ')'
     }
-    return esc ? escapeMarkdownInline(text) : text
+    return md(text)
   } catch {
     return ''
   }
@@ -149,7 +180,8 @@ function sheetToGrid(
   ws: WorkSheet,
   esc: boolean,
   clip: XLSX.Range | null = null,
-  formulas = false
+  formulas = false,
+  ex: SheetExtras = {}
 ): GridData {
   const ref = effectiveRange(ws, clip)
   const hMergesByRow = new Map<number, HMergeSpan[]>()
@@ -159,7 +191,7 @@ function sheetToGrid(
   const grid: string[][] = []
   for (let r = ref.s.r; r <= ref.e.r; r++) {
     const row: string[] = []
-    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c, esc, formulas))
+    for (let c = ref.s.c; c <= ref.e.c; c++) row.push(getCell(ws, r, c, esc, formulas, ex))
     grid.push(row)
   }
   let bannerIdx = -1
@@ -442,10 +474,11 @@ interface SheetNote {
   row: number
   col: number
   md: string
-  image: boolean
+  /** Khối riêng (ảnh, biểu đồ) thay vì một dòng trong list */
+  block: boolean
 }
 
-/** Nội dung nằm ngoài giá trị ô: ảnh, shape, mũi tên (lớp vẽ) và comment của ô.
+/** Nội dung nằm ngoài giá trị ô: ảnh, biểu đồ, shape, mũi tên (lớp vẽ) và comment của ô.
  * Mỗi note neo theo ô trên-trái để chèn vào Markdown đúng chỗ của nó trong sheet. */
 function sheetNotes(
   ws: WorkSheet,
@@ -453,13 +486,14 @@ function sheetNotes(
   origin: { r: number; c: number },
   clip: XLSX.Range | null,
   esc: boolean,
-  multiline: 'br' | 'space'
+  opts: ConvertOptions,
+  ex: SheetExtras
 ): SheetNote[] {
-  const txt = (s: string): string => escCell(esc ? escapeMarkdownInline(s) : s, multiline)
+  const txt = (s: string): string => escCell(esc ? escapeMarkdownInline(s) : s, opts.multiline)
   const notes: SheetNote[] = []
-  const add = (r: number, c: number, md: string, image = false): void => {
+  const add = (r: number, c: number, md: string, block = false): void => {
     if (clip && (r < clip.s.r || r > clip.e.r || c < clip.s.c || c > clip.e.c)) return
-    notes.push({ row: r - origin.r, col: c, md, image })
+    notes.push({ row: r - origin.r, col: c, md, block })
   }
   for (const d of drawings) {
     for (const im of d.images) {
@@ -467,6 +501,16 @@ function sheetNotes(
       add(d.row, d.col, `![${alt} (${d.ref})](${ASSET_TOKEN}${encodeURIComponent(im.name)})`, true)
     }
     for (const t of d.texts) add(d.row, d.col, `- 〔図形 ${d.ref}〕${txt(t)}`)
+    for (const ch of d.charts) {
+      const head = `**〔グラフ ${d.ref}〕${txt(ch.type)}${ch.title ? '「' + txt(ch.title) + '」' : ''}**`
+      const n = Math.max(ch.categories.length, ...ch.series.map((x) => x.values.length))
+      const rows = Array.from({ length: n }, (_, i) => [
+        txt(ch.categories[i] ?? String(i + 1)),
+        ...ch.series.map((x) => txt(x.values[i] ?? '')),
+      ])
+      const table = renderTable(['項目', ...ch.series.map((x) => txt(x.name))], rows, opts)
+      add(d.row, d.col, table ? head + '\n\n' + table : head, true)
+    }
     const a = d.arrow
     if (a) add(d.row, d.col, `- 〔矢印〕${txt(a.from)} ${a.both ? '↔' : '→'} ${txt(a.to)}${a.label ? '（' + txt(a.label) + '）' : ''}`)
   }
@@ -475,8 +519,11 @@ function sheetNotes(
     const body = ((ws[k] as XLSX.CellObject).c ?? []).map((x) => (x.t ?? '').trim()).filter((t) => t !== '').join('\n')
     if (!body) continue
     const { r, c } = XLSX.utils.decode_cell(k)
-    const cellText = escCell(getCell(ws, r, c, esc), 'space')
+    const cellText = escCell(getCell(ws, r, c, esc, false, ex), 'space')
     add(r, c, `- 〔コメント ${k}${cellText ? ': ' + cellText : ''}〕${txt(body)}`)
+  }
+  for (const l of ex.lists ?? []) {
+    add(l.row, l.col, `- 〔入力規則 ${txt(l.ref)}〕${l.values.length > 0 ? l.values.map(txt).join(' / ') : txt('=' + l.formula)}`)
   }
   return notes.sort((x, y) => x.row - y.row || x.col - y.col)
 }
@@ -485,7 +532,8 @@ export function sheetToMarkdown(
   ws: WorkSheet,
   sheetName: string,
   opts: ConvertOptions,
-  drawings: DrawingItem[] = []
+  drawings: DrawingItem[] = [],
+  ex: SheetExtras = {}
 ): string {
   // Option có thể thiếu khi store cũ / caller cũ: mặc định escape.
   const esc = opts.escapeMarkdown !== false
@@ -494,7 +542,7 @@ export function sheetToMarkdown(
   const blk = (s: string): string => (esc ? escapeBlockStart(s) : s)
   const title = esc ? escapeMarkdownInline(sheetName) : sheetName
   const clip = parseRange(opts.range)
-  const { grid, hMergesByRow, vMergedCells, origin } = sheetToGrid(ws, esc, clip, opts.showFormulas === true)
+  const { grid, hMergesByRow, vMergedCells, origin } = sheetToGrid(ws, esc, clip, opts.showFormulas === true, ex)
   const out: string[] = []
   if (opts.includeSheetTitle) out.push('## ' + title, '')
   /** Sub-bullet meta không có dòng trống phía sau (để các dòng nối tiếp liền nhau).
@@ -503,14 +551,14 @@ export function sheetToMarkdown(
   const startBlock = (): void => {
     if (out.length > 0 && out[out.length - 1] !== '') out.push('')
   }
-  const notes = sheetNotes(ws, drawings, origin, clip, esc, opts.multiline)
+  const notes = sheetNotes(ws, drawings, origin, clip, esc, opts, ex)
   let noteIdx = 0
-  /** Ghi các note neo ở dòng grid < limit: ảnh thành đoạn riêng, còn lại gom thành list. */
+  /** Ghi các note neo ở dòng grid < limit: ảnh/biểu đồ thành khối riêng, còn lại gom thành list. */
   const flushNotes = (limit: number): void => {
     let inList = false
     while (noteIdx < notes.length && notes[noteIdx].row < limit) {
       const n = notes[noteIdx++]
-      if (n.image) {
+      if (n.block) {
         startBlock()
         out.push(n.md, '')
         inList = false
@@ -770,13 +818,22 @@ export function listSheetsInWorkbook(
   })
 }
 
+/** Lớp vẽ (ảnh / shape / biểu đồ) chỉ là phần thêm: XML lạ làm lỗi thì bỏ lớp vẽ, vẫn convert giá trị ô của sheet. */
+function safeDrawings(wb: WorkBook, sheetName: string): ReturnType<typeof sheetDrawings> {
+  try {
+    return sheetDrawings(wb, sheetName)
+  } catch {
+    return { items: [], media: {} }
+  }
+}
+
 /** Convert một sheet của workbook theo tên. Ném lỗi nếu không tìm thấy sheet. */
 export function convertSheetInWorkbook(wb: WorkBook, sheetName: string, opts: ConvertOptions): string {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error('Không tìm thấy sheet: ' + sheetName)
-  const d = sheetDrawings(wb, sheetName)
-  // Preview không có thư mục ảnh: nhúng ảnh dạng data: để xem được ngay
-  return inlineAssets(sheetToMarkdown(ws, sheetName, opts, d.items), d.media)
+  const d = safeDrawings(wb, sheetName)
+  // Preview không có thư mục ảnh: nhúng ảnh dạng data:; một sheet nên link sang sheet khác thành chữ thường
+  return linkSheets(inlineAssets(sheetToMarkdown(ws, sheetName, opts, d.items, sheetExtras(wb, sheetName)), d.media), () => undefined)
 }
 
 /** Convert nhiều sheet của một workbook. Bỏ qua sheet không tồn tại;
@@ -790,8 +847,8 @@ export function convertSheetsInWorkbook(
   for (const sn of sheetNames) {
     const ws = wb.Sheets[sn]
     if (!ws) continue
-    const d = sheetDrawings(wb, sn)
-    const md = sheetToMarkdown(ws, sn, opts, d.items)
+    const d = safeDrawings(wb, sn)
+    const md = sheetToMarkdown(ws, sn, opts, d.items, sheetExtras(wb, sn))
     if (opts.skipEmptySheets && md.trim() === '') continue
     const images = Object.fromEntries(Object.entries(d.media).filter(([name]) => md.includes(ASSET_TOKEN + encodeURIComponent(name))))
     results.push({ sheet: sn, markdown: md, ...extractSheetMeta(ws, sn), ...(Object.keys(images).length > 0 ? { images } : {}) })

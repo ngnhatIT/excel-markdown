@@ -23,6 +23,7 @@ import {
   chk,
 } from '../../lib/ui'
 import { IconChevronDown, IconFile, IconTrash, IconX } from '../../components/icons'
+import { useT } from '../../i18n'
 
 const filterWrap = 'px-2.5 py-2'
 const chevronBtn =
@@ -50,6 +51,7 @@ interface Props {
 
 /** Cột trái: danh sách file Excel, sheet của từng file, ô lọc sheet và thao tác hàng loạt. */
 export function FileList(p: Props): React.ReactElement {
+  const t = useT()
   const { files, expanded, selFileId, selSheet, sheetFilter } = p
 
   if (p.collapsed && p.onToggleCollapsed) {
@@ -58,15 +60,15 @@ export function FileList(p: Props): React.ReactElement {
         <button
           className="x2m-side-strip flex size-full cursor-pointer flex-col items-center gap-2.5 py-3 text-dim transition-colors duration-150 hover:bg-hover hover:text-ink motion-reduce:transition-none"
           onClick={p.onToggleCollapsed}
-          title="Hiện danh sách file Excel"
-          aria-label="Hiện danh sách file"
+          title={t('files.showTitle')}
+          aria-label={t('files.show')}
           aria-expanded={false}
         >
           <span className="x2m-left-chevron flex -rotate-90">
             <IconChevronDown size={14} />
           </span>
           <IconFile size={16} />
-          <span className="x2m-side-vlabel text-xs font-bold tracking-[0.04em] [writing-mode:vertical-rl]">File Excel ({files.length})</span>
+          <span className="x2m-side-vlabel text-xs font-bold tracking-[0.04em] [writing-mode:vertical-rl]">{t('files.title', { n: files.length })}</span>
         </button>
       </aside>
     )
@@ -86,24 +88,24 @@ export function FileList(p: Props): React.ReactElement {
       className={cn('x2m-files', filesAside, p.dragOver && 'drag-over', p.dragOver && filesAsideDrag)}
       style={p.width ? { width: p.width, minWidth: p.width } : undefined}
     >
-      <div className={cn("x2m-pane-title", paneTitle)}>
-        <span>File Excel ({files.length})</span>
+      <div className={cn('x2m-pane-title', paneTitle, '!text-[11.5px] !normal-case !tracking-normal')}>
+        <span>{t('files.title', { n: files.length })}</span>
         <span className="x2m-side-head-actions flex items-center gap-1">
           {files.length > 0 && totalSheets > 0 && (
             <button
               className={cn("btn btn-sm btn-ghost x2m-mini-btn", btnGhost, btnSm, btnMini)}
               onClick={toggleAllFiles}
-              title={allChecked ? 'Bỏ chọn tất cả sheet' : 'Chọn tất cả sheet của mọi file'}
+              title={t(allChecked ? 'files.unselectAllTitle' : 'files.selectAllTitle')}
             >
-              {allChecked ? 'Bỏ chọn hết' : 'Chọn hết'}
+              {t(allChecked ? 'files.unselectAll' : 'files.selectAll')}
             </button>
           )}
           {files.length > 1 && p.onClearAll && (
             <button
               className={cn("x2m-move-btn x2m-reload-btn", moveBtn, reloadBtn)}
               onClick={p.onClearAll}
-              title="Xóa toàn bộ danh sách file"
-              aria-label="Xóa toàn bộ danh sách"
+              title={t('files.clearTitle')}
+              aria-label={t('files.clear')}
             >
               <IconTrash size={13} />
             </button>
@@ -112,8 +114,8 @@ export function FileList(p: Props): React.ReactElement {
             <button
               className={cn("x2m-move-btn x2m-reload-btn", moveBtn, reloadBtn)}
               onClick={p.onToggleCollapsed}
-              title="Thu gọn cột danh sách file"
-              aria-label="Thu gọn danh sách file"
+              title={t('files.collapseTitle')}
+              aria-label={t('files.collapse')}
               aria-expanded
             >
               <span className="x2m-left-chevron open flex rotate-90">
@@ -128,18 +130,18 @@ export function FileList(p: Props): React.ReactElement {
           <input
             className={cn("x2m-filter-input", input)}
             type="search"
-            placeholder="Lọc sheet..."
+            placeholder={t('files.filter')}
             value={sheetFilter}
             onChange={(e) => p.onSheetFilterChange(e.target.value)}
-            aria-label="Lọc sheet theo tên"
+            aria-label={t('files.filterAria')}
           />
         </div>
       )}
       {files.length === 0 ? (
         <div className={cn("x2m-empty", emptyBox)}>
           <IconFile size={36} />
-          <p className={emptyP}>Kéo thả file Excel vào đây</p>
-          <p className={cn("dim", emptyP, emptyHint)}>hoặc bấm nút Thêm file Excel ở trên</p>
+          <p className={emptyP}>{t('files.empty')}</p>
+          <p className={cn("dim", emptyP, emptyHint)}>{t('files.emptyHint')}</p>
         </div>
       ) : (
         <div className="x2m-file-list flex flex-col gap-1.5 px-2 pb-4">
@@ -160,25 +162,26 @@ export function FileList(p: Props): React.ReactElement {
                       if (el) el.indeterminate = checked > 0 && checked < f.sheets.length
                     }}
                     onChange={(e) => p.onToggleFileSheets(f.id, e.target.checked)}
-                    title="Chọn / bỏ chọn tất cả sheet"
+                    title={t('files.toggleSheets')}
+                    aria-label={`${t('files.toggleSheets')}: ${f.name}`}
                   />
                   <button className={cn("x2m-file-name", fileNameBtn)} onClick={() => p.onToggleExpanded(f.id)} title={f.path}>
                     <span className={cn("x2m-file-name-text", fileNameText)}>{f.name}</span>
-                    <span className="dim text-[11.5px] text-dim">{f.loading ? 'đang đọc...' : `${checked}/${f.sheets.length} sheet`}</span>
+                    <span className="dim text-[11.5px] text-dim">{f.loading ? t('files.reading') : t('files.checked', { checked, total: f.sheets.length })}</span>
                   </button>
                   <button
                     className={cn('x2m-chevron', chevronBtn, isOpen && 'open rotate-180')}
                     onClick={() => p.onToggleExpanded(f.id)}
-                    title={isOpen ? 'Thu gọn' : 'Mở rộng'}
-                    aria-label={isOpen ? 'Thu gọn' : 'Mở rộng'}
+                    title={t(isOpen ? 'common.collapse' : 'common.expand')}
+                    aria-label={t(isOpen ? 'common.collapse' : 'common.expand')}
                   >
                     <IconChevronDown size={15} />
                   </button>
                   <button
                     className={cn("icon-btn", iconBtn)}
                     onClick={() => p.onRemoveFile(f.id)}
-                    title="Xóa khỏi danh sách"
-                    aria-label="Xóa khỏi danh sách"
+                    title={t('common.removeFromList')}
+                    aria-label={t('common.removeFromList')}
                   >
                     <IconX size={14} />
                   </button>
@@ -187,16 +190,16 @@ export function FileList(p: Props): React.ReactElement {
                   <div className={cn("x2m-file-error", fileError)}>
                     {f.error}
                     <button className={cn("btn btn-sm btn-ghost", btnGhost, btnSm)} onClick={() => p.onReloadSheets(f)}>
-                      Thử lại
+                      {t('common.retry')}
                     </button>
                   </div>
                 )}
                 {isOpen && (
                   <div className="x2m-sheets max-h-[340px] overflow-y-auto border-t border-line bg-soft p-1">
-                    {f.loading && <div className="x2m-loading p-4 text-[12.5px] text-faint">Đang đọc sheet...</div>}
+                    {f.loading && <div className="x2m-loading p-4 text-[12.5px] text-faint">{t('files.readingSheets')}</div>}
                     {visible.length === 0 && sheetFilter && !f.loading ? (
                       <div className="dim px-1 py-2 text-xs text-dim">
-                        Không có sheet nào khớp &ldquo;{sheetFilter}&rdquo;
+                        {t('files.noMatch', { q: sheetFilter })}
                       </div>
                     ) : (
                       visible.map((s) => (
@@ -209,7 +212,7 @@ export function FileList(p: Props): React.ReactElement {
                             className={cn("chk", chk)}
                             checked={s.checked}
                             onChange={(e) => p.onToggleSheet(f.id, s.name, e.target.checked)}
-                            aria-label={`Chọn sheet ${s.name}`}
+                            aria-label={t('files.selectSheet', { name: s.name })}
                           />
                           <button
                             className="x2m-sheet-name flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-sm p-0 text-left text-[12.5px] text-ink focus-visible:outline-2 focus-visible:outline-accent"
@@ -217,11 +220,11 @@ export function FileList(p: Props): React.ReactElement {
                               e.preventDefault()
                               p.onSelectSheet(f.id, s.name)
                             }}
-                            title={`${s.rows} dòng${s.hidden ? ' (sheet ẩn trong Excel)' : ''}`}
+                            title={t(s.hidden ? 'files.rowsHidden' : 'files.rows', { n: s.rows })}
                           >
                             <span className={cn("x2m-sheet-label min-w-0 flex-1 truncate", selFileId === f.id && selSheet === s.name && "font-semibold text-accent-ink")}>{s.name}</span>
-                            {s.hidden && <span className="x2m-tag inline-block shrink-0 rounded-md border border-line bg-raised px-[5px] text-[10px] leading-[15px] text-faint">ẩn</span>}
-                            <span className="x2m-sheet-rows shrink-0 text-[10.5px] tabular-nums text-faint">{s.rows}d</span>
+                            {s.hidden && <span className="x2m-tag inline-block shrink-0 rounded-md border border-line bg-raised px-[5px] text-[10px] leading-[15px] text-faint">{t('files.hiddenTag')}</span>}
+                            <span className="x2m-sheet-rows shrink-0 text-[10.5px] tabular-nums text-faint">{t('files.rowsShort', { n: s.rows })}</span>
                           </button>
                         </label>
                       ))

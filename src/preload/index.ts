@@ -11,9 +11,11 @@ import type {
   ConvertResultItem,
   MdConvertResult,
   MdFolderListing,
+  MdSearchResult,
   MdInspectResult,
   OutputMode,
 } from '../shared/types'
+import type { SpecIndex } from '../shared/specIndex'
 
 interface SheetListItem {
   name: string
@@ -23,7 +25,7 @@ interface SheetListItem {
 
 async function unwrap<T>(p: Promise<ApiResult<T>>): Promise<T> {
   const res = await p
-  if (!res.ok) throw new Error(res.error ?? 'Lỗi không xác định')
+  if (!res.ok) throw new Error(res.error ?? 'E_UNKNOWN') // mã lỗi, renderer dịch (errMsg)
   return res.data as T
 }
 
@@ -37,10 +39,16 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('dialog:openExcelFiles') as Promise<ApiResult<string[]>>),
   openMarkdownFiles: (): Promise<string[]> =>
     unwrap(ipcRenderer.invoke('dialog:openMarkdownFiles') as Promise<ApiResult<string[]>>),
+  openCompareFile: (): Promise<string | null> =>
+    unwrap(ipcRenderer.invoke('dialog:openCompareFile') as Promise<ApiResult<string | null>>),
+  /** Nội dung Markdown của file để so sánh (Excel được convert trong worker riêng). */
+  compareRead: (path: string): Promise<string> => unwrap(ipcRenderer.invoke('compare:read', path) as Promise<ApiResult<string>>),
   openDirectory: (): Promise<string | null> =>
     unwrap(ipcRenderer.invoke('dialog:openDirectory') as Promise<ApiResult<string | null>>),
   saveHtml: (defaultName: string, html: string): Promise<string | null> =>
     unwrap(ipcRenderer.invoke('export:html', defaultName, html) as Promise<ApiResult<string | null>>),
+  saveMarkdown: (defaultName: string, md: string): Promise<string | null> =>
+    unwrap(ipcRenderer.invoke('export:md', defaultName, md) as Promise<ApiResult<string | null>>),
   openPath: (target: string): Promise<void> =>
     unwrap(ipcRenderer.invoke('shell:openPath', target) as Promise<ApiResult<null>>).then(() => undefined),
   getVersion: (): Promise<string> =>
@@ -54,6 +62,9 @@ contextBridge.exposeInMainWorld('api', {
       return ''
     }
   },
+  /** Gửi lỗi render (ErrorBoundary) sang main để ghi error.log. */
+  logRenderer: (msg: string): void => ipcRenderer.send('log:renderer', String(msg).slice(0, 20_000)),
+  /** File Excel / Markdown mở bằng app (Explorer, dòng lệnh, instance thứ hai); renderer chia theo đuôi. */
   onOpenFiles: (cb: (paths: string[]) => void): (() => void) => {
     const listener = (_e: unknown, v: string[]): void => cb(v)
     ipcRenderer.on('open-files', listener)
@@ -98,6 +109,10 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('mdv:list', root) as Promise<ApiResult<MdFolderListing>>),
   readMarkdown: (path: string): Promise<string> =>
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
+  searchMarkdownFolder: (root: string, query: string): Promise<MdSearchResult> =>
+    unwrap(ipcRenderer.invoke('mdv:search', root, query) as Promise<ApiResult<MdSearchResult>>),
+  /** Bản đồ thiết kế + 影響調査 của thư mục đã mở. */
+  specIndex: (root: string): Promise<SpecIndex> => unwrap(ipcRenderer.invoke('mdv:specIndex', root) as Promise<ApiResult<SpecIndex>>),
 
   // Trợ lý AI (RAG: Gemini / Claude / OpenAI)
   aiGetConfig: (): Promise<AiConfigInfo> =>
@@ -114,6 +129,9 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('ai:delta', h)
     return () => ipcRenderer.removeListener('ai:delta', h)
   },
+  /** Dịch nhanh đoạn bôi đen bằng nhà cung cấp AI đã cấu hình. Lỗi 'NO_KEY' = chưa có API Key. */
+  aiTranslate: (text: string, target: string): Promise<string> =>
+    unwrap(ipcRenderer.invoke('ai:translate', text, target) as Promise<ApiResult<string>>),
   aiCancel: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

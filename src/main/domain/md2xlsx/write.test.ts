@@ -8,11 +8,11 @@ import * as XLSX from 'xlsx'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { PARTIAL_SUFFIX } from '../../application/ports/workerProtocol'
 import { estimateLines } from './layout'
-import type { Block, SheetModel } from './model'
+import type { Block, SheetModel, XCell } from './model'
 import { safeSheetName } from './names'
 import { parseMarkdownFile } from './parse'
 import { buildWorkbook, injectIgnoredErrors, LINE_HEIGHT, MAX_ROW_HEIGHT } from './write'
-import { saveWorkbook } from '../../adapters/outbound/xlsxWriter'
+import { finalizeXlsx, saveWorkbook } from '../../adapters/outbound/xlsxWriter'
 
 const T = (h: string[], ...rows: string[][]): Block => ({
   kind: 'table',
@@ -881,5 +881,112 @@ describe('saveWorkbook', () => {
     const out = join(dir, 'no-such-dir', 'x.xlsx')
     await expect(saveWorkbook(buildWorkbook([{ name: 'S', blocks: [] }]), out)).rejects.toMatchObject({ code: 'ENOENT' })
     expect(existsSync(out + PARTIAL_SUFFIX)).toBe(false)
+  })
+})
+
+
+describe('buildWorkbook: round-trip định dạng, căn cột, 入力規則, ghi chú, link, ảnh', () => {
+  const zipXml = async (sheets: SheetModel[], part = 'xl/worksheets/sheet1.xml') => {
+    const raw = Buffer.from((await buildWorkbook(sheets).xlsx.writeBuffer()) as ArrayBuffer)
+    const zip = await JSZip.loadAsync(await finalizeXlsx(raw))
+    return (await zip.file(part)?.async('string')) ?? ''
+  }
+  const tableOf = (...cells: XCell[]): Block => ({ kind: 'table', header: [{ text: 'h' }], rows: cells.map((c) => [c]) })
+
+  it('cả ô một định dạng -> font của ô (số vẫn là số); nhiều định dạng -> rich text', async () => {
+    const ws = (
+      await reload([
+        {
+          name: 'S',
+          blocks: [
+            tableOf(
+              { text: '10', runs: [{ text: '10', bold: true }] },
+              { text: '取消', runs: [{ text: '取消', strike: true }] },
+              { text: 'a b c', runs: [{ text: 'a ' }, { text: 'b', bold: true }, { text: ' ' }, { text: 'c', code: true }] }
+            )
+          ]
+        }
+      ])
+    ).worksheets[0]
+    expect(ws.getCell('A2').value).toBe(10)
+    expect(ws.getCell('A2').font).toMatchObject({ bold: true, name: '游ゴシック' })
+    expect(ws.getCell('A3').font).toMatchObject({ strike: true })
+    expect(ws.getCell('A4').value).toEqual({
+      richText: [
+        { text: 'a ', font: expect.not.objectContaining({ bold: true }) },
+        { text: 'b', font: expect.objectContaining({ bold: true }) },
+        { text: ' ', font: expect.anything() },
+        { text: 'c', font: expect.objectContaining({ name: 'MS Gothic' }) }
+      ]
+    })
+    // SheetJS đọc lại đúng chữ thuần
+    expect(await sheetJsText([{ name: 'S', blocks: [tableOf({ text: 'a b', runs: [{ text: 'a ' }, { text: 'b', italic: true }] })] }], 'A2')).toBe('a b')
+    // gạch ngang trong XML (Excel -> Markdown đọc ra ~~…~~)
+    expect(await zipXml([{ name: 'S', blocks: [tableOf({ text: 'x y', runs: [{ text: 'x ', strike: true }, { text: 'y' }] })] }], 'xl/sharedStrings.xml')).toContain('<strike/>')
+  })
+
+  it('căn ngang theo cột (cả header); cột không có align giữ mặc định', async () => {
+    const ws = (
+      await reload([{ name: 'S', blocks: [{ ...T(['a', 'b', 'c'], ['1', '2', '3']), align: ['center', 'right', null] } as Block] }])
+    ).worksheets[0]
+    expect(ws.getCell('A1').alignment).toMatchObject({ horizontal: 'center', wrapText: true })
+    expect(ws.getCell('B2').alignment).toMatchObject({ horizontal: 'right' })
+    expect(ws.getCell('C2').alignment?.horizontal).toBeUndefined()
+  })
+
+  it('入力規則 -> dataValidation type=list trên mọi hàng dữ liệu của cột', async () => {
+    const xml = await zipXml([{ name: 'S', blocks: [{ ...T(['No', '区分'], ['1', '入力'], ['2', '']), validations: [{ col: 1, values: ['入力', '選択'] }] } as Block] }])
+    expect(xml).toMatch(/<dataValidation type="list" allowBlank="1" sqref="B2:B3"><formula1>&quot;入力,選択&quot;<\/formula1><\/dataValidation>/)
+  })
+
+  it('ghi chú ô (note) đọc lại bằng SheetJS', async () => {
+    const b = await buildWorkbook([{ name: 'S', blocks: [tableOf({ text: '顧客コード', note: '桁数チェック' })] }]).xlsx.writeBuffer()
+    const ws = XLSX.read(Buffer.from(b as ArrayBuffer)).Sheets.S
+    expect(ws.A2.c?.[0].t).toBe('桁数チェック')
+  })
+
+  it("link nội bộ 'Sheet'!A1 -> hyperlink location, không còn quan hệ External; #slug chưa giải -> chữ", async () => {
+    const sheets: SheetModel[] = [
+      { name: 'A', blocks: [tableOf({ text: '参照', link: "'B b'!A1" }, { text: 'raw', link: '#b-b' })] },
+      { name: 'B b', blocks: [] }
+    ]
+    const xml = await zipXml(sheets)
+    expect(xml).toContain('<hyperlink ref="A2" location="&apos;B b&apos;!A1"/>')
+    expect(xml).not.toContain('ref="A3"')
+    expect(await zipXml(sheets, 'xl/worksheets/_rels/sheet1.xml.rels')).not.toContain('External')
+  })
+
+  it('đoạn văn có link -> mọi mảnh là hyperlink', async () => {
+    const ws = (await reload([{ name: 'S', blocks: [{ kind: 'paragraph', text: '詳細は仕様', link: 'https://e.example' }] }])).worksheets[0]
+    expect(ws.getCell('A1').value).toEqual({ text: '詳細は仕様', hyperlink: 'https://e.example' })
+  })
+
+  it('ảnh: nhúng, dành đủ hàng 15pt theo chiều cao (ảnh rộng thu về 800px); chưa đọc được -> chữ alt', async () => {
+    const png = readFileSync(fileURLToPath(new URL('../../../../resources/icon.png', import.meta.url)))
+    const ws = (
+      await reload([
+        {
+          name: 'S',
+          blocks: [
+            { kind: 'image', alt: 'a', src: 'a.png', image: { data: png, extension: 'png', width: 1600, height: 400 } },
+            { kind: 'image', alt: '代替', src: 'x2m-asset:b.png' }
+          ]
+        }
+      ])
+    ).worksheets[0]
+    // 1600×400 -> 800×200 -> 10 hàng, + 1 hàng trống -> alt ở A12
+    expect(ws.getImages()).toHaveLength(1)
+    expect(ws.getImages()[0].range.tl.nativeRow).toBe(0)
+    expect(ws.getRow(10).height).toBe(15)
+    expect(ws.getCell('A12').value).toBe('代替')
+  })
+
+  it('bảng rộng hơn 16 384 cột bị cắt cột (không ném lỗi); 100 000 dòng code merge nhanh', async () => {
+    const wide = T(Array.from({ length: 16400 }, (_, i) => String(i)))
+    const ws = (await reload([{ name: 'S', blocks: [wide] }])).worksheets[0]
+    expect(ws.getCell(1, 16384).value).toBe(16383)
+    const t = Date.now()
+    await buildWorkbook([{ name: 'S', blocks: [{ kind: 'code', lines: Array.from({ length: 100_000 }, () => 'x') }] }]).xlsx.writeBuffer()
+    expect(Date.now() - t).toBeLessThan(30_000)
   })
 })

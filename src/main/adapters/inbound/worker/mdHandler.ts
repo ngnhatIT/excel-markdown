@@ -1,14 +1,15 @@
 // Xử lý yêu cầu Markdown → Excel của worker (thuần Node, test được không cần Electron).
 // write.ts (nạp exceljs) chỉ được import động trong handler mdToXlsx: worker preview và
 // mọi yêu cầu Excel → Markdown không phải trả giá nạp exceljs.
-import { readFile } from 'node:fs/promises'
-import { basename, isAbsolute } from 'node:path'
+import { readFile, realpath, stat } from 'node:fs/promises'
+import { basename, dirname, isAbsolute, relative, resolve, sep } from 'node:path'
 import type { MdInspectResult } from '../../../../shared/types'
 import { friendlyError } from '../../../domain/errors'
 import { isMarkdownPath } from '../../../domain/guards'
 import type { WorkerRequest, WorkerResponse } from '../../../application/ports/workerProtocol'
-import type { ParsedFile, SheetModel } from '../../../domain/md2xlsx/model'
-import { assignSheetNames } from '../../../domain/md2xlsx/names'
+import { imageInfo } from '../../../domain/md2xlsx/image'
+import type { ImageData, ParsedFile, SheetModel } from '../../../domain/md2xlsx/model'
+import { assignSheetNames, nameAndLinkSheets } from '../../../domain/md2xlsx/names'
 import { parseMarkdownFile } from '../../../domain/md2xlsx/parse'
 
 export type MdWorkerRequest = Extract<WorkerRequest, { type: 'mdInspect' | 'mdToXlsx' }>
@@ -51,6 +52,55 @@ async function readAndParse(path: string): Promise<{ text: string; parsed: Parse
   return { text, parsed: parseMarkdownFile(text, basename(path)) }
 }
 
+/** Ảnh nhúng: chỉ PNG/JPEG (đuôi file và nội dung), mỗi ảnh ≤ 10 MB, tổng ≤ 100 MB mỗi lần tạo. */
+const IMAGE_EXT = /\.(?:png|jpe?g)$/i
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024
+const MAX_TOTAL_IMAGE_BYTES = 100 * 1024 * 1024
+
+/**
+ * Đọc ảnh `![alt](src)` của Markdown (không tin cậy): `src` phải là đường dẫn tương đối nằm TRONG thư mục chứa file
+ * .md (sau khi giải symlink). Scheme (`x2m-asset:`, `file:`, `C:`), đường dẫn tuyệt đối, thoát ra ngoài bằng `..`,
+ * đuôi / nội dung không phải PNG/JPEG, quá cỡ, không đọc được -> null (writer ghi chữ alt).
+ */
+async function readImage(src: string, dir: string, budget: { left: number }): Promise<ImageData | null> {
+  let rel: string
+  try {
+    rel = decodeURIComponent(src)
+  } catch {
+    return null
+  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(rel) || isAbsolute(rel) || /^[\\/]/.test(rel) || rel.includes('\0') || !IMAGE_EXT.test(rel)) {
+    return null
+  }
+  try {
+    const file = await realpath(resolve(dir, rel))
+    const back = relative(dir, file)
+    if (back === '' || back === '..' || back.startsWith('..' + sep) || isAbsolute(back)) return null
+    const st = await stat(file)
+    if (!st.isFile() || st.size > MAX_IMAGE_BYTES || st.size > budget.left) return null
+    const data = await readFile(file)
+    const info = imageInfo(data)
+    if (!info) return null
+    budget.left -= data.length
+    return { data, ...info }
+  } catch {
+    return null
+  }
+}
+
+/** Điền `image` cho các block ảnh của một file .md (đường dẫn ảnh tương đối với thư mục của file). */
+async function loadImages(sheets: SheetModel[], mdPath: string, budget: { left: number }): Promise<void> {
+  const dir = await realpath(dirname(mdPath)).catch(() => null)
+  if (dir === null) return
+  for (const sheet of sheets) {
+    for (const b of sheet.blocks) {
+      if (b.kind !== 'image') continue
+      const image = await readImage(b.src, dir, budget)
+      if (image) b.image = image
+    }
+  }
+}
+
 async function inspect(path: string): Promise<MdInspectResult> {
   if (!isMarkdownPath(path)) throw new MdRequestError('Chỉ đọc được file Markdown (.md).')
   const { text, parsed } = await readAndParse(path)
@@ -70,11 +120,19 @@ async function toXlsx(files: string[], outPath: string): Promise<{ outPath: stri
     throw new MdRequestError('Đường dẫn file Excel đầu ra không hợp lệ (cần đuôi .xlsx).')
   }
 
-  // Đọc/parse lần lượt theo thứ tự danh sách; một file lỗi thì dừng ngay, chưa ghi gì.
-  const all: SheetModel[] = []
-  for (const path of files) all.push(...(await readAndParse(path)).parsed.sheets)
-  // Khử trùng tên trên toàn bộ sheet (trùng tên giữa các file cũng thành `Tên (2)`)
-  const sheets = assignSheetNames(all)
+  // Đọc/parse lần lượt theo thứ tự danh sách; một file lỗi (cả file không có nội dung) thì dừng ngay, chưa ghi gì.
+  const parsed: { path: string; sheets: SheetModel[] }[] = []
+  const budget = { left: MAX_TOTAL_IMAGE_BYTES }
+  for (const path of files) {
+    const { sheets } = (await readAndParse(path)).parsed
+    if (sheets.length === 0) {
+      throw new MdRequestError(`File không có nội dung: ${basename(path)}. Hãy bỏ file khỏi danh sách hoặc thêm nội dung rồi thử lại.`)
+    }
+    await loadImages(sheets, path, budget)
+    parsed.push({ path, sheets })
+  }
+  // Khử trùng tên trên toàn bộ sheet (trùng tên giữa các file cũng thành `Tên (2)`), giải link sang sheet khác
+  const sheets = nameAndLinkSheets(parsed)
   if (sheets.length === 0) throw new MdRequestError('Các file Markdown không có nội dung để tạo sheet.')
 
   const { buildWorkbook } = await import('../../../domain/md2xlsx/write')

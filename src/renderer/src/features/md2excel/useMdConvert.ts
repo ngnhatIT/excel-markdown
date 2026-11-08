@@ -3,6 +3,7 @@ import type { ConvertResultItem, MdFileItem } from '../../../../shared/types'
 import { defaultWorkbookName } from '../../../../shared/workbookName'
 import { errMsg, type ConvertProgress } from '../../lib/api'
 import { baseName, toast } from '../../lib/utils'
+import { t } from '../../i18n'
 
 /** Luồng Markdown → Excel: gộp các file Markdown thành một file Excel.
  * Cờ converting dùng chung với chế độ Excel → Markdown (main chỉ cho chạy một lần convert). */
@@ -41,21 +42,21 @@ export function useMdConvert({
   const doMdConvert = useCallback(async () => {
     if (converting) return
     if (mdFiles.length === 0) {
-      toast('Chưa có file Markdown nào', 'err')
+      toast(t('toast.md.noFiles'), 'err')
       return
     }
     if (mdFiles.some((f) => f.loading)) {
-      toast('Đang đọc file Markdown, vui lòng chờ', 'err')
+      toast(t('toast.md.reading'), 'err')
       return
     }
     const bad = mdFiles.filter((f) => f.error)
     if (bad.length > 0) {
       // một file lỗi thì không tạo file Excel (thiếu sheet còn tệ hơn không có)
-      toast(`Không tạo file Excel: file lỗi ${bad.map((f) => f.name).join(', ')}`, 'err')
+      toast(t('toast.md.badFiles', { names: bad.map((f) => f.name).join(', ') }), 'err')
       return
     }
     if (mdSheetCount === 0) {
-      toast('Không có sheet nào để tạo (các file Markdown đều rỗng)', 'err')
+      toast(t('toast.md.noSheets'), 'err')
       return
     }
     const dir = await ensureOutDir()
@@ -72,11 +73,11 @@ export function useMdConvert({
       })
       if (res.status === 'done') {
         const name = baseName(res.outPath)
-        toast(`Đã tạo ${name} (${res.sheets.length} sheet)`)
+        toast(t('toast.md.created', { name, n: res.sheets.length }))
         setMdResult({ fileName: name, ok: true, filesWritten: res.sheets })
         onDone()
       } else if (res.status === 'cancelled') {
-        toast('Đã hủy tạo file Excel', 'err')
+        toast(t('toast.md.cancelled'), 'err')
       }
       // declined: người dùng chọn không ghi đè -> không làm gì
     } catch (err) {

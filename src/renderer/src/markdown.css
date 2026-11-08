@@ -44,6 +44,17 @@
   margin: 8px 0;
 }
 
+/* Tiêu đề cân dòng, đoạn văn tránh chữ mồ côi ở dòng cuối; tiêu đề lớn siết nhẹ khoảng chữ */
+.md-body :is(h1, h2, h3, h4, h5, h6) {
+  text-wrap: balance;
+}
+.md-body :is(h1, h2) {
+  letter-spacing: -0.012em;
+}
+.md-body :is(p, li, blockquote) {
+  text-wrap: pretty;
+}
+
 .md-body blockquote {
   margin: 10px 0;
   padding: 8px 14px;
@@ -182,6 +193,10 @@
 
 /* In / lưu PDF (window.print): chỉ in vùng xem trước, bỏ toàn bộ khung app */
 @media print {
+  .x2m-onboarding,
+  .x2m-toasts,
+  .x2m-tr-btn,
+  .x2m-tr-popup,
   .x2m-header,
   .x2m-footer,
   .x2m-side,
@@ -248,4 +263,10 @@
   margin: -6px 0 14px;
   color: var(--danger);
   font-size: 12px;
+}
+
+/* Từ khóa của "Tìm trong nội dung" (CSS Custom Highlight API, src/renderer/src/lib/highlight.ts) */
+::highlight(x2m-search) {
+  background-color: rgb(250 204 21 / 0.55);
+  color: inherit;
 }

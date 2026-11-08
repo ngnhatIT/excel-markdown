@@ -19,7 +19,7 @@ describe('toCellValue', () => {
     expect(toCellValue(text)).toEqual(numFmt ? { value, numFmt } : { value })
   })
 
-  it.each(['0001', '123456789012', '03-xxxx', '2026/10/01', '#N/A', 'TRUE', '1.2.3', '１２', '1e5', '', '1,23', '.5', '5.'])(
+  it.each(['0001', '123456789012', '03-xxxx', '2026/10/01', '#N/A', 'TRUE', '1.2.3', '１２', '1e5', '', '1,23', '.5', '5.', '-0', '-0.0', '-0%', '0.12345678901234567', '1,234,567,890,123,456', '12345678901234.56%'])(
     '%s -> text',
     (text) => {
       expect(toCellValue(text)).toEqual({ value: text })

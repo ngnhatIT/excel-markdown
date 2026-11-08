@@ -124,18 +124,63 @@ export function recentMdFiles(relPaths: string[], mtimes: Record<string, number>
     .slice(0, n)
 }
 
-/** Ngày sửa dạng ngắn: "vừa xong", "N phút", "N giờ", "hôm qua", "N ngày" (≤ 30 ngày), rồi dd/MM/yyyy. */
-export function formatRelativeTime(mtimeMs: number, nowMs: number): string {
+/** Ngày sửa dạng ngắn theo `locale` (Intl): "bây giờ", "N phút trước", "N giờ trước", "hôm qua", "N ngày trước"
+ * (≤ 30 ngày), rồi ngày dạng số của locale (vi: dd/MM/yyyy). */
+export function formatRelativeTime(mtimeMs: number, nowMs: number, locale = 'vi-VN'): string {
+  const named = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' })
+  const rel = new Intl.RelativeTimeFormat(locale, { style: 'short' })
   const diff = nowMs - mtimeMs
-  if (diff < 60_000) return 'vừa xong'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} phút`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} giờ`
+  if (diff < 60_000) return named.format(0, 'second')
+  if (diff < 3_600_000) return rel.format(-Math.floor(diff / 60_000), 'minute')
+  if (diff < 86_400_000) return rel.format(-Math.floor(diff / 3_600_000), 'hour')
   const d = new Date(mtimeMs)
   const yesterday = new Date(nowMs)
   yesterday.setDate(yesterday.getDate() - 1)
-  if (d.toDateString() === yesterday.toDateString()) return 'hôm qua'
+  if (d.toDateString() === yesterday.toDateString()) return named.format(-1, 'day')
   const days = Math.floor(diff / 86_400_000)
-  if (days <= 30) return `${days} ngày`
-  const pad = (v: number): string => String(v).padStart(2, '0')
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`
+  // "always": 1 ngày nhưng không phải hôm qua theo lịch thì vẫn ghi "1 ngày trước"
+  if (days <= 30) return rel.format(-days, 'day')
+  return new Intl.DateTimeFormat(locale, { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d)
+}
+
+/** Phần `#anchor` của link (đã giải mã %xx), '' nếu không có. `b.md#Mục%201` -> `Mục 1`. */
+export function hrefHash(href: string): string {
+  const i = href.indexOf('#')
+  if (i < 0) return ''
+  const h = href.slice(i + 1)
+  try {
+    return decodeURIComponent(h)
+  } catch {
+    return h
+  }
+}
+
+/** Slug kiểu GitHub của tiêu đề: chữ thường, bỏ dấu câu (giữ chữ mọi thứ tiếng, số, `_`, `-`), khoảng trắng -> `-`.
+ * Slug của một slug không đổi, nên so được cả `#anchor` lẫn chữ tiêu đề. */
+export function slugifyHeading(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{M}\p{N}\p{Pc}\- ]/gu, '')
+    .replace(/ /g, '-')
+}
+
+/** Slug của từng tiêu đề theo thứ tự; trùng thì thêm `-1`, `-2`... như GitHub. */
+export function uniqueSlugs(texts: string[]): string[] {
+  const used = new Set<string>()
+  return texts.map((t) => {
+    const base = slugifyHeading(t)
+    let slug = base
+    for (let n = 1; used.has(slug); n++) slug = `${base}-${n}`
+    used.add(slug)
+    return slug
+  })
+}
+
+/** Front-matter YAML ở đầu file (`---` … `---`, do app tạo khi bật tùy chọn front-matter) -> khối code yaml
+ * để bản xem không hiểu nhầm thành đường kẻ + heading setext khổng lồ. Chỉ dùng khi render, không đổi file. */
+export function frontMatterAsCode(md: string): string {
+  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(md)
+  if (!m || m[1].split('\n').length > 200) return md
+  return '```yaml\n' + m[1] + '\n```\n' + md.slice(m[0].length)
 }

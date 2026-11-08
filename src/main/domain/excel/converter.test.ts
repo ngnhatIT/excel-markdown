@@ -561,20 +561,11 @@ describe('B7: array formula', () => {
 })
 
 describe('B1: file hỏng', () => {
-  it('file rác / 0-byte: không crash, convert ra rỗng hoặc lỗi sạch', () => {
+  it('file rác / 0-byte: không crash, lỗi sạch tiếng Việt', () => {
     for (const bytes of [Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]), Buffer.alloc(0)]) {
       const p = path.join(os.tmpdir(), `b1-${Date.now()}-${Math.random()}.xlsx`)
       fs.writeFileSync(p, bytes)
-      let sheets: { name: string }[] = []
-      expect(() => {
-        sheets = listSheets(p, false)
-      }).not.toThrow()
-      const res = convertWorkbook(
-        p,
-        sheets.map((x) => x.name),
-        OPTS
-      )
-      expect(Array.isArray(res)).toBe(true)
+      expect(() => listSheets(p, false)).toThrow('File không phải Excel hợp lệ')
       fs.unlinkSync(p)
     }
   })

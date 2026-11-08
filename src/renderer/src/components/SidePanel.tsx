@@ -1,4 +1,5 @@
 import { IconChevronDown, IconSettings } from './icons'
+import { useT } from '../i18n'
 
 interface Props {
   title?: string
@@ -11,9 +12,11 @@ interface Props {
 }
 
 /** Cột phải có thể thu gọn thành dải hẹp (bấm để mở lại). */
-export function SidePanel({ title = 'Tùy chọn', collapsed, onToggle, actions, width, children }: Props): React.ReactElement {
-  const showTitle = `Hiện ${title}`
-  const hideTitle = `Ẩn ${title}`
+export function SidePanel({ title: titleProp, collapsed, onToggle, actions, width, children }: Props): React.ReactElement {
+  const t = useT()
+  const title = titleProp ?? t('side.options')
+  const showTitle = t('side.show', { title })
+  const hideTitle = t('side.hide', { title })
   if (collapsed) {
     return (
       <aside className="x2m-side collapsed w-10 min-w-10 shrink-0 overflow-hidden border-l border-line-subtle">
@@ -29,7 +32,7 @@ export function SidePanel({ title = 'Tùy chọn', collapsed, onToggle, actions,
   }
   return (
     <aside className="x2m-side flex w-[304px] min-w-60 shrink-0 flex-col overflow-y-auto border-l border-line-subtle" style={width ? { width, minWidth: width } : undefined}>
-      <div className="x2m-pane-title sticky top-0 z-[1] flex shrink-0 bg-canvas/80 h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-faint [&_button]:normal-case [&_button]:tracking-normal">
+      <div className="x2m-pane-title sticky top-0 z-[1] flex shrink-0 bg-canvas/80 h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[11.5px] font-semibold tracking-normal text-faint">
         {title}
         <span className="x2m-side-head-actions flex items-center gap-1">
           {actions}

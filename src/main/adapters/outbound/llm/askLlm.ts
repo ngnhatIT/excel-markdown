@@ -14,6 +14,8 @@ export interface AskLlmOpts {
   availableCitations: RagCitation[]
   signal?: AbortSignal
   onDelta?: (text: string) => void
+  /** Thay system prompt mặc định (trợ lý RAG), vd khi dịch đoạn chọn */
+  system?: string
 }
 
 export async function askLlm(

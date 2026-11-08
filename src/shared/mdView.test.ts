@@ -1,13 +1,41 @@
 import { describe, expect, it } from 'vitest'
 import {
+  frontMatterAsCode,
   buildMdTree,
   formatRelativeTime,
+  hrefHash,
   imagePathFromUrl,
   imageUrl,
   recentMdFiles,
   resolveRelative,
+  slugifyHeading,
+  uniqueSlugs,
   visibleTreeFiles,
 } from './mdView'
+
+describe('hrefHash / slugifyHeading / uniqueSlugs', () => {
+  it('lấy và giải mã phần #anchor', () => {
+    expect(hrefHash('#M%E1%BB%A5c%201')).toBe('Mục 1')
+    expect(hrefHash('docs/b.md#chi-tiet')).toBe('chi-tiet')
+    expect(hrefHash('docs/b.md')).toBe('')
+    expect(hrefHash('#%E0%A4%A')).toBe('%E0%A4%A')
+  })
+
+  it('slug kiểu GitHub: chữ thường, bỏ dấu câu, giữ tiếng Việt / tiếng Nhật', () => {
+    expect(slugifyHeading('Chi tiết mục 1.2 (mới)!')).toBe('chi-tiết-mục-12-mới')
+    expect(slugifyHeading('【画面項目】一覧')).toBe('画面項目一覧')
+    expect(slugifyHeading('snake_case & dash-ok')).toBe('snake_case--dash-ok')
+  })
+
+  it('slug của slug không đổi (so được #anchor với chữ tiêu đề)', () => {
+    const s = slugifyHeading('Chi tiết mục 1.2 (mới)!')
+    expect(slugifyHeading(s)).toBe(s)
+  })
+
+  it('tiêu đề trùng thêm -1, -2', () => {
+    expect(uniqueSlugs(['A', 'A', 'a-1', 'A'])).toEqual(['a', 'a-1', 'a-1-1', 'a-2'])
+  })
+})
 
 describe('imageUrl / imagePathFromUrl', () => {
   it('khứ hồi đường dẫn Windows có dấu cách, ký tự Nhật, #, %', () => {
@@ -112,23 +140,38 @@ describe('formatRelativeTime', () => {
   const HOUR = 60 * MIN
   const DAY = 24 * HOUR
 
-  it('vừa xong: dưới 1 phút và tương lai', () => {
-    expect(formatRelativeTime(ago(30_000), now)).toBe('vừa xong')
-    expect(formatRelativeTime(now + HOUR, now)).toBe('vừa xong')
+  it('bây giờ: dưới 1 phút và tương lai', () => {
+    expect(formatRelativeTime(ago(30_000), now)).toBe('bây giờ')
+    expect(formatRelativeTime(now + HOUR, now)).toBe('bây giờ')
   })
 
   it('phút, giờ', () => {
-    expect(formatRelativeTime(ago(5 * MIN), now)).toBe('5 phút')
-    expect(formatRelativeTime(ago(3 * HOUR), now)).toBe('3 giờ')
+    expect(formatRelativeTime(ago(5 * MIN), now)).toBe('5 phút trước')
+    expect(formatRelativeTime(ago(3 * HOUR), now)).toBe('3 giờ trước')
   })
 
   it('dưới 24 giờ luôn tính giờ; từ 24 giờ: hôm qua theo ngày lịch, rồi N ngày', () => {
-    expect(formatRelativeTime(new Date(2026, 9, 27, 23, 0, 0).getTime(), now)).toBe('16 giờ')
+    expect(formatRelativeTime(new Date(2026, 9, 27, 23, 0, 0).getTime(), now)).toBe('16 giờ trước')
     expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now)).toBe('hôm qua')
-    expect(formatRelativeTime(ago(4 * DAY), now)).toBe('4 ngày')
+    expect(formatRelativeTime(ago(4 * DAY), now)).toBe('4 ngày trước')
   })
 
   it('quá 30 ngày -> dd/MM/yyyy', () => {
     expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now)).toBe('05/09/2026')
+  })
+
+  it('theo locale en / ja', () => {
+    expect(formatRelativeTime(ago(5 * MIN), now, 'en-US')).toBe('5 min. ago')
+    expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now, 'en-US')).toBe('yesterday')
+    expect(formatRelativeTime(ago(4 * DAY), now, 'ja-JP')).toBe('4 日前')
+    expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now, 'ja-JP')).toBe('2026/09/05')
+  })
+})
+
+describe('frontMatterAsCode', () => {
+  it('front-matter đầu file -> khối yaml; không có thì giữ nguyên', () => {
+    expect(frontMatterAsCode('---\nsource: a.xlsx\nsheet: S\n---\n## S\n')).toBe('```yaml\nsource: a.xlsx\nsheet: S\n```\n## S\n')
+    expect(frontMatterAsCode('# A\n---\nx\n---\n')).toBe('# A\n---\nx\n---\n')
+    expect(frontMatterAsCode('---\r\na: 1\r\n---\r\nbody')).toBe('```yaml\na: 1\n```\nbody')
   })
 })

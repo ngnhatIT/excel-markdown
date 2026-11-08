@@ -157,3 +157,13 @@ export const IconTable = (p: { size?: number }) => (
     <path d="M3 9h18M3 15h18M9 3v18" />
   </Svg>
 )
+
+/** Bản đồ thiết kế: các nút nối nhau */
+export const IconMap = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <rect x="3" y="4" width="6" height="5" rx="1" />
+    <rect x="15" y="4" width="6" height="5" rx="1" />
+    <rect x="9" y="15" width="6" height="5" rx="1" />
+    <path d="M9 6.5h6M6 9v3.5h6V15M18 9v3.5h-6" />
+  </Svg>
+)

@@ -12,12 +12,14 @@ import {
   type RagCitation,
 } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
+import { chatToMarkdown } from '../../lib/chatExport'
 import { PASTE_PATH } from '../viewer/useMdViewer'
 import { sanitizeHtml } from '../../lib/sanitize'
 import { cn, copyText, toast, uid } from '../../lib/utils'
 import { btnGhost, btnPrimary, btnSm, cx } from '../../lib/ui'
 import { SidePanel } from '../../components/SidePanel'
 import { IconCopy } from '../../components/icons'
+import { LOCALES, t as tr, useLang, useT } from '../../i18n'
 
 /** Câu trả lời đã render. memo: gõ vào ô hỏi không parse lại Markdown của mọi câu trả lời cũ. */
 const AnswerHtml = memo(function AnswerHtml({ text }: { text: string }) {
@@ -55,37 +57,14 @@ interface Props {
   onJumpToCitation: (citation: RagCitation) => void
 }
 
-const QUICK_PROMPTS: Array<{ label: string; prompt: string; scope: 'folder' | 'active' }> = [
-  {
-    label: '📋 Tóm tắt nghiệp vụ',
-    prompt:
-      'Hãy tóm tắt mục đích nghiệp vụ, luồng xử lý chính và các bảng quan trọng của tài liệu đang xem bằng tiếng Việt.',
-    scope: 'active',
-  },
-  {
-    label: '🌐 Dịch sang tiếng Việt',
-    prompt:
-      'Hãy dịch và giải thích chi tiết các mục, bảng biểu và chú thích (※) trong tài liệu đang xem sang tiếng Việt chuẩn BA/BrSE.',
-    scope: 'active',
-  },
-  {
-    label: '🔍 Kiểm tra thiếu sót',
-    prompt:
-      'Hãy rà soát tài liệu thiết kế này xem có điểm nào mơ hồ, thiếu điều kiện biên (validation/error handling) hoặc mâu thuẫn giữa các mục không.',
-    scope: 'active',
-  },
-  {
-    label: '🧪 Sinh test case',
-    prompt:
-      'Từ tài liệu đang xem, hãy sinh bảng test case (No | Hạng mục | Điều kiện / Dữ liệu vào | Thao tác | Kết quả mong đợi | Nguồn) bao phủ từng 項目, 入力チェック, sự kiện và trường hợp lỗi. Mỗi dòng ghi rõ trích dẫn nguồn.',
-    scope: 'active',
-  },
-  {
-    label: '🔗 Đối chiếu chéo',
-    prompt:
-      'Hãy đối chiếu chéo các tài liệu trong thư mục: tên bảng/cột DB, mã màn hình, độ dài - kiểu dữ liệu và mã lỗi có khớp nhau giữa các file không. Liệt kê từng điểm lệch kèm trích dẫn hai phía.',
-    scope: 'folder',
-  },
+/** Câu hỏi nhanh: nhãn `ai.quick.<id>`, câu lệnh gửi AI `ai.quick.<id>Prompt` (theo ngôn ngữ giao diện
+ * để AI trả lời bằng ngôn ngữ của người dùng). */
+const QUICK_PROMPTS: Array<{ id: 'summary' | 'translate' | 'review' | 'tests' | 'cross'; scope: 'folder' | 'active' }> = [
+  { id: 'summary', scope: 'active' },
+  { id: 'translate', scope: 'active' },
+  { id: 'review', scope: 'active' },
+  { id: 'tests', scope: 'active' },
+  { id: 'cross', scope: 'folder' },
 ]
 
 export function AiChatPanel({
@@ -100,6 +79,8 @@ export function AiChatPanel({
   pastedMarkdown,
   onJumpToCitation,
 }: Props): React.ReactElement {
+  const t = useT()
+  const locale = LOCALES[useLang()]
   const [config, setConfig] = useState<AiConfigInfo>({
     provider: DEFAULT_AI_PROVIDER,
     hasKey: false,
@@ -131,6 +112,15 @@ export function AiChatPanel({
       .catch(() => {})
   }, [])
 
+  // Rời chế độ Đọc Markdown khi đang trả lời: dừng hẳn yêu cầu (không để main tiếp tục stream, tốn token)
+  useEffect(
+    () => () => {
+      askSeq.current++
+      void window.api.aiCancel().catch(() => {})
+    },
+    []
+  )
+
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight
@@ -138,6 +128,11 @@ export function AiChatPanel({
   }, [entries, busy, streamText])
 
   const saveKey = useCallback(async () => {
+    // Chưa có key mà ô trống: không báo "đã lưu" gây hiểu nhầm
+    if (!apiKeyInput.trim() && !config.hasKey) {
+      toast(tr('ai.toast.needKey', { provider: AI_PROVIDERS[config.provider].label }), 'err')
+      return
+    }
     try {
       const next = await window.api.aiSetConfig({
         apiKey: apiKeyInput.trim() || undefined,
@@ -146,20 +141,20 @@ export function AiChatPanel({
       setConfig(next)
       setApiKeyInput('')
       setShowKeyBox(false)
-      toast(`Đã lưu cấu hình ${AI_PROVIDERS[next.provider].label}`, 'ok')
+      toast(tr('ai.toast.saved', { provider: AI_PROVIDERS[next.provider].label }), 'ok')
     } catch (e) {
-      toast('Lưu cấu hình thất bại: ' + errMsg(e), 'err')
+      toast(tr('ai.toast.saveFailed', { err: errMsg(e) }), 'err')
     }
-  }, [apiKeyInput, config.model])
+  }, [apiKeyInput, config.model, config.hasKey, config.provider])
 
   const clearKey = useCallback(async () => {
     try {
       const next = await window.api.aiSetConfig({ apiKey: '' })
       setConfig(next)
       setApiKeyInput('')
-      toast(`Đã xóa ${AI_PROVIDERS[next.provider].label} API Key`, 'ok')
+      toast(tr('ai.toast.keyCleared', { provider: AI_PROVIDERS[next.provider].label }), 'ok')
     } catch (e) {
-      toast('Xóa key thất bại: ' + errMsg(e), 'err')
+      toast(tr('ai.toast.clearFailed', { err: errMsg(e) }), 'err')
     }
   }, [])
 
@@ -193,7 +188,7 @@ export function AiChatPanel({
     try {
       const ids = await window.api.aiListModels(config.provider)
       setModels(ids)
-      toast(`Key dùng được ${ids.length} model ${AI_PROVIDERS[config.provider].label}`, 'ok')
+      toast(tr('ai.toast.models', { n: ids.length, provider: AI_PROVIDERS[config.provider].label }), 'ok')
     } catch (e) {
       toast(errMsg(e), 'err')
     }
@@ -220,7 +215,7 @@ export function AiChatPanel({
       if (!q || busy) return
       if (!config.hasKey) {
         setShowKeyBox(true)
-        toast(`Vui lòng nhập ${providerInfo.label} API Key trước khi hỏi AI`, 'err')
+        toast(tr('ai.toast.needKey', { provider: providerInfo.label }), 'err')
         return
       }
 
@@ -277,6 +272,7 @@ export function AiChatPanel({
         setEntries((prev) => [...prev, modelEntry])
       } catch (e) {
         const msg = errMsg(e)
+        // 'Đã dừng': thông báo hủy từ main (chưa dịch), không phải lỗi
         if (isCurrent() && !msg.includes('Đã dừng')) {
           toast(msg, 'err')
           setEntries((prev) => [
@@ -284,7 +280,7 @@ export function AiChatPanel({
             {
               id: uid(),
               role: 'model',
-              text: `⚠️ **Không thể hoàn tất:** ${msg}`,
+              text: tr('ai.failed', { msg }),
               isError: true,
               failedPrompt: q,
               failedScope: effectiveScope,
@@ -310,12 +306,21 @@ export function AiChatPanel({
     await window.api.aiCancel().catch(() => {})
   }, [])
 
+  const exportChat = useCallback(async () => {
+    try {
+      const saved = await window.api.saveMarkdown(`${tr('ai.exportStem')}-${new Date().toISOString().slice(0, 10)}`, chatToMarkdown(entries, rootDir))
+      if (saved) toast(tr('ai.toast.mdSaved', { path: saved }), 'ok')
+    } catch (e) {
+      toast(tr('ai.toast.mdFailed', { err: errMsg(e) }), 'err')
+    }
+  }, [entries, rootDir])
+
   const hasPaste = Boolean((pastedMarkdown && pastedMarkdown.trim() !== '') || activeFilePath === PASTE_PATH)
   const totalFiles = relFiles.length + looseFiles.length + (hasPaste ? 1 : 0)
 
   return (
     <SidePanel
-      title="Trợ lý AI (RAG)"
+      title={t('ai.title')}
       collapsed={collapsed}
       onToggle={onToggleCollapsed}
       width={width}
@@ -324,19 +329,24 @@ export function AiChatPanel({
           <button
             className={cn('btn btn-sm btn-ghost', showKeyBox && 'active-pill')}
             onClick={() => setShowKeyBox((s) => !s)}
-            title="Cấu hình nhà cung cấp AI, API Key & Model"
+            title={t('ai.configTitle')}
           >
             🔑 {providerInfo.label}
             {config.hasKey ? ` · ${config.maskedKey}` : ''}
           </button>
           {entries.length > 0 && (
+            <button className="btn btn-sm btn-ghost" onClick={() => void exportChat()} title={t('ai.exportTitle')}>
+              {t('ai.export')}
+            </button>
+          )}
+          {entries.length > 0 && (
             <button
               className="btn btn-sm btn-ghost"
               onClick={() => setEntries([])}
               disabled={busy}
-              title="Xóa lịch sử trò chuyện"
+              title={t('ai.clearTitle')}
             >
-              Xóa chat
+              {t('ai.clear')}
             </button>
           )}
         </div>
@@ -345,7 +355,7 @@ export function AiChatPanel({
       <div className="x2m-ai-panel flex min-h-0 flex-1 flex-col">
         {showKeyBox && (
           <div className="x2m-ai-keybox flex flex-col gap-2 border-b border-line bg-raised/50 p-3">
-            <div className="x2m-ai-scope flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5" role="radiogroup" aria-label="Nhà cung cấp AI">
+            <div className="x2m-ai-scope flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5" role="radiogroup" aria-label={t('ai.provider')}>
               {AI_PROVIDER_IDS.map((p) => (
                 <button
                   key={p}
@@ -356,7 +366,7 @@ export function AiChatPanel({
                     config.provider === p && 'active seg-on'
                   )}
                   onClick={() => void changeProvider(p)}
-                  title={config.keys[p] ? `Đã có key ${config.keys[p]}` : `Chưa có key — lấy tại ${AI_PROVIDERS[p].site}`}
+                  title={config.keys[p] ? t('ai.hasKey', { key: config.keys[p] }) : t('ai.noKey', { site: AI_PROVIDERS[p].site })}
                 >
                   {AI_PROVIDERS[p].label}
                   {config.keys[p] ? ' ✓' : ''}
@@ -364,9 +374,9 @@ export function AiChatPanel({
               ))}
             </div>
             <div className="x2m-ai-keybox-row flex items-center gap-2">
-              <label className="x2m-ai-label text-xs font-medium text-dim">Model:</label>
+              <label className="x2m-ai-label text-xs font-medium text-dim">{t('ai.model')}</label>
               <select
-                className="x2m-select flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
+                className="x2m-select min-w-0 flex-1 truncate rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
                 value={config.model}
                 onChange={(e) => void changeModel(e.target.value)}
               >
@@ -377,7 +387,7 @@ export function AiChatPanel({
                 ))}
               </select>
               {config.hasKey && (
-                <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => void refreshModels()} title="Lấy lại danh sách model mới nhất mà key này dùng được">
+                <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => void refreshModels()} title={t('ai.refreshModels')}>
                   ↻
                 </button>
               )}
@@ -386,56 +396,55 @@ export function AiChatPanel({
               <input
                 type="password"
                 className="x2m-input flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
-                placeholder={config.hasKey ? `Đang dùng ${config.maskedKey} (nhập mới để đổi)` : providerInfo.keyHint}
+                placeholder={config.hasKey ? t('ai.keyInUse', { key: config.maskedKey }) : t(`ai.keyHint.${config.provider}`)}
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
               />
               <button className={cx('btn btn-sm btn-primary', btnPrimary, btnSm)} onClick={() => void saveKey()}>
-                Lưu
+                {t('common.save')}
               </button>
               {config.hasKey && (
-                <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => void clearKey()} title="Xóa API Key đã lưu">
-                  Xóa key
+                <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => void clearKey()} title={t('ai.clearKeyTitle')}>
+                  {t('ai.clearKey')}
                 </button>
               )}
             </div>
             <div className="x2m-ai-keybox-row flex items-center gap-2">
               <label className="x2m-ai-label shrink-0 whitespace-nowrap text-xs font-medium text-dim" htmlFor="x2m-ai-ctx">
-                Ngữ cảnh:
+                {t('ai.context')}
               </label>
               <select
                 id="x2m-ai-ctx"
-                className="x2m-select flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
+                className="x2m-select min-w-0 flex-1 truncate rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
                 value={config.contextTokens}
                 onChange={(e) => void changeContext(Number(e.target.value))}
-                title="Tài liệu nhỏ hơn mức này được gửi nguyên văn; lớn hơn thì chỉ gửi phần khớp nhất"
+                title={t('ai.contextTitle')}
               >
                 {AI_CONTEXT_LEVELS.map((n) => (
                   <option key={n} value={n}>
-                    {(n / 1000).toLocaleString('vi-VN')}k token{n === AI_CONTEXT_LEVELS[0] ? ' (tiết kiệm)' : n === AI_CONTEXT_LEVELS[2] ? ' (đầy đủ nhất, tốn nhất)' : ''}
+                    {t(n === AI_CONTEXT_LEVELS[0] ? 'ai.ctxCheap' : n === AI_CONTEXT_LEVELS[2] ? 'ai.ctxFull' : 'ai.ctx', { n: (n / 1000).toLocaleString(locale) })}
                   </option>
                 ))}
               </select>
             </div>
             <div className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
-              Key mã hóa cục bộ bằng OS SafeStorage, chỉ gửi trực tiếp tới {providerInfo.site}. Key API tính tiền theo token, khác gói
-              đăng ký ChatGPT/Claude. Muốn dùng gói đăng ký: xem mục MCP trong README.
-              {!config.hasKey && ' Lưu key xong, danh sách model mới nhất sẽ tự tải về.'}
+              {t('ai.keyNote', { site: providerInfo.site })}
+              {!config.hasKey && ` ${t('ai.keyNoteModels')}`}
             </div>
           </div>
         )}
 
         <div className="x2m-ai-toolbar border-b border-line bg-soft px-3 py-2 flex flex-col gap-2">
-          <div className="x2m-ai-scope flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5" role="group" aria-label="Phạm vi ngữ cảnh">
+          <div className="x2m-ai-scope flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5" role="group" aria-label={t('ai.scope')}>
             <button
               className={cn(
                 'x2m-ai-scope-btn flex-1 text-center rounded-md py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
                 scope === 'folder' && 'active seg-on'
               )}
               onClick={() => setScope('folder')}
-              title="Tìm kiếm ngữ cảnh trên toàn bộ các file Markdown đang mở"
+              title={t('ai.scope.folderTitle')}
             >
-              Cả thư mục ({totalFiles} file)
+              {t('ai.scope.folder', { n: totalFiles })}
             </button>
             <button
               className={cn(
@@ -443,22 +452,22 @@ export function AiChatPanel({
                 scope === 'active' && 'active seg-on'
               )}
               onClick={() => setScope('active')}
-              title="Gửi trọn vẹn 100% nội dung file đang xem"
+              title={t('ai.scope.activeTitle')}
             >
-              Chỉ file đang xem
+              {t('ai.scope.active')}
             </button>
           </div>
           {activeFilePath && (
             <div className="x2m-ai-quick flex flex-wrap gap-1.5">
-              {QUICK_PROMPTS.map((q, i) => (
+              {QUICK_PROMPTS.map((q) => (
                 <button
-                  key={i}
+                  key={q.id}
                   className="x2m-ai-chip rounded-full border border-line bg-canvas px-2.5 py-1 text-xs text-dim hover:border-accent-line hover:text-ink hover:bg-hover transition-colors"
                   disabled={busy}
-                  onClick={() => void sendQuestion(q.prompt, q.scope)}
-                  title={q.scope === 'folder' ? 'Chạy trên cả thư mục' : 'Chạy trên file đang xem'}
+                  onClick={() => void sendQuestion(t(`ai.quick.${q.id}Prompt`), q.scope)}
+                  title={t(q.scope === 'folder' ? 'ai.quick.folderTitle' : 'ai.quick.activeTitle')}
                 >
-                  {q.label}
+                  {t(`ai.quick.${q.id}`)}
                 </button>
               ))}
             </div>
@@ -468,9 +477,9 @@ export function AiChatPanel({
         <div ref={listRef} className="x2m-ai-messages flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           {entries.length === 0 ? (
             <div className="x2m-ai-empty flex flex-col items-center justify-center gap-2 p-6 text-center text-dim text-xs">
-              <strong className="text-ink font-semibold">Hỏi đáp thông minh trên tài liệu thiết kế</strong>
+              <strong className="text-ink font-semibold">{t('ai.empty.title')}</strong>
               <p className="text-faint text-[11.5px] leading-relaxed">
-                Hỗ trợ tra cứu chéo tiếng Việt ↔ tiếng Nhật (基本設計, 画面項目, バリデーション, エラー...) với trích dẫn nguồn bấm được.
+                {t('ai.empty.body')}
               </p>
             </div>
           ) : (
@@ -490,7 +499,7 @@ export function AiChatPanel({
                             key={idx}
                             className="x2m-ai-citation-chip inline-flex items-center gap-1 rounded-md border border-accent-line/40 bg-accent-soft px-2 py-0.5 text-[11px] text-accent-ink hover:brightness-110 transition-colors"
                             onClick={() => onJumpToCitation(c)}
-                            title={`Mở ${c.relPath} tới mục "${c.sectionTitle}"`}
+                            title={t('ai.citationTitle', { path: c.relPath, section: c.sectionTitle })}
                           >
                             📍 {c.relPath} › {c.sectionTitle}
                           </button>
@@ -504,19 +513,19 @@ export function AiChatPanel({
                           onClick={() => sendQuestion(entry.failedPrompt!, entry.failedScope)}
                           disabled={busy}
                         >
-                          🔄 Thử lại
+                          🔄 {t('common.retry')}
                         </button>
                       ) : (
                         <>
                           {entry.mode && (
-                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]" title={`Chế độ ngữ cảnh: ${entry.mode}`}>
-                              {entry.mode === 'parent-rag' ? 'RAG' : 'Toàn văn'} · {entry.docCount ?? 1} file
+                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]" title={t('ai.modeTitle', { mode: entry.mode })}>
+                              {t('ai.badge', { mode: entry.mode === 'parent-rag' ? 'RAG' : t('ai.mode.full'), n: entry.docCount ?? 1 })}
                             </span>
                           )}
                           {entry.usage && (
                             <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]">
-                              ⚡ {entry.usage.totalTokens.toLocaleString('vi-VN')} tokens
-                              {entry.usage.cachedTokens ? ` · cache ${entry.usage.cachedTokens.toLocaleString('vi-VN')}` : ''}
+                              ⚡ {t('ai.tokens', { n: entry.usage.totalTokens.toLocaleString(locale) })}
+                              {entry.usage.cachedTokens ? ` · ${t('ai.cache', { n: entry.usage.cachedTokens.toLocaleString(locale) })}` : ''}
                             </span>
                           )}
                         </>
@@ -525,11 +534,11 @@ export function AiChatPanel({
                         className={cx('btn btn-sm btn-ghost x2m-ai-copy ml-auto text-[11px]', btnGhost, btnSm)}
                         onClick={async () => {
                           const ok = await copyText(entry.text)
-                          toast(ok ? 'Đã copy câu trả lời' : 'Copy thất bại', ok ? 'ok' : 'err')
+                          toast(tr(ok ? 'ai.toast.answerCopied' : 'common.copyFailed'), ok ? 'ok' : 'err')
                         }}
-                        title="Copy câu trả lời"
+                        title={t('ai.copyTitle')}
                       >
-                        <IconCopy size={12} /> Copy
+                        <IconCopy size={12} /> {t('common.copy')}
                       </button>
                     </div>
                   </div>
@@ -542,13 +551,13 @@ export function AiChatPanel({
               <div className="x2m-ai-bubble-model self-start rounded-2xl rounded-tl-xs border border-line bg-raised/70 p-3 text-xs text-ink max-w-[95%] shadow-xs" aria-live="polite">
                 <AnswerHtml text={streamText} />
                 <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-[11px] text-faint border-t border-line/40 pt-1.5">
-                  <span>Đang viết...</span>
+                  <span>{t('ai.writing')}</span>
                   <button
                     className={cx('btn btn-sm btn-ghost ml-auto text-[11px] text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
                     onClick={() => void stopAsk()}
-                    title="Dừng tạo câu trả lời"
+                    title={t('ai.stopTitle')}
                   >
-                    Dừng
+                    {t('ai.stop')}
                   </button>
                 </div>
               </div>
@@ -556,18 +565,18 @@ export function AiChatPanel({
           )}
           {busy && !streamText && (
             <div className="x2m-ai-loading self-start flex items-center gap-3 rounded-2xl rounded-tl-xs border border-line bg-raised/70 px-3.5 py-2.5 text-xs text-dim shadow-xs">
-              <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Đang trả lời">
+              <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label={t('ai.answering')}>
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.4s]" />
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.2s]" />
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot" />
               </div>
-              <span className="text-faint text-[11.5px]">Đang phân tích tài liệu & soạn câu trả lời...</span>
+              <span className="text-faint text-[11.5px]">{t('ai.thinking')}</span>
               <button
                 className={cx('btn btn-sm btn-ghost ml-auto text-[11px] text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
                 onClick={() => void stopAsk()}
-                title="Dừng tạo câu trả lời"
+                title={t('ai.stopTitle')}
               >
-                Dừng
+                {t('ai.stop')}
               </button>
             </div>
           )}
@@ -577,12 +586,13 @@ export function AiChatPanel({
           <textarea
             className="x2m-ai-textarea flex-1 resize-none rounded-lg border border-line bg-canvas p-2 text-xs text-ink outline-none placeholder:text-faint focus:border-accent focus:ring-1 focus:ring-accent"
             rows={2}
-            placeholder="Đặt câu hỏi về tài liệu (Enter để gửi, Shift+Enter xuống dòng)..."
+            placeholder={t('ai.placeholder')}
             value={input}
             disabled={busy}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              // isComposing: Enter đang chốt chữ Nhật/Việt của bộ gõ IME, không phải gửi câu hỏi
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 void sendQuestion(input)
               }
@@ -593,7 +603,7 @@ export function AiChatPanel({
             disabled={busy || !input.trim()}
             onClick={() => void sendQuestion(input)}
           >
-            Gửi
+            {t('ai.send')}
           </button>
         </div>
       </div>

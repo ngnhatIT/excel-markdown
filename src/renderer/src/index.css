@@ -30,7 +30,8 @@
   --radius-card: var(--radius);
   /* Đường cong có "khối lượng": tăng tốc nhanh, dừng mềm (dùng class ease-spring) */
   --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
-  --font-sans: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* Be Vietnam Pro đóng gói (src/main.tsx); chữ Nhật rơi về font hệ thống Nhật trước khi tới Segoe UI */
+  --font-sans: 'Be Vietnam Pro', 'Yu Gothic UI', 'Hiragino Sans', 'Meiryo UI', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
 }
 
@@ -40,8 +41,8 @@
 :root {
   --backdrop-base: #0a0f17;
   --backdrop:
-    radial-gradient(60vw 55vh at 8% 0%, rgba(59, 130, 246, 0.38), transparent 70%),
-    radial-gradient(55vw 60vh at 100% 100%, rgba(45, 168, 160, 0.28), transparent 70%),
+    radial-gradient(60vw 55vh at 8% 0%, rgba(79, 134, 223, 0.3), transparent 70%),
+    radial-gradient(55vw 60vh at 100% 100%, rgba(45, 168, 160, 0.22), transparent 70%),
     radial-gradient(40vw 40vh at 70% 20%, rgba(120, 140, 180, 0.14), transparent 70%),
     radial-gradient(35vw 45vh at 30% 95%, rgba(230, 170, 120, 0.08), transparent 70%);
   --glass: rgba(18, 25, 36, 0.46);
@@ -64,9 +65,10 @@
   --text: #e8edf4;
   --text-dim: #98a6b8;
   --text-faint: #7d8b9e;
-  --accent: #3b82f6;
-  --accent-soft: rgba(59, 130, 246, 0.15);
-  --accent-border: rgba(59, 130, 246, 0.38);
+  /* chữ trắng trên nền accent ≥ 4.5:1 (WCAG AA) */
+  --accent: #3b6fc4;
+  --accent-soft: rgba(79, 134, 223, 0.16);
+  --accent-border: rgba(79, 134, 223, 0.4);
   --accent-text: #7cb3ff;
   --success: #34c769;
   --success-soft: rgba(52, 199, 105, 0.14);
@@ -107,16 +109,17 @@
   --border-subtle: rgba(30, 55, 95, 0.07);
   --text: #161f2c;
   --text-dim: #526175;
-  --text-faint: #68778c;
+  /* ≥ 4.5:1 trên nền kính sáng (đo trên nền ghép thực tế, không chỉ nền trắng) */
+  --text-faint: #566477;
   --accent: #1d5bd6;
   --accent-soft: rgba(29, 91, 214, 0.1);
   --accent-border: rgba(29, 91, 214, 0.32);
   --accent-text: #1850c2;
-  --success: #168a4a;
+  --success: #127a40;
   --success-soft: rgba(22, 138, 74, 0.1);
-  --warning: #b87a11;
+  --warning: #8a5a00;
   --warning-soft: rgba(184, 122, 17, 0.1);
-  --danger: #d13838;
+  --danger: #b42525;
   --danger-soft: rgba(209, 56, 56, 0.1);
   --code-bg: rgba(243, 246, 250, 0.82);
   --shadow: 0 12px 32px -10px rgba(30, 55, 95, 0.25);
@@ -185,6 +188,18 @@
   animation-delay: 120ms;
 }
 
+/* Toast / popup dịch / bảng lệnh nổi trên nội dung bất kỳ: kính gần đặc để chữ phía sau không lộ qua (ngoài @layer nên thắng utility glass) */
+.x2m-toast,
+.x2m-tr-popup,
+.x2m-ddl-pop,
+.x2m-er-dialog,
+.x2m-testdesign,
+.x2m-palette {
+  background:
+    linear-gradient(160deg, var(--sheen), transparent 32%),
+    color-mix(in srgb, var(--backdrop-base) 90%, transparent);
+}
+
 /* Biểu tượng trạng thái trống đặt trong một ô kính */
 .x2m-empty > svg:first-child {
   box-sizing: content-box;
@@ -224,6 +239,10 @@
   .tabular,
   table {
     font-variant-numeric: tabular-nums;
+  }
+  /* Giao diện tiếng Nhật: font Nhật cho cả chữ Latin để nét chữ đồng đều trong câu */
+  html:lang(ja) body {
+    font-family: 'Yu Gothic UI', 'Hiragino Sans', 'Meiryo UI', 'Noto Sans JP', 'Be Vietnam Pro', sans-serif;
   }
   button {
     font: inherit;
@@ -282,3 +301,14 @@
 }
 
 @import './markdown.css';
+
+/* Bản đồ thiết kế: sơ đồ giữ cỡ chữ tự nhiên (Mermaid mặc định co cả sơ đồ cho vừa khung -> chữ ~8px),
+ * sơ đồ rộng hơn khung thì cuộn ngang */
+.x2m-specmap-diagram .mmd {
+  overflow-x: auto;
+}
+.x2m-specmap-diagram .mmd svg {
+  max-width: none !important;
+  width: auto;
+  height: auto;
+}

@@ -2,6 +2,7 @@
  * Thư viện mermaid nặng nên chỉ nạp (import động) khi tài liệu thật sự có sơ đồ.
  * securityLevel 'strict': nhãn trong sơ đồ được làm sạch, không chạy click/script. */
 import type { Mermaid } from 'mermaid'
+import { t } from '../i18n'
 
 export type MermaidTheme = 'dark' | 'default'
 
@@ -97,7 +98,7 @@ const sheets = new Map<string, CSSStyleSheet>()
 function svgElement(svg: string): Element {
   const doc = new DOMParser().parseFromString(svg, 'image/svg+xml')
   const root = doc.documentElement
-  if (root.nodeName !== 'svg') throw new Error('SVG không hợp lệ')
+  if (root.nodeName !== 'svg') throw new Error(t('mermaid.invalidSvg'))
   for (const [id, sheet] of sheets) {
     if (!document.getElementById(id)) {
       sheets.delete(id)
@@ -142,7 +143,7 @@ export async function renderMermaidIn(root: HTMLElement, theme: MermaidTheme): P
       host.classList.add('mmd-error')
       host.insertAdjacentHTML('afterend', `<p class="mmd-error-msg"></p>`)
       ;(host.nextElementSibling as HTMLElement).textContent =
-        'Không vẽ được sơ đồ Mermaid: ' + (err instanceof Error ? err.message.split('\n')[0] : String(err))
+        t('mermaid.error', { err: err instanceof Error ? err.message.split('\n')[0] : String(err) })
       continue
     }
     // Tài liệu có thể đã đổi trong lúc chờ vẽ
@@ -152,7 +153,7 @@ export async function renderMermaidIn(root: HTMLElement, theme: MermaidTheme): P
     box.dataset.src = source
     box.dataset.theme = theme
     box.setAttribute('role', 'img')
-    box.setAttribute('aria-label', 'Sơ đồ Mermaid')
+    box.setAttribute('aria-label', t('mermaid.aria'))
     box.append(svg)
     host.replaceWith(box)
   }

@@ -6,7 +6,12 @@
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+import { slugifyHeading } from './mdView'
+
 const stripTags = (s: string): string => s.replace(/<[^>]*>/g, '')
+/** Chữ thuần của đoạn HTML (đã escape): bỏ thẻ rồi giải entity, để escape lại một lần khi ghi ra. */
+const htmlText = (s: string): string =>
+  stripTags(s).replace(/&(lt|gt|quot|#39|#x27|amp);/g, (_m, e: string) => ({ lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", amp: '&' })[e] ?? _m)
 
 // scx (không phải Script) để tính cả ー、。「」 vốn thuộc script Common.
 const CJK = /[\p{scx=Han}\p{scx=Hira}\p{scx=Kana}\uff00-\uffef]/gu
@@ -33,8 +38,8 @@ const ALERTS: Record<string, string> = {
   CAUTION: 'Nguy hiểm',
 }
 
-const slugify = (s: string): string =>
-  s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
+// Cùng slug với trình đọc của app và GitHub: link `#mục` trong tài liệu khớp id của trang xuất
+const slugify = slugifyHeading
 
 const CSS = `
 :root{--bg:#f5f7fa;--surface:#fff;--panel:rgba(255,255,255,.72);--text:#141b26;--dim:#5a6678;--faint:#8693a5;--border:#e3e8ef;--border-2:#eef1f5;--accent:#1d5bd6;--accent-ink:#1a4fb8;--accent-soft:#ebf1fd;--code-bg:#0f1622;--code-head:#18212f;--code-text:#e3e9f2;--code-inline:#f0f3f7;--th:#f7f9fb;--zebra:#fafbfc;--glow:rgba(29,91,214,.10);--glow-2:rgba(22,138,122,.08);--shadow:0 1px 2px rgba(20,35,60,.05),0 4px 16px -6px rgba(20,35,60,.10);--shadow-lg:0 18px 40px -16px rgba(20,35,60,.28);--note:#1d5bd6;--tip:#168a4a;--imp:#7a4fd0;--warn:#b87a11;--caution:#d13838}
@@ -216,7 +221,7 @@ export function buildGuideHtml(title: string, bodyHtml: string, meta: GuideMeta 
   const seen = new Map<string, number>()
   let body = bodyHtml.replace(/<h([1-3])(\s+[^>]*)?>([\s\S]*?)<\/h\1>/gi, (_m, lv: string, _attrs: string, inner: string) => {
     const cleanInner = inner.replace(/<a class="a"[^>]*>#<\/a>/gi, '')
-    const text = stripTags(cleanInner).trim()
+    const text = htmlText(cleanInner).trim()
     const base = slugify(text) || 's'
     const n = seen.get(base) ?? 0
     seen.set(base, n + 1)

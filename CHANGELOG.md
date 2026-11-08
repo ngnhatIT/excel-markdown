@@ -4,8 +4,75 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
-## Chưa phát hành
-Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/comment, Markdown → Excel không đổi.
+## 2.3.0 — 2026-11-09
+Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
+chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).
+- Tính năng: **CRUD図** (画面 × テーブル, C/R/U/D từ động từ, `?` khi không rõ, bằng chứng file:dòng; CLI `crud`, MCP
+  `crud`) và **用語集 dự án** (`用語集.md`: dịch nhanh + tìm kiếm AI dùng đúng thuật ngữ; gợi ý bảng 用語集); lint thêm
+  cảnh báo cách viết mơ hồ (など / 適宜 / TBD / 要確認…) và cột cùng tên khác kiểu / độ dài.
+- Tính năng: **テスト観点表 / テスト仕様書** sinh tại chỗ từ 画面設計書 (必須, biên 桁数, 形式, 初期値, lựa chọn, nút,
+  画面遷移; 参照元 file:dòng), copy TSV / Markdown, lưu `.md`; nội dung ja / vi / en.
+- Production: error boundary (lỗi giao diện không còn màn hình trắng), log `unhandledRejection` / renderer /
+  tiến trình con bị dừng, log xoay vòng `error.1.log`; menu app riêng (Sửa / Xem / Trợ giúp: Giới thiệu, Kiểm tra cập
+  nhật thủ công, Mở thư mục log, Copy chẩn đoán, Đặt lại cài đặt; bản đóng gói không có Reload / DevTools); chữ phía
+  main (hộp thoại, lỗi) theo ngôn ngữ giao diện; `sandbox: true`, từ chối quyền web, kiểm đầu vào `store:set` /
+  `ai:ask` / `excel:preview`; nhớ cửa sổ phóng to; preview file khổng lồ cắt ở ~2 triệu ký tự, cache worker theo dung
+  lượng (≤ 150 MB); mở `.md` bằng "Open with" vào chế độ Đọc Markdown.
+- Đóng gói: installer en / ja / vi, tên file `ExcelToMarkdown-Setup-<phiên bản>.exe`, thêm vào "Open with" cho
+  xlsx/xlsm/xls/md mà không giành app mặc định; lệnh `x2m` / `x2m-mcp` sau khi cài; workflow phát hành theo tag
+  (kèm SHA256), CI đóng gói Windows + e2e Windows.
+- Accessibility: màu đạt WCAG AA ở cả hai theme; hộp ER / popover DDL giữ Tab bên trong và trả focus khi đóng.
+- Tính năng: chế độ **So sánh 新旧** hai bản thiết kế (Excel hoặc Markdown): so theo sheet → mục → dòng bảng
+  khớp theo cột khóa, tô chữ đổi trong ô, chỉ hiện thay đổi, F7 / Shift+F7, xuất / copy báo cáo
+  `場所 | 項目 | 旧 | 新`. Lõi `src/shared/specDiff.ts`, IPC `compare:read` (worker riêng, giới hạn 120 giây).
+- Tính năng: **giao diện tiếng Việt / English / 日本語** (VI · EN · 日本語 ở thanh trên, lần đầu theo hệ điều hành).
+- Tính năng: **Dịch nhanh đoạn bôi đen** (popup, Ctrl+Shift+T) qua nhà cung cấp AI đã cấu hình; IPC `ai:translate`.
+- Tính năng: Đọc Markdown có **Ctrl+K** (nhảy tới file / heading), **Lùi / Tiến** (Alt+← / →), link `#mục` /
+  `file.md#mục` cuộn đúng mục, tự tải lại file vừa bị sửa khi quay lại cửa sổ, tìm không phân biệt
+  hiragana / katakana; khung AI có **Xuất .md** cuộc trò chuyện (IPC `export:md`).
+- Tính năng: Excel → Markdown đọc **入力規則** (danh sách thả xuống), chữ **gạch ngang** (見え消し → `~~…~~`),
+  **link sang sheet khác**.
+- Tính năng: CLI `textconv` (git diff file Excel dạng Markdown), `md2xlsx`, đầu vào là thư mục, `--no-clobber`,
+  `--help`, `--version`. MCP thêm `build_excel`, `list_sheets`, `preview_sheet`, `outline`, `read_doc` chia trang,
+  `convert_excel` nhận `dir` và cần `overwrite: true` để ghi đè.
+- Tính năng: Markdown → Excel giữ đậm / nghiêng / gạch / code trong ô bảng (rich text), căn lề cột, link trong đoạn,
+  link sang sheet khác, 入力規則 thành danh sách thả xuống, コメント thành note của ô, nhúng ảnh PNG/JPEG cạnh file .md.
+  Sửa: trích dẫn / list lồng rất sâu làm tràn stack, đoạn văn rất dài chạy chậm theo hàm bậc hai, khối code 100 000 dòng
+  bị treo, bảng > 16 384 cột, số > 15 chữ số sai chữ số; file chỉ có heading không còn bị bỏ, file rỗng báo lỗi rõ.
+- Tính năng nổi bật: **Bản đồ thiết kế + 影響調査** trong Đọc Markdown: 画面遷移図 tự dựng từ 画面ID / 画面遷移 /
+  〔矢印〕 (bấm để mở), ER cả thư mục, phân tích ảnh hưởng khi sửa bảng / cột / màn hình, 整合性チェック (ID trùng,
+  遷移 treo, cột không tồn tại). Lõi `src/shared/specIndex.ts`, IPC `mdv:specIndex`; CLI `impact` / `lint` (CI), MCP `impact`.
+- Tính năng: **テーブル定義書 → DDL / ER / JSON**: nút DDL trên bảng định nghĩa (Generic / PostgreSQL / MySQL / Oracle /
+  SQL Server), nút ER vẽ sơ đồ quan hệ Mermaid của file; CLI `ddl`, MCP `table_ddl`.
+- Tính năng: So sánh tự tạo dòng **改訂履歴** (版数 / 改訂日 / 改訂者 / 改訂箇所 / 改訂内容) từ các thay đổi, copy
+  Markdown hoặc TSV dán Excel.
+- Giao diện: font Be Vietnam Pro đóng gói (offline), font Nhật cho giao diện 日本語, màu nhấn dịu hơn, tiêu đề khung
+  không viết hoa, popup / toast / bảng lệnh gần đặc dễ đọc, front-matter YAML hiện thành khối code.
+- Sửa: file text đổi đuôi `.xlsx` không còn được nhận như Excel; lỗi thư viện (zip/CFB) thành thông báo tiếng Việt
+  ở app, CLI và MCP; copy TSV bảng dài đủ dòng; nút Lùi / Tiến không còn bị đẩy ra ngoài ở cửa sổ hẹp; link hỏng
+  không tạo "file ma"; In / PDF không in banner; Hủy ở hộp thoại ghi đè không hiện như lỗi; khung AI hết tràn
+  ngang; lưu khi chưa có key thì nhắc dán key.
+- Tính năng: Excel → Markdown đọc **biểu đồ** (.xlsx): cột/thanh/đường/tròn/vùng/phân tán/radar..., cả biểu đồ
+  kết hợp, thành `**〔グラフ B3:H18〕縦棒グラフ・折れ線グラフ「tiêu đề」**` + bảng số liệu (giá trị cache trong file,
+  tối đa 1 000 danh mục). AI/RAG/MCP đọc được số liệu biểu đồ.
+- Tính năng: chế độ Đọc Markdown **tìm trong nội dung** mọi file của thư mục (nút Tên / Nội dung ở
+  ô lọc); bấm kết quả thì mở file, cuộn tới chỗ khớp và tô sáng từ khóa. IPC mới `mdv:search`.
+- Bảo mật: `uuid` của exceljs nâng lên 11.1.1 (`overrides`), `npm audit --omit=dev` sạch.
+- Bảo mật: file .xlsx độc đặt tên ảnh chứa `\` không còn ghi được file ra ngoài thư mục xuất (Windows);
+  MCP `convert_excel` chỉ nhận file Excel (trước đọc được file text bất kỳ); XML lớp vẽ có vạn thẻ
+  không đóng không còn làm treo worker (quét tuyến tính + preview giới hạn 120 giây).
+- Sửa: `store.json` không còn bị ghi đè trắng (mất cài đặt và API Key) khi lỗi đọc tạm thời (EBUSY/EPERM).
+- Sửa: AI "chỉ file đang xem" với file lớn ít mục bị cắt vừa mức ngữ cảnh thay vì gửi vài trăm nghìn token.
+- Sửa: tick sheet không còn tải lại preview; preview không kẹt "Đang convert..."; Enter chốt chữ IME
+  không gửi câu hỏi AI; rời chế độ Đọc Markdown thì dừng câu trả lời đang stream; bấm trích dẫn AI
+  không còn khóa tab Mã Markdown; mở thư mục nhanh liên tiếp không bị kết quả cũ ghi đè; mục lục
+  HTML xuất không escape hai lần (`A &amp;amp; B`); focus bàn phím hiện rõ trong cây file.
+- Sửa (kiểm bằng Gemini thật): model mặc định `gemini-2.5-flash` bị Google ngừng cấp cho key mới (404) nên người dùng
+  mới không hỏi được AI; mặc định nay là alias `gemini-flash-latest`, model đã lưu bị ngừng thì tự chuyển sang alias này.
+  Nhận key Gemini dạng mới `AQ.…` (gợi ý + che key trong thông báo lỗi).
+- Sửa: Markdown → Excel bỏ front-matter YAML đầu file (không còn sheet rác `source_ … sheet_ …`).
+- MCP: `protocolVersion` lạ trả bản mới nhất hỗ trợ, batch trả `-32600`, tool lạ trả `-32602`.
+- Dependency: electron 44.10.2, vitest 5.1, tailwind 4.3.5 (bản vá).
 - Bảo mật: renderer không còn đọc/ghi được API Key Claude / OpenAI qua `store:get` / `store:set`
   (trước chỉ chặn khóa của Gemini).
 - Sửa: cửa sổ không còn mở ra ngoài màn hình khi màn hình phụ lần trước đã rút (bỏ vị trí đã lưu).

@@ -110,7 +110,18 @@ describe('parseMarkdownFile: tách sheet (§7)', () => {
   })
 
   it('# đầu file là title, không thành block', () => {
-    expect(parseMarkdownFile('# T\n', 'memo.md')).toEqual({ title: 'T', sheets: [] })
+    expect(parseMarkdownFile('# T\n\nx', 'memo.md')).toEqual({
+      title: 'T',
+      sheets: [{ name: 'memo', blocks: [{ kind: 'paragraph', text: 'x' }] }]
+    })
+  })
+
+  it('file chỉ có `# tiêu đề` vẫn là một sheet (tiêu đề thành heading), không lặng lẽ mất khi gộp', () => {
+    expect(parseMarkdownFile('# 新規\n', 'kihon__画面.md')).toEqual({
+      title: '新規',
+      sheets: [{ name: '画面', blocks: [{ kind: 'heading', text: '新規' }] }]
+    })
+    expect(parseMarkdownFile('  \n\n', 'memo.md').sheets).toEqual([])
   })
 
   it('# không đứng đầu file là heading thường, title = null', () => {
@@ -353,9 +364,12 @@ describe('parseMarkdownFile: Markdown viết tay (§8)', () => {
     ])
   })
 
-  it('meta: giá trị có sub-bullet thì không gắn link của phần giá trị', () => {
+  it('meta: giá trị có sub-bullet: một link -> cả ô là hyperlink; nhiều link -> thêm (url), không mất URL', () => {
     expect(g('- **A**: [x](http://a.b)\n  - s')).toEqual([
-      { kind: 'meta', items: [{ label: 'A', value: { text: 'x\ns' } }] }
+      { kind: 'meta', items: [{ label: 'A', value: { text: 'x\ns', link: 'http://a.b' } }] }
+    ])
+    expect(g('- **A**: [x](http://a.b)\n  - [y](https://c.d)')).toEqual([
+      { kind: 'meta', items: [{ label: 'A', value: { text: 'x (http://a.b)\ny (https://c.d)' } }] }
     ])
   })
 
@@ -450,5 +464,112 @@ describe('parseMarkdownFile: không crash với Markdown bất kỳ', () => {
       expect(() => (parsed = parseMarkdownFile(md, 'fuzz.md')), JSON.stringify(md)).not.toThrow()
       for (const s of parsed!.sheets) expect(Array.isArray(s.blocks)).toBe(true)
     }
+  })
+})
+
+
+describe('parseMarkdownFile: Markdown không tin cậy (không crash, không treo)', () => {
+  it('quote lồng 5 000 cấp (marked tràn stack) -> mỗi dòng một đoạn, giữ chữ', () => {
+    const p = parseMarkdownFile('> '.repeat(5000) + 'x\nend', 'deep.md')
+    expect(p.sheets).toHaveLength(1)
+    expect(p.sheets[0].blocks.at(-1)).toEqual({ kind: 'paragraph', text: 'end' })
+  })
+
+  it('list lồng 2 000 cấp (marked tràn heap) -> thụt lề bị chặn, xong nhanh', () => {
+    const md = Array.from({ length: 2000 }, (_, i) => ' '.repeat(i * 2) + '- x' + i).join('\n')
+    const t = Date.now()
+    const blocks = g(md)
+    expect(Date.now() - t).toBeLessThan(5000)
+    expect(blocks.some((b) => b.kind === 'paragraph' && b.text.includes('x1999'))).toBe(true)
+  })
+
+  it('đoạn rất dài nhiều `<br>` / link / `**` mở không đóng: tuyến tính, giữ chữ', () => {
+    const t = Date.now()
+    const br = g('a<br>'.repeat(100_000))
+    const em = g('**a '.repeat(20_000))
+    expect(Date.now() - t).toBeLessThan(10_000)
+    expect((br[0] as { text: string }).text).toBe('a\n'.repeat(100_000))
+    expect((em[0] as { text: string }).text.startsWith('**a **a')).toBe(true)
+  })
+
+  it('đoạn > 20 000 ký tự vẫn ra đúng chữ như đoạn ngắn (tách nguồn inline tại khoảng trắng)', () => {
+    const unit = '\\*x\\* `c` [l](https://e.example) a&amp;b '
+    const long = unit.repeat(2000)
+    expect((g(long)[0] as { text: string }).text).toBe('*x* c l (https://e.example) a&b '.repeat(2000))
+  })
+})
+
+describe('parseMarkdownFile: round-trip với Excel -> Markdown', () => {
+  it('căn cột bảng theo :---: / ---: / :---', () => {
+    const [t] = g('| a | b | c | d |\n|:---|:---:|---:|---|\n| 1 | 2 | 3 | 4 |')
+    expect(t).toMatchObject({ kind: 'table', align: ['left', 'center', 'right', null] })
+  })
+
+  it('ảnh đứng riêng một đoạn -> block image (alt như chữ cũ); ảnh giữa câu vẫn là chữ alt', () => {
+    expect(g('![画面 (A1:B2)](book_images/image1.png)')).toEqual([
+      { kind: 'image', alt: '画面 (A1:B2)', src: 'book_images/image1.png' }
+    ])
+    expect(g('図: ![x](a.png) です')).toEqual([{ kind: 'paragraph', text: '図: x です' }])
+  })
+
+  it('đoạn / ghi chú có link: một link -> hyperlink cả ô; nhiều link -> thêm (url)', () => {
+    expect(g('詳細は[仕様](https://example.com)を参照')).toEqual([
+      { kind: 'paragraph', text: '詳細は仕様を参照', link: 'https://example.com' }
+    ])
+    expect(g('[A](https://a.example) と [B](https://b.example)')).toEqual([
+      { kind: 'paragraph', text: 'A (https://a.example) と B (https://b.example)' }
+    ])
+    expect(g('> ※ [A](https://a.example)\n>\n> - [B](https://b.example)')).toEqual([
+      { kind: 'note', text: '※ A (https://a.example)\nB (https://b.example)' }
+    ])
+    expect(g('> ※ 詳細は[A](https://a.example)')).toEqual([{ kind: 'note', text: '※ 詳細はA', link: 'https://a.example' }])
+    expect(g('- 項目 [A](https://a.example)')).toEqual([{ kind: 'paragraph', text: '・項目 A', link: 'https://a.example' }])
+  })
+
+  const table = '| No | 項目名 | 区分 |\n|---|---|---|\n| 1 | 顧客コード | 入力 |\n| 2 | 顧客名 | 選択 |\n| 3 | 備考 |  |\n'
+
+  it('〔コメント〕: chữ của ô khớp duy nhất -> ghi chú của ô, bỏ dòng; không khớp / trùng -> giữ dòng', () => {
+    const blocks = g(table + '\n- 〔コメント B5: 顧客コード〕桁数チェック。<br>赤枠表示。\n- 〔コメント C9: 無い〕x\n')
+    expect(blocks).toHaveLength(2)
+    expect((blocks[0] as Extract<Block, { kind: 'table' }>).rows[0][1]).toEqual({ text: '顧客コード', note: '桁数チェック。\n赤枠表示。' })
+    expect(blocks[1]).toEqual({ kind: 'paragraph', text: '・〔コメント C9: 無い〕x' })
+    // chữ xuất hiện ở hai ô -> không đoán
+    const dup = g(table + table + '\n- 〔コメント B5: 顧客コード〕x\n')
+    expect(dup.at(-1)).toEqual({ kind: 'paragraph', text: '・〔コメント B5: 顧客コード〕x' })
+    // ô value meta cũng nhận ghi chú
+    const meta = g('- **機能ID**: SP01\n\n- 〔コメント B3: SP01〕メモ\n')
+    expect(meta).toEqual([{ kind: 'meta', items: [{ label: '機能ID', value: { text: 'SP01', note: 'メモ' } }] }])
+  })
+
+  it('〔入力規則〕: gắn vào cột duy nhất của bảng ngay trước mà mọi giá trị nằm trong danh sách, bỏ dòng', () => {
+    const blocks = g(table + '\n- 〔図形 A1〕x\n- 〔入力規則 C2:C50〕入力 / 選択 / 表示\n')
+    expect(blocks).toHaveLength(2)
+    expect(blocks[0]).toMatchObject({ kind: 'table', validations: [{ col: 2, values: ['入力', '選択', '表示'] }] })
+    expect(blocks[1]).toEqual({ kind: 'paragraph', text: '・〔図形 A1〕x' })
+  })
+
+  it('〔入力規則〕 không chắc chắn -> giữ nguyên dòng (không tạo danh sách sai)', () => {
+    const keep = (line: string, md = table) => {
+      const blocks = g(md + '\n' + line + '\n')
+      expect(blocks.at(-1)).toEqual({ kind: 'paragraph', text: line.replace(/^- /, '・') })
+      expect(blocks[0]).not.toHaveProperty('validations')
+    }
+    keep('- 〔入力規則 C2:C50〕入力') // 選択 không thuộc danh sách
+    keep('- 〔入力規則 C2:C50〕=Sheet2!$A$1:$A$3') // công thức
+    keep('- 〔入力規則 C2:C50〕入力 / 選択 / a,b') // dấu phẩy
+    keep('- 〔入力規則 C2:C50〕入力 / 選択', '段落\n') // không có bảng phía trước
+    keep('- 〔入力規則 C2:C50〕1 / 2 / 3', '| a | b |\n|---|---|\n| 1 | 2 |\n') // hai cột cùng khớp
+  })
+})
+
+describe('front-matter YAML', () => {
+  it('bỏ front-matter đầu file (do app tạo), không thành sheet rác', () => {
+    const r = parseMarkdownFile('---\nsource: a.xlsx\nsheet: 表紙\n---\n## 表紙\n\n本文\n', 'a.md')
+    expect(r.sheets.map((s) => s.name)).toEqual(['表紙'])
+    expect(JSON.stringify(r)).not.toContain('source')
+  })
+
+  it('`---` giữa file vẫn tách sheet như cũ', () => {
+    expect(parseMarkdownFile('## A\n\nx\n\n---\n\n## B\n\ny\n', 'a.md').sheets.map((s) => s.name)).toEqual(['A', 'B'])
   })
 })

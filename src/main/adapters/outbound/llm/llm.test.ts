@@ -21,6 +21,10 @@ describe('shared', () => {
     expect(out).toBe('a sk-ant-*** b sk-***')
   })
 
+  it('che key Gemini dạng mới AQ.… dù không truyền key', () => {
+    expect(redactApiKey('lỗi với key AQ.Ab8RN6LrEMxxxxxxxxxxxxxxxxxxxx tại x')).toBe('lỗi với key AQ.*** tại x')
+  })
+
   it('trimHistory bỏ message trả lời đứng đầu (Claude bắt buộc mở đầu bằng user)', () => {
     const h = trimHistory([
       { role: 'model', text: 'a' },

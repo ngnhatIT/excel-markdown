@@ -3,27 +3,33 @@
  *
  * Đọc Excel chạy trong utilityProcess (out/main/worker.js), main không nạp SheetJS / exceljs.
  * Hai worker: preview không phải chờ convert hàng loạt, và Hủy convert chỉ kill worker convert.
- * Worker preview cache 3 workbook (đổi sheet không parse lại); worker convert đọc mỗi file một lần nên chỉ giữ 1.
+ * Worker preview cache 3 workbook / 150 MB file nguồn (đổi sheet không parse lại); worker convert đọc mỗi file một lần nên chỉ giữ 1.
+ * Lỗi trả về renderer là mã `E_…` (renderer dịch); hộp thoại ghi đè theo ngôn ngữ giao diện (i18nMain).
  */
 import { BrowserWindow, dialog, ipcMain, type MessageBoxOptions, type WebContents } from 'electron'
 import { rm } from 'node:fs/promises'
 import { basename, isAbsolute, join } from 'node:path'
 import type { ConvertOptions, MdConvertResult, MdInspectResult } from '../../../../shared/types'
 import { CancelledError, PARTIAL_SUFFIX } from '../../../application/ports/workerProtocol'
-import { errText, friendlyError } from '../../../domain/errors'
+import { errorCode, errText } from '../../../domain/errors'
 import { safeFileName, type SheetResult } from '../../../domain/excel/output'
 import { isExcelPath, isMarkdownPath } from '../../../domain/guards'
 import { ConverterWorker } from '../../outbound/converterWorker'
 import { logError } from '../../outbound/store'
-import { canAccess, ensureWritableDir, runExcelConvert, type ExcelConvertPayload } from './excelConvert'
+import { mt } from '../../../i18nMain'
+import { canAccess, capPreview, ensureWritableDir, runExcelConvert, type ExcelConvertPayload } from './excelConvert'
 
-const NOT_EXCEL = 'Chỉ đọc được file Excel (.xlsx/.xlsm/.xls) theo đường dẫn tuyệt đối.'
-const NOT_MD = 'Chỉ đọc được file Markdown (.md).'
-const BUSY = 'Đang convert, vui lòng chờ hoặc bấm Hủy.'
+// Mã lỗi, renderer dịch (i18n/errors.ts)
+const NOT_EXCEL = 'E_NOT_EXCEL'
+const NOT_MD = 'E_NOT_MD'
+const BUSY = 'E_BUSY'
+
+/** Markdown preview gửi sang renderer tối đa (ký tự): sheet khổng lồ không làm treo khung xem. */
+const PREVIEW_MAX_CHARS = 2_000_000
 
 /** Hộp thoại `Ghi đè` / `Hủy` (mặc định Hủy); true = ghi đè. */
 async function confirmOverwrite(sender: WebContents, message: string): Promise<boolean> {
-  const box: MessageBoxOptions = { type: 'question', buttons: ['Ghi đè', 'Hủy'], defaultId: 1, cancelId: 1, message }
+  const box: MessageBoxOptions = { type: 'question', buttons: [mt('overwrite.yes'), mt('common.cancel')], defaultId: 1, cancelId: 1, message }
   const win = BrowserWindow.fromWebContents(sender)
   const { response } = await (win ? dialog.showMessageBox(win, box) : dialog.showMessageBox(box))
   return response === 0
@@ -35,7 +41,8 @@ export interface ConvertIpc {
 }
 
 export function registerConvertIpc(workerEntry: string): ConvertIpc {
-  const previewWorker = new ConverterWorker(workerEntry, ['--cache=3'], 'x2m-preview')
+  // Preview có giới hạn giờ: một file treo parser không được chặn mọi preview sau nó
+  const previewWorker = new ConverterWorker(workerEntry, ['--cache=3', '--cache-mb=150'], 'x2m-preview', 120_000)
   const convertWorker = new ConverterWorker(workerEntry, ['--cache=1'], 'x2m-convert')
   let convertRunning = false
   let convertCancelRequested = false
@@ -49,18 +56,29 @@ export function registerConvertIpc(workerEntry: string): ConvertIpc {
       return { ok: true, data: sheets }
     } catch (err) {
       void logError('excel:listSheets', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
-  ipcMain.handle('excel:preview', async (_e, filePath: unknown, sheetName: string, options: ConvertOptions) => {
+  ipcMain.handle('excel:preview', async (_e, filePath: unknown, sheetName: unknown, options: unknown) => {
     if (!isExcelPath(filePath)) return { ok: false, error: NOT_EXCEL }
+    if (typeof sheetName !== 'string' || sheetName.length > 255 || !options || typeof options !== 'object' || Array.isArray(options)) {
+      return { ok: false, error: 'E_BAD_REQUEST' }
+    }
     try {
-      const md = await previewWorker.request<string>({ type: 'preview', path: filePath as string, sheet: sheetName, options })
-      return { ok: true, data: md }
+      const md = await previewWorker.request<string>({
+        type: 'preview',
+        path: filePath as string,
+        sheet: sheetName,
+        options: options as ConvertOptions,
+      })
+      return {
+        ok: true,
+        data: capPreview(md, PREVIEW_MAX_CHARS, (shown, total) => mt('preview.truncated', { shown, total })),
+      }
     } catch (err) {
       void logError('excel:preview', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
@@ -124,7 +142,7 @@ export function registerConvertIpc(workerEntry: string): ConvertIpc {
   ipcMain.handle('md:convert', async (e, payload: { files: string[]; outDir: string; fileName: string }) => {
     if (!Array.isArray(payload?.files) || !payload.files.every(isMarkdownPath)) return { ok: false, error: NOT_MD }
     if (typeof payload.outDir !== 'string' || !isAbsolute(payload.outDir) || typeof payload.fileName !== 'string') {
-      return { ok: false, error: 'Thư mục hoặc tên file xuất không hợp lệ.' }
+      return { ok: false, error: 'E_BAD_OUTPUT' }
     }
     if (convertRunning) return { ok: false, error: BUSY }
     convertRunning = true
@@ -132,8 +150,8 @@ export function registerConvertIpc(workerEntry: string): ConvertIpc {
     const outPath = join(payload.outDir, safeFileName(payload.fileName.replace(/\.xlsx$/i, '')) + '.xlsx')
     const result = (r: MdConvertResult): { ok: true; data: MdConvertResult } => ({ ok: true, data: r })
     try {
-      if (!(await ensureWritableDir(payload.outDir))) return { ok: false, error: 'Không ghi được vào thư mục: ' + payload.outDir }
-      if ((await canAccess(outPath)) && !(await confirmOverwrite(e.sender, `File ${basename(outPath)} đã tồn tại. Ghi đè?`))) {
+      if (!(await ensureWritableDir(payload.outDir))) return { ok: false, error: 'E_OUTDIR_NOT_WRITABLE|' + payload.outDir }
+      if ((await canAccess(outPath)) && !(await confirmOverwrite(e.sender, mt('overwrite.one', { name: basename(outPath) })))) {
         return result({ status: 'declined' })
       }
       // Hủy bấm trước khi worker khởi động (lúc tạo thư mục / chờ hộp thoại): cancel() chưa có gì để kill
