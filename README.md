@@ -135,6 +135,9 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
 - **Mở thư mục** (nút ở thanh trên / `Ctrl+O` / kéo thả thư mục): cột trái là cây mọi file
   `.md` trong thư mục và thư mục con (bỏ `node_modules`, thư mục ẩn; tối đa 5 000 file), có ô
   lọc, mục **Mới sửa**, sắp xếp theo Tên / Ngày sửa, ↑ / ↓ để chuyển file.
+- **Tìm trong nội dung**: bấm nút **Nội dung** cạnh ô lọc rồi gõ từ khóa (nhiều từ cách nhau bằng
+  khoảng trắng = dòng phải chứa đủ các từ, không phân biệt hoa thường). Kết quả theo file và dòng;
+  bấm một dòng để mở file, cuộn tới chỗ khớp và tô sáng từ khóa.
 - **Mở file lẻ** hoặc **Dán Markdown** từ clipboard để xem nhanh.
 - Mỗi lần chọn file đều đọc lại từ đĩa. File > 20 MB không mở.
 - Ảnh đường dẫn tương đối hiện được; ảnh từ mạng không tải. Link tới `.md` khác mở ngay trong app,

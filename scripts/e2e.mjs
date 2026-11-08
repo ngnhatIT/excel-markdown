@@ -458,6 +458,22 @@ try {
     (await waitFor(`document.body.innerText.includes('Clipboard trống') && document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)
   await ev(`(${treeRow('docs')})?.querySelector('button')?.click(), 1`)
   check('Đọc Markdown: thu gọn thư mục docs -> ẩn b.md', (await waitFor(`!(${treeRow('b.md')})`, 2000)) >= 0)
+  // Tìm trong nội dung
+  const filterMode = (t) => `[...document.querySelectorAll('.x2m-filter .x2m-sort-btn')].find(b => b.textContent === ${JSON.stringify(t)})`
+  await ev(`(${filterMode('Nội dung')})?.click(), 1`)
+  await setFilter('CONST x')
+  check('Tìm nội dung: ra b.md (cả khi thư mục đang thu gọn), dòng 4, không phân biệt hoa thường',
+    (await waitFor(`!!(${treeRow('docs/b.md')}) && [...document.querySelectorAll('.x2m-search-hit')].some(h => h.textContent === '4const x = 1')`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-files')?.innerText`).catch(() => null))
+  await ev(`document.querySelector('.x2m-search-hit')?.click(), 1`)
+  check('Tìm nội dung: bấm kết quả -> mở b.md, tô sáng chỗ khớp trong preview',
+    (await waitFor(`document.querySelector('.md-body h1')?.textContent === 'Trang B' && CSS.highlights.get('x2m-search')?.size >= 1`, 5000)) >= 0)
+  await ev(`(${treeRow('docs/b.md')})?.querySelector('button')?.click(), 1`)
+  await setFilter('khong-co-dau')
+  check('Tìm nội dung: không khớp -> báo Không tìm thấy', (await waitFor(`document.querySelector('.x2m-search-results')?.innerText.includes('Không tìm thấy')`, 5000)) >= 0)
+  await ev(`(${filterMode('Tên')})?.click(), 1`)
+  await setFilter('')
+  check('Tìm nội dung: về chế độ Tên -> cây file quay lại', (await waitFor(`!document.querySelector('.x2m-search-results') && !!(${treeRow('README.md')})`, 3000)) >= 0)
 
   // Trợ lý AI: chọn nhà cung cấp, key riêng từng bên (không gọi mạng)
   const providerBtn = (t) => `[...document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button')].find(b => b.textContent.startsWith(${JSON.stringify(t)}))`

@@ -71,7 +71,11 @@ Quy tắc phụ thuộc: `domain/` không import Electron hay adapter; `adapters
   Markdown → Excel: worker ghi `.partial` rồi đổi tên; Hủy/lỗi dọn `.partial`.
 - `ipc/system.ts`: `store:*` không bao giờ đọc/ghi khóa API Key (`isSecretStoreKey`); `shell:openPath`
   chỉ mở thư mục.
-- `ipc/viewer.ts`: scheme ảnh `x2m-img:` chỉ phục vụ file ảnh nằm trong thư mục đã mở để đọc.
+- `ipc/viewer.ts`: scheme ảnh `x2m-img:` chỉ phục vụ file ảnh nằm trong thư mục đã mở để đọc;
+  `mdv:search` chỉ tìm trong thư mục đã mở bằng `mdv:list` (khớp dòng: `domain/mdSearch.ts`).
+- `converterWorker.ts`: worker preview có giới hạn 120 giây/yêu cầu (quá thì kill + khởi động lại);
+  XML lớp vẽ tìm phần tử bằng `indexOf` (`elements()` trong `drawings.ts`), không dùng regex lười
+  `[\s\S]*?` trên XML không tin cậy (O(n²) khi thẻ không đóng).
 - `ipc/ai.ts`: API Key mã hóa bằng `safeStorage` (fallback base64 khi OS không có keyring), renderer
   chỉ thấy bản che; mọi thông báo lỗi đi qua `redactApiKey`.
 

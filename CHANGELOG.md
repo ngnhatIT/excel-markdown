@@ -9,7 +9,20 @@ Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có �
 - Tính năng: Excel → Markdown đọc **biểu đồ** (.xlsx): cột/thanh/đường/tròn/vùng/phân tán/radar..., cả biểu đồ
   kết hợp, thành `**〔グラフ B3:H18〕縦棒グラフ・折れ線グラフ「tiêu đề」**` + bảng số liệu (giá trị cache trong file,
   tối đa 1 000 danh mục). AI/RAG/MCP đọc được số liệu biểu đồ.
+- Tính năng: chế độ Đọc Markdown **tìm trong nội dung** mọi file của thư mục (nút Tên / Nội dung ở
+  ô lọc); bấm kết quả thì mở file, cuộn tới chỗ khớp và tô sáng từ khóa. IPC mới `mdv:search`.
 - Bảo mật: `uuid` của exceljs nâng lên 11.1.1 (`overrides`), `npm audit --omit=dev` sạch.
+- Bảo mật: file .xlsx độc đặt tên ảnh chứa `\` không còn ghi được file ra ngoài thư mục xuất (Windows);
+  MCP `convert_excel` chỉ nhận file Excel (trước đọc được file text bất kỳ); XML lớp vẽ có vạn thẻ
+  không đóng không còn làm treo worker (quét tuyến tính + preview giới hạn 120 giây).
+- Sửa: `store.json` không còn bị ghi đè trắng (mất cài đặt và API Key) khi lỗi đọc tạm thời (EBUSY/EPERM).
+- Sửa: AI "chỉ file đang xem" với file lớn ít mục bị cắt vừa mức ngữ cảnh thay vì gửi vài trăm nghìn token.
+- Sửa: tick sheet không còn tải lại preview; preview không kẹt "Đang convert..."; Enter chốt chữ IME
+  không gửi câu hỏi AI; rời chế độ Đọc Markdown thì dừng câu trả lời đang stream; bấm trích dẫn AI
+  không còn khóa tab Mã Markdown; mở thư mục nhanh liên tiếp không bị kết quả cũ ghi đè; mục lục
+  HTML xuất không escape hai lần (`A &amp;amp; B`); focus bàn phím hiện rõ trong cây file.
+- MCP: `protocolVersion` lạ trả bản mới nhất hỗ trợ, batch trả `-32600`, tool lạ trả `-32602`.
+- Dependency: electron 44.10.2, vitest 5.1, tailwind 4.3.5 (bản vá).
 - Bảo mật: renderer không còn đọc/ghi được API Key Claude / OpenAI qua `store:get` / `store:set`
   (trước chỉ chặn khóa của Gemini).
 - Sửa: cửa sổ không còn mở ra ngoài màn hình khi màn hình phụ lần trước đã rút (bỏ vị trí đã lưu).
