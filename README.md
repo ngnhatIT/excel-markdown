@@ -202,9 +202,14 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   - **ER**: sơ đồ quan hệ của mọi テーブル定義 trong thư mục.
   - **影響調査**: gõ bảng, `TBL.COL` hoặc 画面ID → các tài liệu / màn hình tham chiếu tới nó (và màn hình liên quan qua
     遷移), bấm để mở và tô sáng.
-  - **整合性チェック**: 画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, `TBL.COL` không có cột.
+  - **整合性チェック**: 画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, `TBL.COL` không có cột; cảnh báo cách
+    viết mơ hồ (など / 適宜 / 原則 / TBD / 要確認 / 未定…) và cột cùng tên nhưng khác kiểu / độ dài giữa các bảng.
+  - **CRUD図**: ma trận 画面 × テーブル, C / R / U / D suy từ động từ (登録 / 表示 / 更新 / 削除…, cả tiếng Việt / Anh);
+    `?` = không xác định được (không đoán bừa). Bấm ô để xem bằng chứng file:dòng; copy TSV / Markdown.
+  - **用語集**: đặt `用語集.md` (bảng `| 日本語 | Tiếng Việt | English | 備考 |`) ở gốc thư mục — Dịch nhanh và Trợ lý AI
+    dùng đúng thuật ngữ dự án; nút **Copy gợi ý 用語集** tạo sẵn bảng từ tên bảng / cột / màn hình để bạn chỉnh.
   - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
-    dùng trong CI); MCP: tool `impact`.
+    dùng trong CI), `node out/main/cli.js crud <thư mục> [--format md|tsv]`; MCP: tool `impact`, `crud`.
 - **テスト観点表** (nút **観点表** khi tài liệu có bảng 【項目定義】 trong mục có 画面ID): sinh khung テスト仕様書 tại chỗ,
   không AI: 必須, biên 桁数 (n / n+1 ký tự), 形式 (数値 / 日付 / 半角英数), 初期値, lựa chọn, nút và 画面遷移, kèm
   参照元 file:dòng. Copy TSV dán Excel, hoặc Lưu `.md` rồi mở ở chế độ Markdown → Excel để ra `.xlsx`. Nội dung
@@ -326,6 +331,7 @@ codex mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mc
 | `list_sheets` | Danh sách sheet của file Excel (số dòng, sheet ẩn) |
 | `preview_sheet` | Markdown của một sheet, không ghi file |
 | `impact` | 影響調査 (bảng / cột / màn hình) + 整合性チェック cho cả thư mục tài liệu |
+| `crud` | Ma trận CRUD 画面 × テーブル của thư mục, kèm bằng chứng file:dòng |
 | `table_ddl` | DDL / JSON / ER Mermaid từ テーブル定義書 trong file `.md`, file Excel hoặc cả thư mục |
 | `build_excel` | Gộp file `.md` (hoặc cả thư mục) thành một `.xlsx`; file đích đã có thì cần `overwrite: true` |
 

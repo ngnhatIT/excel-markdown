@@ -7,6 +7,9 @@
 ## 2.3.0 — 2026-11-09
 Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
 chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).
+- Tính năng: **CRUD図** (画面 × テーブル, C/R/U/D từ động từ, `?` khi không rõ, bằng chứng file:dòng; CLI `crud`, MCP
+  `crud`) và **用語集 dự án** (`用語集.md`: dịch nhanh + tìm kiếm AI dùng đúng thuật ngữ; gợi ý bảng 用語集); lint thêm
+  cảnh báo cách viết mơ hồ (など / 適宜 / TBD / 要確認…) và cột cùng tên khác kiểu / độ dài.
 - Tính năng: **テスト観点表 / テスト仕様書** sinh tại chỗ từ 画面設計書 (必須, biên 桁数, 形式, 初期値, lựa chọn, nút,
   画面遷移; 参照元 file:dòng), copy TSV / Markdown, lưu `.md`; nội dung ja / vi / en.
 - Production: error boundary (lỗi giao diện không còn màn hình trắng), log `unhandledRejection` / renderer /
