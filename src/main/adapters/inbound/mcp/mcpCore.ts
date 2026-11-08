@@ -1,7 +1,7 @@
 /* MCP server (stdio, JSON-RPC 2.0): đưa converter + bộ tìm kiếm tài liệu cho Claude Code, Codex CLI, Claude Desktop, Cursor...
  * Các agent đó chạy bằng gói đăng ký của người dùng nên không cần API key trong app. Thuần, test được không cần Electron. */
 import { isAbsolute } from 'node:path'
-import { isMarkdownPath } from '../../../domain/guards'
+import { isExcelPath, isMarkdownPath } from '../../../domain/guards'
 import { collectRagDocuments, RAG_MAX_FILES } from '../../../domain/rag/collect'
 import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
@@ -86,8 +86,9 @@ async function callTool(name: string, a: Args): Promise<string> {
       const files = Array.isArray(a.files) ? a.files.filter((f): f is string => typeof f === 'string') : []
       if (files.length === 0) throw new Error('Thiếu tham số "files"')
       // Đường dẫn tuyệt đối không bao giờ bắt đầu bằng '-', nên không bị parseArgs hiểu nhầm thành cờ
-      const rel = files.find((f) => !isAbsolute(f))
-      if (rel !== undefined) throw new Error(`"files" phải là đường dẫn tuyệt đối: ${rel}`)
+      // Chỉ file Excel: SheetJS đọc được cả file text, không chặn thì tool đọc được file bất kỳ (vd ~/.ssh/...)
+      const bad = files.find((f) => !isExcelPath(f))
+      if (bad !== undefined) throw new Error(`"files" phải là đường dẫn tuyệt đối tới file Excel (.xlsx/.xlsm/.xls): ${bad}`)
       const argv = [...files, '-o', absDir(a, 'out_dir')]
       if (a.per_workbook === true) argv.push('--per-workbook')
       if (a.front_matter === true) argv.push('--front-matter')
@@ -119,9 +120,14 @@ async function callTool(name: string, a: Args): Promise<string> {
       return readMarkdownFile(path)
     }
     default:
-      throw new Error('Không có tool: ' + name)
+      throw new UnknownToolError('Không có tool: ' + name)
   }
 }
+
+class UnknownToolError extends Error {}
+
+/** Phiên bản giao thức MCP hỗ trợ, mới nhất ở cuối. */
+const PROTOCOL_VERSIONS = ['2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25']
 
 interface RpcMessage {
   jsonrpc?: string
@@ -139,13 +145,17 @@ const fail = (id: RpcMessage['id'], code: number, message: string): Record<strin
 
 /** Xử lý một message JSON-RPC; trả về null với notification (không có id). */
 export async function handleMcpMessage(raw: unknown): Promise<Record<string, unknown> | null> {
-  if (!raw || typeof raw !== 'object') return fail(null, -32600, 'Invalid Request')
+  // Batch (mảng) không hỗ trợ: phải trả lỗi, im lặng thì client chờ mãi
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fail(null, -32600, 'Invalid Request')
   const msg = raw as RpcMessage
   if (msg.id === undefined) return null
   switch (msg.method) {
     case 'initialize':
       return ok(msg.id, {
-        protocolVersion: msg.params?.protocolVersion ?? '2025-06-18',
+        // Client xin phiên bản lạ -> trả phiên bản mới nhất mình hỗ trợ (spec MCP), không lặp lại bản lạ
+        protocolVersion: PROTOCOL_VERSIONS.includes(msg.params?.protocolVersion ?? '')
+          ? msg.params?.protocolVersion
+          : PROTOCOL_VERSIONS[PROTOCOL_VERSIONS.length - 1],
         capabilities: { tools: {} },
         serverInfo: SERVER_INFO,
       })
@@ -158,6 +168,7 @@ export async function handleMcpMessage(raw: unknown): Promise<Record<string, unk
         const text = await callTool(msg.params?.name ?? '', msg.params?.arguments ?? {})
         return ok(msg.id, { content: [{ type: 'text', text }] })
       } catch (err) {
+        if (err instanceof UnknownToolError) return fail(msg.id, -32602, err.message)
         return ok(msg.id, { content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }], isError: true })
       }
     default:

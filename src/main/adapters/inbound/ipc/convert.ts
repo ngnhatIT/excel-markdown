@@ -35,7 +35,8 @@ export interface ConvertIpc {
 }
 
 export function registerConvertIpc(workerEntry: string): ConvertIpc {
-  const previewWorker = new ConverterWorker(workerEntry, ['--cache=3'], 'x2m-preview')
+  // Preview có giới hạn giờ: một file treo parser không được chặn mọi preview sau nó
+  const previewWorker = new ConverterWorker(workerEntry, ['--cache=3'], 'x2m-preview', 120_000)
   const convertWorker = new ConverterWorker(workerEntry, ['--cache=1'], 'x2m-convert')
   let convertRunning = false
   let convertCancelRequested = false

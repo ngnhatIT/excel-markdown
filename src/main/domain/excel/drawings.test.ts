@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { fileURLToPath } from 'node:url'
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import JSZip from 'jszip'
+import { writeMdFiles } from '../../adapters/outbound/mdOutput'
 import * as XLSX from 'xlsx'
 import { readWorkbook } from '../../adapters/outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../shared/types'
@@ -107,6 +112,14 @@ describe('sheetDrawings', () => {
     expect(md).toContain('| 3月 | 150.5 | 8 |')
   })
 
+  it('XML độc (vạn thẻ mở không đóng, thẻ thiếu >) không làm treo: thời gian tuyến tính', () => {
+    const t0 = performance.now()
+    const bad = '<xdr:twoCellAnchor><xdr:sp><a:p><c:pt idx="1">'.repeat(50_000) + '<Relationship Id="x"'.repeat(20_000)
+    expect(sheetDrawings(fakeWb(bad), 'S').items).toEqual([])
+    expect(parseChart('<c:plotArea><c:barChart><c:ser>'.repeat(50_000))).toBeNull()
+    expect(performance.now() - t0).toBeLessThan(2000)
+  })
+
   it('workbook không có lớp vẽ (vd .xls) -> rỗng', () => {
     expect(sheetDrawings({ SheetNames: ['S'], Sheets: { S: {} } } as XLSX.WorkBook, 'S')).toEqual({ items: [], media: {} })
   })
@@ -203,5 +216,51 @@ describe('parseChart', () => {
   it('không có series (hoặc loại không hỗ trợ) -> null', () => {
     expect(parseChart('<c:chartSpace><c:chart><c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>')).toBeNull()
     expect(parseChart('<garbage')).toBeNull()
+  })
+})
+
+describe('file .xlsx thật qua readWorkbook (part chart không bị lọc; tên ảnh độc không thoát thư mục)', async () => {
+  // Chèn vào ui-drawings.xlsx: một biểu đồ và một ảnh có tên part chứa `..\\` (path traversal kiểu Windows)
+  const zip = await JSZip.loadAsync(readFileSync(FIXTURE))
+  const relsPath = 'xl/drawings/_rels/drawing1.xml.rels'
+  const rels = (await zip.file(relsPath)!.async('string')).replace(
+    '</Relationships>',
+    '<Relationship Id="rId90" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart" Target="../charts/chart1.xml"/>' +
+      '<Relationship Id="rId91" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/..\\..\\evil.bat"/></Relationships>'
+  )
+  zip.file(relsPath, rels)
+  const frame =
+    '<xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="90" name="Chart 1"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr>' +
+    '<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">' +
+    '<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" r:id="rId90"/></a:graphicData></a:graphic></xdr:graphicFrame>'
+  const pic =
+    '<xdr:pic><xdr:nvPicPr><xdr:cNvPr id="91" name="evil"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId91"/></xdr:blipFill></xdr:pic>'
+  const dPath = 'xl/drawings/drawing1.xml'
+  zip.file(
+    dPath,
+    (await zip.file(dPath)!.async('string')).replace(
+      /<\/xdr:wsDr>$/,
+      anchor(1, 90, 8, 105, frame) + anchor(1, 110, 3, 112, pic) + '<xdr:clientData/></xdr:wsDr>'
+    )
+  )
+  zip.file('xl/charts/chart1.xml', BAR_LINE)
+  zip.file('xl/media/..\\..\\evil.bat', 'echo pwned')
+  const dir = mkdtempSync(join(tmpdir(), 'x2m-chart-'))
+  const file = join(dir, 'book.xlsx')
+  writeFileSync(file, await zip.generateAsync({ type: 'nodebuffer' }))
+  const [layout] = convertSheetsInWorkbook(readWorkbook(file), ['画面レイアウト'], DEFAULT_OPTIONS)
+
+  it('biểu đồ hiện trong Markdown', () => {
+    expect(layout.markdown).toContain('**〔グラフ B91:H105〕縦棒グラフ・折れ線グラフ「月別売上 & 件数」**')
+    expect(layout.markdown).toContain('| 2月 | 98 |  |')
+  })
+
+  it('ảnh tên độc ghi trong thư mục ảnh, không ra ngoài thư mục xuất', async () => {
+    expect(Object.keys(layout.images ?? {})).toContain('evil.bat')
+    const out = join(dir, 'out')
+    const files = workbookMdFiles('book', 'book.xlsx', [layout], DEFAULT_OPTIONS, true, new Set())
+    await writeMdFiles(out, files, () => {})
+    expect(readdirSync(join(out, 'book_images')).sort()).toEqual(['evil.bat', 'image1.png'])
+    expect(readdirSync(dir).sort()).toEqual(['book.xlsx', 'out'])
   })
 })

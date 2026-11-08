@@ -7,6 +7,9 @@ const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 const stripTags = (s: string): string => s.replace(/<[^>]*>/g, '')
+/** Chữ thuần của đoạn HTML (đã escape): bỏ thẻ rồi giải entity, để escape lại một lần khi ghi ra. */
+const htmlText = (s: string): string =>
+  stripTags(s).replace(/&(lt|gt|quot|#39|#x27|amp);/g, (_m, e: string) => ({ lt: '<', gt: '>', quot: '"', '#39': "'", '#x27': "'", amp: '&' })[e] ?? _m)
 
 // scx (không phải Script) để tính cả ー、。「」 vốn thuộc script Common.
 const CJK = /[\p{scx=Han}\p{scx=Hira}\p{scx=Kana}\uff00-\uffef]/gu
@@ -216,7 +219,7 @@ export function buildGuideHtml(title: string, bodyHtml: string, meta: GuideMeta 
   const seen = new Map<string, number>()
   let body = bodyHtml.replace(/<h([1-3])(\s+[^>]*)?>([\s\S]*?)<\/h\1>/gi, (_m, lv: string, _attrs: string, inner: string) => {
     const cleanInner = inner.replace(/<a class="a"[^>]*>#<\/a>/gi, '')
-    const text = stripTags(cleanInner).trim()
+    const text = htmlText(cleanInner).trim()
     const base = slugify(text) || 's'
     const n = seen.get(base) ?? 0
     seen.set(base, n + 1)

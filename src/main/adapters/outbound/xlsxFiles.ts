@@ -24,7 +24,7 @@ export function readWorkbook(filePath: string): WorkBook {
   return wb
 }
 
-const KEEP_PART = /^xl\/(?:_rels\/workbook\.xml\.rels|worksheets\/_rels\/|drawings\/|media\/)/
+const KEEP_PART = /^xl\/(?:_rels\/workbook\.xml\.rels|worksheets\/_rels\/|drawings\/|media\/|charts\/[^/]+\.xml$)/
 
 /** Liệt kê sheet của file Excel. Ném lỗi nếu file không đọc được. */
 export function listSheets(filePath: string, skipDelSheets: boolean): ReturnType<typeof listSheetsInWorkbook> {

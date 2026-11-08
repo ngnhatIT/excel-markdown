@@ -155,6 +155,16 @@ function formatSectionBlock(sec: RagSection): string {
   return `=== TÀI LIỆU: ${sec.relPath} | MỤC: ${sec.sectionTitle} ===\n${sec.metaHeader}\n${sec.content}`
 }
 
+/** Cắt `text` cho vừa `max` token ước lượng: file / mục đơn lẻ lớn hơn mức ngữ cảnh đã chọn
+ * (vd một sheet bảng 40 000 dòng) thì nhà cung cấp từ chối cả câu hỏi nếu gửi nguyên văn. */
+export function fitTokens(text: string, max: number): string {
+  const total = estimateTokens(text)
+  if (total <= max) return text
+  let cut = Math.floor(text.length * (max / total))
+  while (cut > 0 && estimateTokens(text.slice(0, cut)) > max) cut = Math.floor(cut * 0.9)
+  return text.slice(0, cut) + '\n\n…(đã cắt bớt phần còn lại: vượt mức ngữ cảnh đã chọn)'
+}
+
 /** Xây dựng ngữ cảnh gửi cho model AI theo chiến lược Ưu tiên Chất lượng (Quality-First). */
 export function buildRagContext(
   docs: RagDocument[],
@@ -192,7 +202,8 @@ export function buildRagContext(
       const citations: RagCitation[] = []
       for (const { sec } of rankedSecs) {
         if (usedTokens + sec.tokensEst > activeMax && citations.length > 0) continue
-        blocks.push(formatSectionBlock(sec))
+        // Mục đầu tiên luôn được lấy, nhưng cắt cho vừa phần ngân sách còn lại
+        blocks.push(fitTokens(formatSectionBlock(sec), Math.max(1000, activeMax - usedTokens)))
         usedTokens += sec.tokensEst + 8
         citations.push({
           filePath: sec.filePath,
@@ -228,7 +239,7 @@ export function buildRagContext(
       sheetName: s.sheetName,
       sectionTitle: s.sectionTitle,
     }))
-    const contextText = formatFullDocBlock(target)
+    const contextText = fitTokens(formatFullDocBlock(target), activeMax)
     return {
       mode: 'full-active',
       contextText,

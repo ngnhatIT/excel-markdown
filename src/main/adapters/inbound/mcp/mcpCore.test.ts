@@ -83,8 +83,22 @@ describe('MCP tools', () => {
     expect(res.result.content[0].text).toContain('--no-escape')
   })
 
-  it('tool lạ hoặc thiếu tham số -> isError, không ném', async () => {
-    expect((await call('nope', {})).result.isError).toBe(true)
+  it('convert_excel chỉ nhận file Excel (không đọc được file text bất kỳ)', async () => {
+    const res = await call('convert_excel', { files: [join(docs, 'SC001.md')], out_dir: join(tmp, 'y') })
+    expect(res.result.isError).toBe(true)
+    expect(res.result.content[0].text).toContain('file Excel')
+  })
+
+  it('thiếu tham số -> isError; tool lạ -> lỗi JSON-RPC -32602', async () => {
     expect((await call('search_docs', { root: docs })).result.content[0].text).toContain('query')
+    expect(await call('nope', {})).toMatchObject({ error: { code: -32602 } })
+  })
+
+  it('protocolVersion lạ -> trả bản mới nhất hỗ trợ; batch (mảng) -> -32600', async () => {
+    const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 0, method: 'initialize', params: { protocolVersion: 'bogus-1999' } })) as {
+      result: { protocolVersion: string }
+    }
+    expect(res.result.protocolVersion).toBe('2025-11-25')
+    expect(await handleMcpMessage([{ jsonrpc: '2.0', id: 1, method: 'ping' }])).toMatchObject({ error: { code: -32600 } })
   })
 })

@@ -7,13 +7,26 @@ function storePath(): string {
   return join(app.getPath('userData'), 'store.json')
 }
 
-export async function readStore(): Promise<Record<string, unknown>> {
+/** Chưa có store -> {}; JSON hỏng -> {} (lần ghi sau thay file hỏng). Lỗi đọc khác (EBUSY/EPERM khi
+ * antivirus giữ file) thì throw: ghi đè lúc đó sẽ xóa mất mọi cài đặt lẫn API key. */
+async function readStoreStrict(): Promise<Record<string, unknown>> {
+  let raw: string
   try {
-    const raw = await readFile(storePath(), 'utf-8')
-    return JSON.parse(raw) as Record<string, unknown>
+    raw = await readFile(storePath(), 'utf-8')
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return {}
+    throw err
+  }
+  try {
+    const data: unknown = JSON.parse(raw)
+    return data && typeof data === 'object' && !Array.isArray(data) ? (data as Record<string, unknown>) : {}
   } catch {
     return {}
   }
+}
+
+export async function readStore(): Promise<Record<string, unknown>> {
+  return readStoreStrict().catch(() => ({}))
 }
 
 /** Ghi file tạm rồi đổi tên: tắt máy/crash giữa chừng không để lại store.json hỏng
@@ -30,7 +43,7 @@ let storeWriteChain: Promise<void> = Promise.resolve()
 
 export function updateStore(mutate: (store: Record<string, unknown>) => void): Promise<void> {
   const task = storeWriteChain.then(async () => {
-    const store = await readStore()
+    const store = await readStoreStrict()
     mutate(store)
     await writeStore(store)
   })

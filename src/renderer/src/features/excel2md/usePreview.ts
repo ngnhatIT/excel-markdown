@@ -14,19 +14,21 @@ export function usePreview(
   const [error, setError] = useState('')
   const timer = useRef<number | null>(null)
   const gen = useRef(0)
+  const path = file?.path ?? null
 
   useEffect(() => {
     if (timer.current) window.clearTimeout(timer.current)
     const g = ++gen.current
-    if (!file || !sheet) {
+    if (!path || !sheet) {
       setMd('')
       setError('')
+      setLoading(false) // yêu cầu đang chạy bị bỏ (gen đổi) nên finally của nó không tắt loading
       return
     }
     setLoading(true)
     timer.current = window.setTimeout(() => {
       window.api
-        .previewSheet(file.path, sheet, options)
+        .previewSheet(path, sheet, options)
         .then((res) => {
           if (gen.current !== g) return // stale: user đã chuyển sheet khác
           setMd(res)
@@ -44,7 +46,8 @@ export function usePreview(
     return () => {
       if (timer.current) window.clearTimeout(timer.current)
     }
-  }, [file, sheet, options])
+    // Theo path, không theo object file: tick/bỏ tick sheet tạo object mới nhưng preview không đổi
+  }, [path, sheet, options])
 
   return { md, loading, error }
 }

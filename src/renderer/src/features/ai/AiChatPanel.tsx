@@ -131,6 +131,15 @@ export function AiChatPanel({
       .catch(() => {})
   }, [])
 
+  // Rời chế độ Đọc Markdown khi đang trả lời: dừng hẳn yêu cầu (không để main tiếp tục stream, tốn token)
+  useEffect(
+    () => () => {
+      askSeq.current++
+      void window.api.aiCancel().catch(() => {})
+    },
+    []
+  )
+
   useEffect(() => {
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight
@@ -582,7 +591,8 @@ export function AiChatPanel({
             disabled={busy}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              // isComposing: Enter đang chốt chữ Nhật/Việt của bộ gõ IME, không phải gửi câu hỏi
+              if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault()
                 void sendQuestion(input)
               }

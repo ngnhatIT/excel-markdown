@@ -211,6 +211,8 @@ export async function readSse(
       }
     }
   } catch (err) {
+    // onData ném (sự kiện lỗi / JSON hỏng): đóng luồng, không để kết nối HTTP treo tới khi server tự đóng
+    void reader.cancel().catch(() => {})
     if (signal?.aborted) throw new Error(USER_ABORT_MSG)
     throw err
   }

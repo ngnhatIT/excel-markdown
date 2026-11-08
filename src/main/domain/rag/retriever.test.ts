@@ -98,3 +98,15 @@ describe('buildRagContext (Quality-First)', () => {
     expect(buildRagContext([...many, doc1], 'SC001 顧客コード', { scope: 'folder', maxContextTokens: 4000 }).contextText).toBe(res.contextText)
   })
 })
+
+describe('buildRagContext: file đang xem lớn hơn mức ngữ cảnh', () => {
+  const rows = Array.from({ length: 20_000 }, (_, i) => `| ${i} | 顧客コード${i} | 半角英数10桁 |`).join('\n')
+  const huge = parseMarkdownForRag('/dir/BIG.md', 'BIG.md', `| No | 項目名 | 備考 |\n|---|---|---|\n${rows}`)
+
+  it('file 0–1 mục vẫn bị cắt cho vừa ngân sách (không gửi vài trăm nghìn token)', () => {
+    expect(huge.tokensEst).toBeGreaterThan(100_000)
+    const res = buildRagContext([huge], 'tóm tắt', { scope: 'active', activeFilePath: '/dir/BIG.md', maxContextTokens: 32_000 })
+    expect(res.tokensEst).toBeLessThanOrEqual(61_000)
+    expect(res.contextText).toContain('đã cắt bớt')
+  })
+})
