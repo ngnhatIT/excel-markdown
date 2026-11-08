@@ -39,7 +39,7 @@ export interface SheetDrawings {
   media: Record<string, Uint8Array>
 }
 
-type Files = Record<string, { content?: Uint8Array } | undefined>
+export type Files = Record<string, { content?: Uint8Array } | undefined>
 
 const NS = '(?:\\w+:)?'
 /** Thẻ mở tối đa bấy nhiêu ký tự: XML không tin cậy thiếu `>` không làm regex quét tới cuối file ở mỗi vị trí. */
@@ -48,7 +48,7 @@ const TAG = '[^>]{0,4000}'
 /** Các phần tử `<ns:name ...>...</ns:name>` (cả `<name/>`), theo thứ tự, không xét lồng cùng tên.
  * Tìm thẻ đóng bằng indexOf và dừng khi thiếu: XML hỏng/độc (vạn thẻ mở không đóng) không làm
  * regex lười `[\s\S]*?` quét lại cả file từ mỗi thẻ mở (O(n²), treo worker hàng giờ). */
-function elements(xml: string, names: string, limit = Infinity): string[] {
+export function elements(xml: string, names: string, limit = Infinity): string[] {
   const out: string[] = []
   const open = new RegExp(`<(\\w+:)?(${names})(?=[\\s>/])${TAG}>`, 'g')
   for (let m = open.exec(xml); m && out.length < limit; m = open.exec(xml)) {
@@ -66,15 +66,15 @@ function elements(xml: string, names: string, limit = Infinity): string[] {
 }
 
 /** Nội dung bên trong phần tử `tag` đầu tiên (undefined nếu không có hoặc tự đóng). */
-function inner(xml: string, tag: string): string | undefined {
+export function inner(xml: string, tag: string): string | undefined {
   const e = elements(xml, tag, 1)[0]
   return e && !e.endsWith('/>') ? e.slice(e.indexOf('>') + 1, e.lastIndexOf('</')) : undefined
 }
 
 /** Ghép chữ của mọi `<a:t>` trong `xml`. */
-const runsText = (xml: string): string => elements(xml, 't').map((t) => decodeXml(inner(t, 't') ?? '')).join('')
+export const runsText = (xml: string): string => elements(xml, 't').map((t) => decodeXml(inner(t, 't') ?? '')).join('')
 
-function decodeXml(s: string): string {
+export function decodeXml(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_m, e: string) => {
     const k = e.toLowerCase()
     if (k[0] === '#') return String.fromCodePoint(k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10))
@@ -82,18 +82,18 @@ function decodeXml(s: string): string {
   })
 }
 
-const attr = (tag: string, name: string): string | undefined => {
+export const attr = (tag: string, name: string): string | undefined => {
   const m = new RegExp(`\\s${name}="([^"]*)"`).exec(tag)
   return m ? decodeXml(m[1]) : undefined
 }
 
-function readText(files: Files, path: string): string | null {
+export function readText(files: Files, path: string): string | null {
   const c = files[path]?.content
   return c ? Buffer.from(c).toString('utf8') : null
 }
 
 /** Relationship Id -> đường dẫn part tuyệt đối trong zip (không có `/` đầu). */
-function readRels(files: Files, partPath: string): Map<string, { type: string; path: string }> {
+export function readRels(files: Files, partPath: string): Map<string, { type: string; path: string }> {
   const dir = posix.dirname(partPath)
   const xml = readText(files, posix.join(dir, '_rels', posix.basename(partPath) + '.rels'))
   const out = new Map<string, { type: string; path: string }>()
