@@ -1,6 +1,6 @@
 /* CLI headless: cùng engine với app. `node out/main/cli.js a.xlsx b.xlsx -o outDir [tuỳ chọn]` */
 import { mkdirSync, writeFileSync } from 'node:fs'
-import { basename, extname, join } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../types'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
@@ -68,6 +68,10 @@ export function runCli(argv: string[], log: (s: string) => void = console.log): 
       const names = listSheetsInWorkbook(wb, args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
       const sheets = convertSheetsInWorkbook(wb, names, args.options)
       for (const f of workbookMdFiles(base, basename(file), sheets, args.options, args.perWorkbook, used)) {
+        for (const img of f.images ?? []) {
+          mkdirSync(dirname(join(args.outDir, img.path)), { recursive: true })
+          writeFileSync(join(args.outDir, img.path), img.data)
+        }
         writeFileSync(join(args.outDir, f.name), f.text, 'utf-8')
         log(f.name)
       }

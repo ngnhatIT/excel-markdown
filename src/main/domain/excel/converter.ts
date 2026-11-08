@@ -5,7 +5,8 @@
  */
 import * as XLSX from 'xlsx'
 import type { ConvertOptions, VerticalMergeMode } from '../../../types'
-import { escapeMarkdownInline, type SheetResult } from './output'
+import { sheetDrawings, type DrawingItem } from './drawings'
+import { ASSET_TOKEN, escapeMarkdownInline, inlineAssets, type SheetResult } from './output'
 
 // Giữ API cũ: test và code cũ import các hàm này từ converter.
 export { dedupeFileName, escapeMarkdownInline, joinWorkbookMarkdown, safeFileName, type SheetResult } from './output'
@@ -54,6 +55,8 @@ interface GridData {
   hMergesByRow: Map<number, HMergeSpan[]>
   /** Các ô được sinh ra từ merge dọc (dạng `${r},${c}`) */
   vMergedCells: Set<string>
+  /** Ô sheet ứng với grid[0][0] */
+  origin: { r: number; c: number }
 }
 
 /** Escape cú pháp *đầu block* cho text đứng đầu dòng (đoạn văn, quote, sub-bullet):
@@ -151,7 +154,7 @@ function sheetToGrid(
   const ref = effectiveRange(ws, clip)
   const hMergesByRow = new Map<number, HMergeSpan[]>()
   const vMergedCells = new Set<string>()
-  if (!ref) return { grid: [], hMergesByRow, vMergedCells }
+  if (!ref) return { grid: [], hMergesByRow, vMergedCells, origin: clip ? clip.s : { r: 0, c: 0 } }
   const merges = ws['!merges'] || []
   const grid: string[][] = []
   for (let r = ref.s.r; r <= ref.e.r; r++) {
@@ -189,7 +192,7 @@ function sheetToGrid(
       }
     }
   }
-  return { grid, hMergesByRow, vMergedCells }
+  return { grid, hMergesByRow, vMergedCells, origin: ref.s }
 }
 
 function escCell(v: string, multiline: 'br' | 'space'): string {
@@ -434,25 +437,101 @@ export function extractSheetMeta(
 }
 
 /** Convert một worksheet thành Markdown, hiểu định dạng tài liệu 基本設計. */
-export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertOptions): string {
+interface SheetNote {
+  /** Dòng theo grid (có thể âm nếu neo trên vùng quét) */
+  row: number
+  col: number
+  md: string
+  image: boolean
+}
+
+/** Nội dung nằm ngoài giá trị ô: ảnh, shape, mũi tên (lớp vẽ) và comment của ô.
+ * Mỗi note neo theo ô trên-trái để chèn vào Markdown đúng chỗ của nó trong sheet. */
+function sheetNotes(
+  ws: WorkSheet,
+  drawings: DrawingItem[],
+  origin: { r: number; c: number },
+  clip: XLSX.Range | null,
+  esc: boolean,
+  multiline: 'br' | 'space'
+): SheetNote[] {
+  const txt = (s: string): string => escCell(esc ? escapeMarkdownInline(s) : s, multiline)
+  const notes: SheetNote[] = []
+  const add = (r: number, c: number, md: string, image = false): void => {
+    if (clip && (r < clip.s.r || r > clip.e.r || c < clip.s.c || c > clip.e.c)) return
+    notes.push({ row: r - origin.r, col: c, md, image })
+  }
+  for (const d of drawings) {
+    for (const im of d.images) {
+      const alt = txt(im.alt).replace(/(?<!\\)[[\]]/g, '\\$&')
+      add(d.row, d.col, `![${alt} (${d.ref})](${ASSET_TOKEN}${encodeURIComponent(im.name)})`, true)
+    }
+    for (const t of d.texts) add(d.row, d.col, `- 〔図形 ${d.ref}〕${txt(t)}`)
+    const a = d.arrow
+    if (a) add(d.row, d.col, `- 〔矢印〕${txt(a.from)} ${a.both ? '↔' : '→'} ${txt(a.to)}${a.label ? '（' + txt(a.label) + '）' : ''}`)
+  }
+  for (const k of Object.keys(ws)) {
+    if (k[0] === '!') continue
+    const body = ((ws[k] as XLSX.CellObject).c ?? []).map((x) => (x.t ?? '').trim()).filter((t) => t !== '').join('\n')
+    if (!body) continue
+    const { r, c } = XLSX.utils.decode_cell(k)
+    const cellText = escCell(getCell(ws, r, c, esc), 'space')
+    add(r, c, `- 〔コメント ${k}${cellText ? ': ' + cellText : ''}〕${txt(body)}`)
+  }
+  return notes.sort((x, y) => x.row - y.row || x.col - y.col)
+}
+
+export function sheetToMarkdown(
+  ws: WorkSheet,
+  sheetName: string,
+  opts: ConvertOptions,
+  drawings: DrawingItem[] = []
+): string {
   // Option có thể thiếu khi store cũ / caller cũ: mặc định escape.
   const esc = opts.escapeMarkdown !== false
   const vMergeMode: VerticalMergeMode = opts.verticalMerge ?? 'repeat'
   /** Text do người dùng nhập đứng đầu dòng (đoạn văn, quote, sub-bullet). */
   const blk = (s: string): string => (esc ? escapeBlockStart(s) : s)
   const title = esc ? escapeMarkdownInline(sheetName) : sheetName
-  const { grid, hMergesByRow, vMergedCells } = sheetToGrid(
-    ws,
-    esc,
-    parseRange(opts.range),
-    opts.showFormulas === true
-  )
+  const clip = parseRange(opts.range)
+  const { grid, hMergesByRow, vMergedCells, origin } = sheetToGrid(ws, esc, clip, opts.showFormulas === true)
   const out: string[] = []
   if (opts.includeSheetTitle) out.push('## ' + title, '')
+  /** Sub-bullet meta không có dòng trống phía sau (để các dòng nối tiếp liền nhau).
+   * Block mới (bảng, heading, quote, đoạn văn) phải cách 1 dòng trống, nếu không
+   * Markdown nuốt nó vào list item (bảng nằm trong <li>, đoạn văn nối lazy). */
+  const startBlock = (): void => {
+    if (out.length > 0 && out[out.length - 1] !== '') out.push('')
+  }
+  const notes = sheetNotes(ws, drawings, origin, clip, esc, opts.multiline)
+  let noteIdx = 0
+  /** Ghi các note neo ở dòng grid < limit: ảnh thành đoạn riêng, còn lại gom thành list. */
+  const flushNotes = (limit: number): void => {
+    let inList = false
+    while (noteIdx < notes.length && notes[noteIdx].row < limit) {
+      const n = notes[noteIdx++]
+      if (n.image) {
+        startBlock()
+        out.push(n.md, '')
+        inList = false
+      } else {
+        if (!inList) startBlock()
+        out.push(n.md)
+        inList = true
+      }
+    }
+    if (inList) out.push('')
+  }
+  const finish = (): string => {
+    flushNotes(Infinity)
+    while (out.length > 0 && out[out.length - 1] === '') out.pop()
+    return out.join('\n')
+  }
 
   let i = 0
   while (i < grid.length && nonEmptyCount(grid[i]) === 0) i++
-  if (i >= grid.length) return ''
+  // Sheet chỉ có hình (vd 画面遷移図 vẽ toàn bằng shape) vẫn ra nội dung
+  if (i >= grid.length) return notes.length > 0 ? finish() : ''
 
   // ---- Banner 基本設計 ----
   if (grid[i][0] === DOC_KIND) {
@@ -515,12 +594,6 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
   let tableHeaderSpans: HMergeSpan[] = []
   let tableRows: string[][] = []
   let lastMetaLabel: string | null = null
-  /** Sub-bullet meta không có dòng trống phía sau (để các dòng nối tiếp liền nhau).
-   * Block mới (bảng, heading, quote, đoạn văn) phải cách 1 dòng trống, nếu không
-   * Markdown nuốt nó vào list item (bảng nằm trong <li>, đoạn văn nối lazy). */
-  const startBlock = (): void => {
-    if (out.length > 0 && out[out.length - 1] !== '') out.push('')
-  }
   const flushTable = (): void => {
     if (tableHeader) {
       const t = renderTable(tableHeader, tableRows, opts, tableHeaderSpans)
@@ -531,6 +604,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
       tableHeader = null
       tableHeaderSpans = []
       tableRows = []
+      flushNotes(i) // note neo trong bảng: ngay sau bảng, không chen giữa các dòng
     }
   }
   const openTableAt = (rowIdx: number): void => {
@@ -566,6 +640,8 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
 
   for (; i < grid.length; i++) {
     const r = grid[i]
+    // Không chen note vào giữa bảng hoặc giữa các dòng meta nối tiếp
+    if (!tableHeader && !lastMetaLabel) flushNotes(i)
     const n = nonEmptyCount(r)
     if (n === 0) {
       flushTable()
@@ -676,8 +752,7 @@ export function sheetToMarkdown(ws: WorkSheet, sheetName: string, opts: ConvertO
     out.push(blk(escCell(r.filter((v) => v !== '').join(' '), opts.multiline)), '')
   }
   flushTable()
-  while (out.length > 0 && out[out.length - 1] === '') out.pop()
-  return out.join('\n')
+  return finish()
 }
 
 export type WorkBook = XLSX.WorkBook
@@ -699,7 +774,9 @@ export function listSheetsInWorkbook(
 export function convertSheetInWorkbook(wb: WorkBook, sheetName: string, opts: ConvertOptions): string {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error('Không tìm thấy sheet: ' + sheetName)
-  return sheetToMarkdown(ws, sheetName, opts)
+  const d = sheetDrawings(wb, sheetName)
+  // Preview không có thư mục ảnh: nhúng ảnh dạng data: để xem được ngay
+  return inlineAssets(sheetToMarkdown(ws, sheetName, opts, d.items), d.media)
 }
 
 /** Convert nhiều sheet của một workbook. Bỏ qua sheet không tồn tại;
@@ -713,9 +790,11 @@ export function convertSheetsInWorkbook(
   for (const sn of sheetNames) {
     const ws = wb.Sheets[sn]
     if (!ws) continue
-    const md = sheetToMarkdown(ws, sn, opts)
+    const d = sheetDrawings(wb, sn)
+    const md = sheetToMarkdown(ws, sn, opts, d.items)
     if (opts.skipEmptySheets && md.trim() === '') continue
-    results.push({ sheet: sn, markdown: md, ...extractSheetMeta(ws, sn) })
+    const images = Object.fromEntries(Object.entries(d.media).filter(([name]) => md.includes(ASSET_TOKEN + encodeURIComponent(name))))
+    results.push({ sheet: sn, markdown: md, ...extractSheetMeta(ws, sn), ...(Object.keys(images).length > 0 ? { images } : {}) })
   }
   return results
 }

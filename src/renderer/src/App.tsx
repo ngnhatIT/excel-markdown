@@ -589,6 +589,9 @@ export default function App(): React.ReactElement {
   const isMd = appMode === 'md2excel'
   const isView = appMode === 'mdview'
 
+  /** Preview Excel: ảnh trong sheet được worker nhúng sẵn dạng data:. */
+  const resolvePreviewImage = useCallback((src: string): string | null => (/^data:image\/(png|jpe?g|gif|webp|bmp);/i.test(src) ? src : null), [])
+
   /* ----------------------------- Đọc Markdown ------------------------------ */
   const viewerPath = viewer.doc?.path ?? null
 
@@ -904,6 +907,7 @@ export default function App(): React.ReactElement {
               <PreviewPane
                 title={selFile && selSheet ? `${selFile.name} / ${selSheet}` : null}
                 md={preview.md}
+                resolveImage={resolvePreviewImage}
                 loading={preview.loading}
                 error={preview.error}
                 zoom={zoom}

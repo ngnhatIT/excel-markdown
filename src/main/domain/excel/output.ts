@@ -8,6 +8,38 @@ export interface SheetResult {
   markdown: string
   title?: string
   meta?: Record<string, string>
+  /** Ảnh sheet tham chiếu (tên file -> nội dung); link trong markdown dùng ASSET_TOKEN */
+  images?: Record<string, Uint8Array>
+}
+
+/** Tiền tố link ảnh do converter sinh (`![..](x2m-asset:image1.png)`), thay bằng thư mục ảnh
+ * khi ghi file (linkAssets) hoặc data: khi preview (inlineAssets). */
+export const ASSET_TOKEN = 'x2m-asset:'
+const ASSET_LINK = /\]\(x2m-asset:([^)\s]+)\)/g
+
+const IMAGE_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+}
+
+/** Thay link ảnh bằng data: URI. Ảnh trình duyệt không hiển thị được (emf/wmf...) giữ tên file. */
+export function inlineAssets(md: string, media: Record<string, Uint8Array>): string {
+  return md.replace(ASSET_LINK, (m, enc: string) => {
+    const name = decodeURIComponent(enc)
+    const mime = IMAGE_MIME[name.split('.').pop()?.toLowerCase() ?? '']
+    const data = media[name]
+    return mime && data ? '](data:' + mime + ';base64,' + Buffer.from(data).toString('base64') + ')' : '](' + enc + ')'
+  })
+}
+
+/** Thay link ảnh bằng đường dẫn tương đối `dir/tên` (encode ký tự làm gãy cú pháp link). */
+function linkAssets(md: string, dir: string): string {
+  const d = dir.replace(/[ ()<>#%]/g, (ch) => '%' + ch.charCodeAt(0).toString(16).toUpperCase())
+  return md.replace(ASSET_LINK, (_m, enc: string) => '](' + d + '/' + enc + ')')
 }
 
 export type FrontMatterValue = string | string[] | Record<string, string>
@@ -90,6 +122,8 @@ export interface MdOutputFile {
   /** Tên file .md đã khử trùng */
   name: string
   text: string
+  /** Ảnh cần ghi kèm, `path` tương đối thư mục xuất (`<tên>_images/image1.png`) */
+  images?: { path: string; data: Uint8Array }[]
 }
 
 /** Các file .md Excel → Markdown ghi cho một workbook; app (IPC excel:convert) và CLI dùng chung.
@@ -102,16 +136,31 @@ export function workbookMdFiles(
   perWorkbook: boolean,
   used: Set<string>
 ): MdOutputFile[] {
+  // Một thư mục ảnh cho cả workbook (tên ảnh trong xl/media không trùng nhau)
+  const dir = sheets.some((s) => s.images) ? dedupeFileName(safeFileName(base + '_images'), used) : ''
+  const images = (list: SheetResult[]): MdOutputFile['images'] => {
+    const all = list.flatMap((s) => Object.entries(s.images ?? {}))
+    return all.length > 0 ? all.map(([name, data]) => ({ path: dir + '/' + name, data })) : undefined
+  }
+  const withImages = (f: MdOutputFile, list: SheetResult[]): MdOutputFile => {
+    const imgs = images(list)
+    return imgs ? { ...f, text: linkAssets(f.text, dir), images: imgs } : f
+  }
   if (perWorkbook) {
     if (!sheets.some((s) => s.markdown.trim() !== '')) return []
     const text = joinWorkbookMarkdown(base, sheets, options.escapeMarkdown !== false, options.frontMatter ? sourceName : undefined)
-    return [{ name: dedupeFileName(mdFileName(base), used), text }]
+    return [withImages({ name: dedupeFileName(mdFileName(base), used), text }, sheets)]
   }
-  return sheets.map((s) => ({
-    name: dedupeFileName(mdFileName(base, s.sheet), used),
-    text:
-      (options.frontMatter ? frontMatter({ source: sourceName, sheet: s.sheet, title: s.title, meta: s.meta }) : '') +
-      s.markdown +
-      '\n',
-  }))
+  return sheets.map((s) =>
+    withImages(
+      {
+        name: dedupeFileName(mdFileName(base, s.sheet), used),
+        text:
+          (options.frontMatter ? frontMatter({ source: sourceName, sheet: s.sheet, title: s.title, meta: s.meta }) : '') +
+          s.markdown +
+          '\n',
+      },
+      [s]
+    )
+  )
 }

@@ -1,0 +1,22 @@
+[
+  {
+    "name": "画面レイアウト",
+    "rows": 65,
+    "hidden": false
+  },
+  {
+    "name": "画面遷移図",
+    "rows": 0,
+    "hidden": false
+  },
+  {
+    "name": "顧客詳細",
+    "rows": 21,
+    "hidden": false
+  },
+  {
+    "name": "画像のみ",
+    "rows": 0,
+    "hidden": false
+  }
+]

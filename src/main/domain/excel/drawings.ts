@@ -1,0 +1,215 @@
+/* Lớp vẽ của sheet .xlsx: ảnh, shape/text box, mũi tên (xl/drawings/drawingN.xml).
+ * SheetJS bản community không đọc phần này; ta đọc thẳng các part XML mà
+ * `readFile(..., { bookFiles: true })` giữ lại trong `wb.files`.
+ * shortcut: chưa đọc biểu đồ/SmartArt (graphicFrame) và lớp vẽ của file .xls (BIFF) — thêm khi có tài liệu thật cần.
+ */
+import { posix } from 'node:path'
+import * as XLSX from 'xlsx'
+
+export interface DrawingItem {
+  /** Ô neo trên-trái (0-based, toạ độ sheet) */
+  row: number
+  col: number
+  /** Vùng chiếm, vd `B10` hoặc `B10:F12` */
+  ref: string
+  /** Chữ trong các shape của anchor (mỗi phần tử có thể nhiều dòng) */
+  texts: string[]
+  /** Ảnh: `name` = tên file trong xl/media */
+  images: { name: string; alt: string }[]
+  /** Mũi tên/đường nối đã suy ra hai đầu */
+  arrow?: { from: string; to: string; both: boolean; label?: string }
+}
+
+export interface SheetDrawings {
+  items: DrawingItem[]
+  /** Nội dung ảnh theo tên file (chỉ ảnh được tham chiếu) */
+  media: Record<string, Uint8Array>
+}
+
+type Files = Record<string, { content?: Uint8Array } | undefined>
+
+const NS = '(?:\\w+:)?'
+const tagRe = (name: string): RegExp => new RegExp(`<${NS}${name}\\b[\\s\\S]*?</${NS}${name}>`, 'g')
+
+function decodeXml(s: string): string {
+  return s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_m, e: string) => {
+    const k = e.toLowerCase()
+    if (k[0] === '#') return String.fromCodePoint(k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10))
+    return { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }[k] ?? _m
+  })
+}
+
+const attr = (tag: string, name: string): string | undefined => {
+  const m = new RegExp(`\\s${name}="([^"]*)"`).exec(tag)
+  return m ? decodeXml(m[1]) : undefined
+}
+
+function readText(files: Files, path: string): string | null {
+  const c = files[path]?.content
+  return c ? Buffer.from(c).toString('utf8') : null
+}
+
+/** Relationship Id -> đường dẫn part tuyệt đối trong zip (không có `/` đầu). */
+function readRels(files: Files, partPath: string): Map<string, { type: string; path: string }> {
+  const dir = posix.dirname(partPath)
+  const xml = readText(files, posix.join(dir, '_rels', posix.basename(partPath) + '.rels'))
+  const out = new Map<string, { type: string; path: string }>()
+  if (!xml) return out
+  for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
+    const id = attr(m[0], 'Id')
+    const target = attr(m[0], 'Target')
+    if (!id || !target || attr(m[0], 'TargetMode') === 'External') continue
+    const path = target.startsWith('/') ? target.slice(1) : posix.normalize(posix.join(dir, target))
+    out.set(id, { type: attr(m[0], 'Type') ?? '', path })
+  }
+  return out
+}
+
+interface Pos {
+  col: number
+  row: number
+  colOff: number
+  rowOff: number
+}
+
+function readPos(xml: string | undefined): Pos | null {
+  if (!xml) return null
+  const num = (n: string): number => Number(new RegExp(`<${NS}${n}>(-?\\d+)<`).exec(xml)?.[1] ?? 0)
+  return { col: num('col'), row: num('row'), colOff: num('colOff'), rowOff: num('rowOff') }
+}
+
+/** Chữ của một shape: các đoạn `<a:p>` nối bằng xuống dòng, bỏ đoạn rỗng. */
+function shapeText(sp: string): string {
+  const body = new RegExp(`<${NS}txBody>([\\s\\S]*?)</${NS}txBody>`).exec(sp)?.[1] ?? ''
+  const paras = [...body.matchAll(tagRe('p'))].map((p) =>
+    [...p[0].matchAll(new RegExp(`<${NS}t(?:\\s[^>]*)?>([\\s\\S]*?)</${NS}t>`, 'g'))].map((t) => decodeXml(t[1])).join('')
+  )
+  return paras.map((s) => s.trim()).filter((s) => s !== '').join('\n')
+}
+
+interface Rect {
+  c1: number
+  r1: number
+  c2: number
+  r2: number
+}
+
+/** Khoảng cách (theo ô) từ điểm tới hình chữ nhật; 0 = nằm trong. */
+const distTo = (rc: Rect, c: number, r: number): number =>
+  Math.max(rc.c1 - c, 0, c - rc.c2) + Math.max(rc.r1 - r, 0, r - rc.r2)
+
+/** Đọc lớp vẽ của một sheet. Không có drawing (hoặc file .xls) -> rỗng. */
+export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawings {
+  const empty: SheetDrawings = { items: [], media: {} }
+  const files = (wb as { files?: Files }).files
+  const idx = wb.SheetNames.indexOf(sheetName)
+  const rid = (wb.Workbook?.Sheets?.[idx] as { id?: string } | undefined)?.id
+  if (!files || !rid) return empty
+  const sheetPath = readRels(files, 'xl/workbook.xml').get(rid)?.path
+  if (!sheetPath) return empty
+  const drawingPaths = [...readRels(files, sheetPath).values()]
+    .filter((r) => r.type.endsWith('/drawing'))
+    .map((r) => r.path)
+
+  const items: DrawingItem[] = []
+  const media: Record<string, Uint8Array> = {}
+  for (const dPath of drawingPaths) {
+    const xml = readText(files, dPath)
+    if (!xml) continue
+    const rels = readRels(files, dPath)
+    const textById = new Map<string, string>()
+    const boxes: { rect: Rect; text: string; txBox: boolean; item: DrawingItem }[] = []
+    const arrows: { rect: Rect; xml: string; item: DrawingItem }[] = []
+
+    for (const a of xml.matchAll(new RegExp(`<${NS}(twoCellAnchor|oneCellAnchor|absoluteAnchor)\\b[\\s\\S]*?</${NS}\\1>`, 'g'))) {
+      const anchor = a[0]
+      const from = readPos(new RegExp(`<${NS}from>([\\s\\S]*?)</${NS}from>`).exec(anchor)?.[1]) ?? {
+        col: 0,
+        row: 0,
+        colOff: 0,
+        rowOff: 0,
+      }
+      const toPos = readPos(new RegExp(`<${NS}to>([\\s\\S]*?)</${NS}to>`).exec(anchor)?.[1])
+      // `to` có offset 0 = dừng ở mép trái/trên ô đó -> ô cuối thật là ô trước
+      const c2 = toPos ? Math.max(from.col, toPos.colOff === 0 ? toPos.col - 1 : toPos.col) : from.col
+      const r2 = toPos ? Math.max(from.row, toPos.rowOff === 0 ? toPos.row - 1 : toPos.row) : from.row
+      const rect: Rect = { c1: from.col, r1: from.row, c2, r2 }
+      const tl = XLSX.utils.encode_cell({ r: from.row, c: from.col })
+      const br = XLSX.utils.encode_cell({ r: r2, c: c2 })
+      const item: DrawingItem = { row: from.row, col: from.col, ref: tl === br ? tl : tl + ':' + br, texts: [], images: [] }
+
+      for (const p of anchor.matchAll(tagRe('pic'))) {
+        const embed = /\sr:embed="([^"]+)"/.exec(p[0])?.[1]
+        const path = embed ? rels.get(embed)?.path : undefined
+        const content = path ? files[path]?.content : undefined
+        if (!path || !content) continue
+        const name = posix.basename(path)
+        media[name] = content
+        const nv = new RegExp(`<${NS}cNvPr\\b[^>]*>`).exec(p[0])?.[0] ?? ''
+        item.images.push({ name, alt: attr(nv, 'descr') || attr(nv, 'name') || name })
+      }
+      for (const s of anchor.matchAll(tagRe('sp'))) {
+        const text = shapeText(s[0])
+        const id = attr(new RegExp(`<${NS}cNvPr\\b[^>]*>`).exec(s[0])?.[0] ?? '', 'id')
+        if (!text) continue
+        if (id) textById.set(id, text)
+        item.texts.push(text)
+        boxes.push({ rect, text, txBox: /txBox="1"/.test(s[0]), item })
+      }
+      for (const c of anchor.matchAll(tagRe('cxnSp'))) arrows.push({ rect, xml: c[0], item })
+      if (item.texts.length > 0 || item.images.length > 0 || arrows.some((x) => x.item === item)) items.push(item)
+    }
+
+    // Hai đầu mũi tên: ưu tiên shape được nối (stCxn/endCxn), không thì shape gần đầu mút nhất.
+    const oneLine = (s: string): string => s.replace(/\s*\n\s*/g, ' ')
+    const nodes = boxes.filter((b) => !b.txBox)
+    const nearest = (c: number, r: number): string | undefined => {
+      let best: { d: number; area: number; text: string } | undefined
+      for (const b of nodes) {
+        const d = distTo(b.rect, c, r)
+        const area = (b.rect.c2 - b.rect.c1 + 1) * (b.rect.r2 - b.rect.r1 + 1)
+        if (d <= 1 && (!best || d < best.d || (d === best.d && area < best.area))) best = { d, area, text: b.text }
+      }
+      return best?.text
+    }
+    for (const ar of arrows) {
+      const flipH = /\sflipH="1"/.test(ar.xml)
+      const flipV = /\sflipV="1"/.test(ar.xml)
+      const end = (tag: string): boolean => {
+        const t = attr(new RegExp(`<${NS}${tag}\\b[^>]*>`).exec(ar.xml)?.[0] ?? '', 'type')
+        return !!t && t !== 'none'
+      }
+      const sx = flipH ? ar.rect.c2 : ar.rect.c1
+      const sy = flipV ? ar.rect.r2 : ar.rect.r1
+      const ex = flipH ? ar.rect.c1 : ar.rect.c2
+      const ey = flipV ? ar.rect.r1 : ar.rect.r2
+      const glued = (tag: string): string | undefined => {
+        const id = attr(new RegExp(`<${NS}${tag}\\b[^>]*>`).exec(ar.xml)?.[0] ?? '', 'id')
+        return id ? textById.get(id) : undefined
+      }
+      let a = glued('stCxn') ?? nearest(sx, sy)
+      let b = glued('endCxn') ?? nearest(ex, ey)
+      if (!a || !b || a === b) continue // đường trang trí, không nối hai shape
+      // Mũi tên chỉ có đầu ở điểm bắt đầu (headEnd) -> đảo chiều
+      if (end('headEnd') && !end('tailEnd')) [a, b] = [b, a]
+      // Text box gần thân mũi tên nhất (đè lên hoặc cách ≤ 1 ô) = nhãn của nó (vd 「はい」「行ダブルクリック」)
+      const r = ar.rect
+      const gap = (x: Rect): number =>
+        Math.max(0, x.c1 - r.c2, r.c1 - x.c2) + Math.max(0, x.r1 - r.r2, r.r1 - x.r2)
+      const label = boxes
+        .filter((x) => x.txBox && gap(x.rect) <= 1)
+        .sort((x, y) => gap(x.rect) - gap(y.rect))[0]
+      if (label) {
+        label.item.texts = label.item.texts.filter((t) => t !== label.text)
+        label.txBox = false
+      }
+      ar.item.arrow = { from: oneLine(a), to: oneLine(b), both: end('headEnd') && end('tailEnd'), label: label && oneLine(label.text) }
+    }
+  }
+  return {
+    items: items
+      .filter((it) => it.texts.length > 0 || it.images.length > 0 || it.arrow)
+      .sort((x, y) => x.row - y.row || x.col - y.col),
+    media,
+  }
+}
