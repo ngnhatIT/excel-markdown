@@ -298,3 +298,14 @@
 }
 
 @import './markdown.css';
+
+/* Bản đồ thiết kế: sơ đồ giữ cỡ chữ tự nhiên (Mermaid mặc định co cả sơ đồ cho vừa khung -> chữ ~8px),
+ * sơ đồ rộng hơn khung thì cuộn ngang */
+.x2m-specmap-diagram .mmd {
+  overflow-x: auto;
+}
+.x2m-specmap-diagram .mmd svg {
+  max-width: none !important;
+  width: auto;
+  height: auto;
+}
