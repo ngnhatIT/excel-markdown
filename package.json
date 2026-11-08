@@ -1,11 +1,25 @@
 {
   "build": {
     "appId": "com.excel2md.app",
+    "productName": "ExcelToMarkdown",
+    "copyright": "Copyright © 2026 Nguyen Khanh Nhat",
+    "artifactName": "ExcelToMarkdown-Setup-${version}.${ext}",
+    "asar": true,
+    "compression": "maximum",
     "directories": {
       "output": "release"
     },
     "files": [
       "out/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin",
+        "to": "bin",
+        "filter": [
+          "*.cmd"
+        ]
+      }
     ],
     "nsis": {
       "allowToChangeInstallationDirectory": true,
@@ -13,9 +27,16 @@
       "createStartMenuShortcut": true,
       "oneClick": false,
       "perMachine": false,
-      "shortcutName": "ExcelToMarkdown"
+      "shortcutName": "ExcelToMarkdown",
+      "include": "resources/installer.nsh",
+      "installerLanguages": [
+        "en_US",
+        "ja_JP",
+        "vi_VN"
+      ],
+      "language": "1033",
+      "multiLanguageInstaller": true
     },
-    "productName": "ExcelToMarkdown",
     "win": {
       "icon": "resources/icon.ico",
       "target": [
@@ -61,13 +82,13 @@
     "build": "electron-vite build",
     "predev": "install-electron",
     "dev": "electron-vite dev",
-    "dist": "electron-builder --win nsis --x64",
+    "dist": "electron-vite build && electron-builder --win nsis --x64 --publish never",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
     "test:update": "vitest run -u",
     "e2e": "electron-vite build && node scripts/e2e.mjs"
   },
-  "version": "2.2.0",
+  "version": "2.3.0",
   "license": "MIT",
   "engines": {
     "node": ">=20"
@@ -76,5 +97,11 @@
     "exceljs": {
       "uuid": "^11.1.1"
     }
+  },
+  "author": "Nguyen Khanh Nhat",
+  "homepage": "https://github.com/ngnhatIT/excel-markdown",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ngnhatIT/excel-markdown.git"
   }
 }
