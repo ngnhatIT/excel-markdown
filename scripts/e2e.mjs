@@ -571,6 +571,10 @@ try {
   check('So sánh: ô sửa tô chữ thêm/xóa trong dòng', await ev(`[...document.querySelectorAll('.x2m-compare-list mark')].some(m => m.textContent.includes('称'))`))
   await ev(`[...document.querySelectorAll('.x2m-compare-bar button')].find(b => b.getAttribute('aria-label')?.startsWith('Thay đổi sau'))?.click(), 1`)
   check('So sánh: thêm + sửa liền nhau là một cụm; nút thay đổi sau -> vị trí 1 / 1', (await waitFor(`document.querySelector('.x2m-compare-bar')?.innerText.includes('1 / 1')`, 2000)) >= 0)
+  await ev(`[...document.querySelectorAll('.x2m-compare-bar button')].find(b => b.textContent.trim() === '改訂履歴')?.click(), 1`)
+  check('So sánh: 改訂履歴 tự sinh dòng nêu dòng thêm và cột sửa',
+    (await waitFor(`(document.querySelector('.x2m-rev-table')?.innerText ?? '').includes('行追加 1件（C09）') && document.querySelector('.x2m-rev-table').innerText.includes('C02: 項目名')`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-rev')?.innerText ?? null`))
   await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
   await waitFor(`!!document.querySelector('.x2m-files')`, 2000)
 

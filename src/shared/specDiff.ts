@@ -298,7 +298,7 @@ export interface RowChange {
   key: string
   oldLine?: number
   newLine?: number
-  /** Toàn bộ ô theo header (add/del) */
+  /** Toàn bộ ô theo header (add/del/change) */
   oldCells?: string[]
   newCells?: string[]
   /** Ô thay đổi (change/move) — cột số thứ tự (No/項番) không tính */
@@ -441,7 +441,7 @@ function diffTable(ctx: Ctx, a: Table | null, b: Table | null): void {
     const cells = cellChanges(oldRec[i], newRec[j])
     if (cells.length === 0) return hunk(ctx, 'same', oldRows[i].line, newRows[j].line)
     hunk(ctx, 'change', oldRows[i].line, newRows[j].line)
-    ctx.sec.rows.push({ kind: 'change', key: keyOf(newRec[j], j), oldLine: oldRows[i].line.n, newLine: newRows[j].line.n, cells })
+    ctx.sec.rows.push({ kind: 'change', key: keyOf(newRec[j], j), oldLine: oldRows[i].line.n, newLine: newRows[j].line.n, oldCells: asList(oldNames, oldRec[i]), newCells: asList(newNames, newRec[j]), cells })
     ctx.sum.rowsChanged++
   }
   const added = (j: number): void => {

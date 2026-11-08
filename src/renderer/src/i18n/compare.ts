@@ -1,5 +1,16 @@
 /* Chuỗi của màn hình So sánh 新旧 (tách file riêng; gộp vào từ điển chính trong index.ts). */
 export const compareVi = {
+  'compare.rev.button': '改訂履歴',
+  'compare.rev.title': 'Tạo dòng 改訂履歴 (lịch sử sửa đổi) từ các thay đổi',
+  'compare.rev.version': '版数',
+  'compare.rev.date': 'Ngày',
+  'compare.rev.author': 'Người sửa',
+  'compare.rev.lang': 'Ngôn ngữ nội dung',
+  'compare.rev.copyMd': 'Copy Markdown',
+  'compare.rev.copyTsv': 'Copy cho Excel (TSV)',
+  'compare.rev.copied': 'Đã copy 改訂履歴',
+  'compare.rev.close': 'Đóng',
+  'compare.rev.hint': 'Dán TSV vào ô 版数 đầu tiên của bảng 改訂履歴 trong Excel. Nội dung tự sinh từ thay đổi, bạn có thể sửa lại sau khi dán.',
   'compare.mode': 'So sánh',
   'compare.old': 'Bản cũ (旧)',
   'compare.new': 'Bản mới (新)',
@@ -40,6 +51,17 @@ export const compareVi = {
 type CompareDict = Record<keyof typeof compareVi, string>
 
 export const compareEn: CompareDict = {
+  'compare.rev.button': 'Revision history',
+  'compare.rev.title': 'Generate 改訂履歴 (revision history) rows from the changes',
+  'compare.rev.version': 'Version',
+  'compare.rev.date': 'Date',
+  'compare.rev.author': 'Author',
+  'compare.rev.lang': 'Content language',
+  'compare.rev.copyMd': 'Copy Markdown',
+  'compare.rev.copyTsv': 'Copy for Excel (TSV)',
+  'compare.rev.copied': 'Revision history copied',
+  'compare.rev.close': 'Close',
+  'compare.rev.hint': 'Paste the TSV into the first 版数 cell of the 改訂履歴 table in Excel. The text is generated from the changes; edit it after pasting if needed.',
   'compare.mode': 'Compare',
   'compare.old': 'Old version (旧)',
   'compare.new': 'New version (新)',
@@ -78,6 +100,17 @@ export const compareEn: CompareDict = {
 }
 
 export const compareJa: CompareDict = {
+  'compare.rev.button': '改訂履歴',
+  'compare.rev.title': '変更点から改訂履歴の行を作成',
+  'compare.rev.version': '版数',
+  'compare.rev.date': '改訂日',
+  'compare.rev.author': '改訂者',
+  'compare.rev.lang': '記載言語',
+  'compare.rev.copyMd': 'Markdown をコピー',
+  'compare.rev.copyTsv': 'Excel 用にコピー (TSV)',
+  'compare.rev.copied': '改訂履歴をコピーしました',
+  'compare.rev.close': '閉じる',
+  'compare.rev.hint': 'Excel の改訂履歴表の最初の「版数」セルに貼り付けてください。内容は変更点から自動生成されます。貼り付け後に必要に応じて修正してください。',
   'compare.mode': '新旧比較',
   'compare.old': '旧版',
   'compare.new': '新版',

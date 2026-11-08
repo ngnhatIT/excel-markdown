@@ -1,6 +1,7 @@
 /* Màn hình So sánh 新旧: hai ô chọn file (cột trái) + bảng khác biệt hai cột (giữa). */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { PATH_SEP, specDiffReport, type DiffHunk, type InlineSegment } from '../../../../shared/specDiff'
+import { PATH_SEP, specDiffReport, type DiffHunk, type InlineSegment, type SpecDiff } from '../../../../shared/specDiff'
+import { revisionRows, revisionTable, type RevLang } from '../../../../shared/revision'
 import { useT } from '../../i18n'
 import { baseName, cn, copyText, toast } from '../../lib/utils'
 import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, filesAside, iconBtn, paneTitle } from '../../lib/ui'
@@ -47,12 +48,97 @@ function Cell({ h, side }: { h: DiffHunk; side: Side }): React.ReactElement {
   )
 }
 
+/** Nhớ người sửa giữa các lần (chỉ tiện lợi; localStorage lỗi thì bỏ qua). */
+const AUTHOR_KEY = 'x2m.revAuthor'
+const readAuthor = (): string => {
+  try {
+    return localStorage.getItem(AUTHOR_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+/** Khung tạo dòng 改訂履歴 từ các thay đổi: điền 版数 / 改訂者, xem trước, copy Markdown hoặc TSV dán Excel. */
+function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void }): React.ReactElement {
+  const t = useT()
+  const today = new Date()
+  const [version, setVersion] = useState('')
+  const [author, setAuthor] = useState(readAuthor)
+  const [date, setDate] = useState(`${today.getFullYear()}/${String(today.getMonth() + 1).padStart(2, '0')}/${String(today.getDate()).padStart(2, '0')}`)
+  const [lang, setLang] = useState<RevLang>('ja')
+  const rows = useMemo(() => revisionRows(diff, lang), [diff, lang])
+  const meta = { version, date, author }
+  const copy = async (format: 'md' | 'tsv'): Promise<void> => {
+    try {
+      localStorage.setItem(AUTHOR_KEY, author)
+    } catch {
+      /* chỉ là tiện lợi */
+    }
+    const ok = await copyText(revisionTable(rows, meta, lang, format))
+    toast(ok ? t('compare.rev.copied') : t('compare.copyFailed'), ok ? 'ok' : 'err')
+  }
+  const field = 'rounded-md border border-line bg-canvas px-2 py-1 text-xs text-ink outline-none focus:border-accent'
+  return (
+    <section className="x2m-rev border-b border-line-subtle bg-soft/50 px-3 py-2.5" aria-label={t('compare.rev.title')}>
+      <div className="mb-2 flex flex-wrap items-end gap-2">
+        <span className="mr-auto text-xs font-semibold text-ink">{t('compare.rev.title')}</span>
+        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+          {t('compare.rev.version')}
+          <input className={cn(field, 'w-16')} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.1" />
+        </label>
+        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+          {t('compare.rev.date')}
+          <input className={cn(field, 'w-28 tabular-nums')} value={date} onChange={(e) => setDate(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+          {t('compare.rev.author')}
+          <input className={cn(field, 'w-28')} value={author} onChange={(e) => setAuthor(e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+          {t('compare.rev.lang')}
+          <select className={field} value={lang} onChange={(e) => setLang(e.target.value as RevLang)}>
+            <option value="ja">日本語</option>
+            <option value="vi">Tiếng Việt</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+        <button className={cx(btn, btnSm)} onClick={() => void copy('md')}>
+          {t('compare.rev.copyMd')}
+        </button>
+        <button className={cx(btn, btnSm, '!border-accent-line !text-accent-ink')} onClick={() => void copy('tsv')}>
+          {t('compare.rev.copyTsv')}
+        </button>
+        <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('compare.rev.close')} aria-label={t('compare.rev.close')}>
+          <IconX size={13} />
+        </button>
+      </div>
+      <div className="max-h-48 overflow-auto rounded-md border border-line-subtle bg-canvas">
+        <table className="x2m-rev-table w-full border-collapse text-[11.5px]">
+          <tbody>
+            {rows.map((r, i) => (
+              <tr key={i} className="border-b border-line-subtle last:border-0 align-top">
+                <td className="w-12 px-2 py-1 tabular-nums text-dim">{i === 0 ? version : ''}</td>
+                <td className="w-24 px-2 py-1 tabular-nums text-dim">{i === 0 ? date : ''}</td>
+                <td className="w-24 px-2 py-1 text-dim">{i === 0 ? author : ''}</td>
+                <td className="px-2 py-1 text-ink">{r.place}</td>
+                <td className="px-2 py-1 text-ink">{r.content}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-1.5 mb-0 text-[11px] text-faint">{t('compare.rev.hint')}</p>
+    </section>
+  )
+}
+
 export function ComparePane({ state, dragOver }: { state: CompareState; dragOver: boolean }): React.ReactElement {
   const t = useT()
   const { slots, diff, busy } = state
   const [onlyChanges, setOnlyChanges] = useState(true)
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   const [cursor, setCursor] = useState(-1)
+  const [showRev, setShowRev] = useState(false)
   const listRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -242,6 +328,14 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                 <button className={cx(btnGhost)} onClick={() => go(1)} disabled={starts.length === 0} title={t('compare.next')} aria-label={t('compare.next')}>
                   ↓
                 </button>
+                <button
+                  className={cx(btnGhost, showRev && '!bg-accent-soft !text-accent-ink')}
+                  onClick={() => setShowRev((v) => !v)}
+                  aria-pressed={showRev}
+                  title={t('compare.rev.title')}
+                >
+                  {t('compare.rev.button')}
+                </button>
                 <button className={cx(btnGhost)} onClick={() => void copyReport()} title={t('compare.copy')}>
                   <IconCopy size={14} /> {t('compare.copy')}
                 </button>
@@ -250,6 +344,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                 </button>
               </span>
             </div>
+            {showRev && starts.length > 0 && <RevisionPanel diff={diff} onClose={() => setShowRev(false)} />}
             {starts.length === 0 ? (
               <div className={cx('x2m-empty flex-1', emptyBox)}>
                 <p className={cx(emptyP, 'font-semibold !text-ink')}>{t('compare.noChanges')}</p>
