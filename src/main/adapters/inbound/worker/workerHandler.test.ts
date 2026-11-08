@@ -36,6 +36,9 @@ describe('workerHandler', () => {
     })
     expect(cv.ok && (cv.data as { sheet: string }[]).map((s) => s.sheet)).toEqual(['画面項目定義'])
     expect(loads).toBe(1)
+    const wm = handleRequest(cache, { id: 4, type: 'workbookMarkdown', path: fixture })
+    expect(wm.ok && (wm.data as string)).toMatch(/^## 画面項目定義[\s\S]*TBL_CUSTOMER/)
+    expect(loads).toBe(1)
   })
 
   it('lỗi trả về { ok: false } kèm message, không ném ra ngoài', () => {

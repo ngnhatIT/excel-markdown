@@ -7,6 +7,8 @@ export type WorkerRequest =
   | { id: number; type: 'listSheets'; path: string; skipDelSheets: boolean }
   | { id: number; type: 'preview'; path: string; sheet: string; options: ConvertOptions }
   | { id: number; type: 'convert'; path: string; sheets: string[]; options: ConvertOptions }
+  // Markdown cả workbook để so sánh 新旧 (data: string)
+  | { id: number; type: 'workbookMarkdown'; path: string }
   // Markdown → Excel (xử lý bởi md2xlsx/mdHandler.ts)
   | { id: number; type: 'mdInspect'; path: string } // data: MdInspectResult
   | { id: number; type: 'mdToXlsx'; files: string[]; outPath: string } // data: { outPath; sheets }

@@ -5,6 +5,7 @@ import { app, BrowserWindow } from 'electron'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { registerAiIpc } from './adapters/inbound/ipc/ai'
+import { registerCompareIpc } from './adapters/inbound/ipc/compare'
 import { registerConvertIpc } from './adapters/inbound/ipc/convert'
 import { registerSystemIpc } from './adapters/inbound/ipc/system'
 import { registerImageScheme, registerViewerIpc } from './adapters/inbound/ipc/viewer'
@@ -20,6 +21,7 @@ registerImageScheme()
 registerSystemIpc()
 registerAiIpc()
 const convert = registerConvertIpc(join(__dirname, 'worker.js'))
+registerCompareIpc(join(__dirname, 'worker.js'))
 
 async function openWindow(): Promise<BrowserWindow> {
   const store = await readStore()
