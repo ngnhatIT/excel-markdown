@@ -6,3 +6,4 @@ release/
 Thumbs.db
 .superpowers/
 docs/evidence/
+.claude/worktrees/
