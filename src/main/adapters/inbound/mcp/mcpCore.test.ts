@@ -82,6 +82,33 @@ describe('MCP tools', () => {
     expect(readdirSync(out).some((f) => f.endsWith('.md'))).toBe(true)
   })
 
+  it('convert_excel: đích đã có thì từ chối, không ghi gì; overwrite: true thì ghi đè', async () => {
+    const out = join(tmp, 'ow')
+    expect((await call('convert_excel', { files: [fixture], out_dir: out })).result.isError).toBeUndefined()
+    const first = readdirSync(out).find((f) => f.endsWith('.md')) as string
+    writeFileSync(join(out, first), 'sửa tay')
+    const res = await call('convert_excel', { files: [fixture], out_dir: out })
+    expect(res.result.isError).toBe(true)
+    expect(res.result.content[0].text).toContain(first)
+    expect(res.result.content[0].text).toContain('overwrite: true')
+    expect(readFileSync(join(out, first), 'utf-8')).toBe('sửa tay')
+    expect((await call('convert_excel', { files: [fixture], out_dir: out, overwrite: true })).result.isError).toBeUndefined()
+    expect(readFileSync(join(out, first), 'utf-8')).not.toBe('sửa tay')
+  })
+
+  it('convert_excel: một phần lỗi vẫn báo file đã ghi (không isError); lỗi hết mới isError, tiếng Việt', async () => {
+    const bad = join(tmp, 'hong.xlsx')
+    writeFileSync(bad, 'this is not excel')
+    const res = await call('convert_excel', { files: [fixture, bad], out_dir: join(tmp, 'part') })
+    expect(res.result.isError).toBeUndefined()
+    expect(res.result.content[0].text).toMatch(/Đã ghi [1-9]\d* file/)
+    expect(res.result.content[0].text).toContain('1 file Excel lỗi')
+    expect(res.result.content[0].text).toContain('File không phải Excel hợp lệ')
+    const all = await call('convert_excel', { files: [bad], out_dir: join(tmp, 'part2') })
+    expect(all.result.isError).toBe(true)
+    expect(all.result.content[0].text).toContain('File không phải Excel hợp lệ')
+  })
+
   it('convert_excel từ chối đường dẫn tương đối (tránh bị hiểu nhầm thành cờ CLI)', async () => {
     const res = await call('convert_excel', { files: ['--no-escape', fixture], out_dir: join(tmp, 'x') })
     expect(res.result.isError).toBe(true)

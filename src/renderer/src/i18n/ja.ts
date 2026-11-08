@@ -322,7 +322,7 @@ export const ja: Dict = {
   'ai.ctxCheap': '{n}k トークン（節約）',
   'ai.ctxFull': '{n}k トークン（最も網羅的・最も高コスト）',
   'ai.keyNote':
-    'キーは OS の SafeStorage でローカルに暗号化され、{site} にのみ直接送信されます。API キーはトークン単位の従量課金で、ChatGPT/Claude のサブスクリプションとは別です。サブスクリプションを使う場合は README の MCP の項を参照してください。',
+    'キーは OS の SafeStorage で暗号化してローカルに保存され、各社の API ホスト（api.anthropic.com / generativelanguage.googleapis.com / api.openai.com）にのみ直接送信されます。キーは {site} で取得できます。API キーはトークン単位の従量課金で、ChatGPT/Claude のサブスクリプションとは別です。サブスクリプションを使う場合は README の MCP の項を参照してください。',
   'ai.keyNoteModels': 'キーを保存すると、最新のモデル一覧が自動で読み込まれます。',
   'ai.scope': 'コンテキストの範囲',
   'ai.scope.folderTitle': '開いているすべての Markdown ファイルからコンテキストを検索',

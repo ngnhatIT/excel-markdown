@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { friendlyError } from './errors'
+import { friendlyError, NOT_EXCEL_MESSAGE } from './errors'
 
 describe('friendlyError', () => {
   it('lỗi password-protected -> tiếng Việt', () => {
@@ -22,6 +22,14 @@ describe('friendlyError', () => {
 
   it('EISDIR -> báo là thư mục', () => {
     expect(friendlyError(new Error('EISDIR: illegal operation on a directory'))).toContain('thư mục')
+  })
+
+  it('lỗi SheetJS / CFB / zip của file hỏng -> tiếng Việt', () => {
+    for (const m of ['Unsupported ZIP file', 'Major Version: Expected 3 or 4 saw 1799', 'Bad compressed size: 0 != 383', 'CFB file size 8 < 512']) {
+      expect(friendlyError(new Error(m))).toBe(NOT_EXCEL_MESSAGE)
+    }
+    // Mã lỗi fs thắng chữ "zip file" trong đường dẫn
+    expect(friendlyError(new Error("ENOENT: no such file or directory, open '/a/zip file.xlsx'"))).toContain('Không tìm thấy')
   })
 
   it('lỗi khác giữ nguyên message', () => {

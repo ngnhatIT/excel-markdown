@@ -9,7 +9,8 @@ import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { buildExcel, runCli } from '../cli/cliCore'
+import { buildExcel, existingOutputs, parseArgs, runCli } from '../cli/cliCore'
+import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
 
 const SERVER_INFO = { name: 'excel-markdown', version: pkg.version }
@@ -23,7 +24,7 @@ export const MCP_TOOLS = [
   {
     name: 'convert_excel',
     description:
-      'Chuyển file Excel (.xlsx/.xlsm/.xls) sang Markdown, mỗi sheet một file (hoặc gộp cả workbook). Hiểu tài liệu 基本設計: banner, meta 画面ID/機能ID, bảng 項番, header 2 tầng, ô merge, ghi chú ※. Bật front_matter khi kết quả dùng cho AI/RAG. Cần "files" hoặc "dir" (hoặc cả hai).',
+      'Chuyển file Excel (.xlsx/.xlsm/.xls) sang Markdown, mỗi sheet một file (hoặc gộp cả workbook). Hiểu tài liệu 基本設計: banner, meta 画面ID/機能ID, bảng 項番, header 2 tầng, ô merge, ghi chú ※. Bật front_matter khi kết quả dùng cho AI/RAG. Cần "files" hoặc "dir" (hoặc cả hai). File .md / thư mục ảnh đích đã có thì từ chối (không ghi gì), trừ khi overwrite: true.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -34,6 +35,7 @@ export const MCP_TOOLS = [
         front_matter: { type: 'boolean', description: 'Thêm YAML front-matter (file nguồn, sheet, meta)' },
         chunk_rows: { type: 'integer', minimum: 0, description: 'Tách bảng dài mỗi N dòng, lặp lại header (0 = tắt)' },
         range: { type: 'string', description: 'Chỉ convert vùng ô, vd A1:F40' },
+        overwrite: { type: 'boolean', description: 'Cho phép ghi đè file .md / thư mục ảnh đã có (mặc định false)' },
       },
       required: ['out_dir'],
       additionalProperties: false,
@@ -210,10 +212,23 @@ async function callTool(name: string, a: Args): Promise<string> {
       if (a.front_matter === true) argv.push('--front-matter')
       if (typeof a.chunk_rows === 'number') argv.push('--chunk', String(a.chunk_rows))
       if (typeof a.range === 'string' && a.range.trim()) argv.push('--range', a.range)
+      if (a.overwrite !== true) {
+        const existing = await existingOutputs(parseArgs(argv))
+        if (existing.length > 0) {
+          throw new Error(
+            `Chưa ghi gì: ${existing.length} file/thư mục đích đã có trong ${a.out_dir}:\n${existing.join('\n')}\n` +
+              'Gọi lại với overwrite: true để ghi đè, hoặc chọn out_dir khác.'
+          )
+        }
+      }
       const logs: string[] = []
-      const code = await runCli(argv, (s) => logs.push(s))
-      if (code !== 0) throw new Error('Có file lỗi:\n' + logs.join('\n'))
-      return `Đã ghi ${logs.length} file vào ${a.out_dir}:\n` + logs.join('\n')
+      await runCli(argv, (s) => logs.push(s))
+      const written = logs.filter((s) => !s.startsWith('LỖI '))
+      const failed = logs.filter((s) => s.startsWith('LỖI '))
+      // Một phần lỗi vẫn báo file đã ghi; isError chỉ khi không ghi được file nào
+      if (failed.length > 0 && written.length === 0) throw new Error('Không ghi được file nào:\n' + failed.join('\n'))
+      const errPart = failed.length > 0 ? `\n\n${failed.length} file Excel lỗi:\n` + failed.join('\n') : ''
+      return `Đã ghi ${written.length} file vào ${a.out_dir}:\n` + written.join('\n') + errPart
     }
     case 'list_docs': {
       const { files, truncated } = await listMarkdownFiles(absDir(a, 'root'))
@@ -315,7 +330,7 @@ export async function handleMcpMessage(raw: unknown): Promise<Record<string, unk
         return ok(msg.id, { content: [{ type: 'text', text }] })
       } catch (err) {
         if (err instanceof UnknownToolError) return fail(msg.id, -32602, err.message)
-        return ok(msg.id, { content: [{ type: 'text', text: err instanceof Error ? err.message : String(err) }], isError: true })
+        return ok(msg.id, { content: [{ type: 'text', text: friendlyError(err) }], isError: true })
       }
     default:
       return fail(msg.id, -32601, 'Method not found: ' + msg.method)
