@@ -6,7 +6,7 @@ import type { MdFolderListing } from '../../../../shared/types'
 import { IMG_SCHEME, imagePathFromUrl } from '../../../../shared/mdView'
 import { friendlyError } from '../../../domain/errors'
 import { imageMime, isInsideDir, isMarkdownPath, isOpenableDirectory } from '../../../domain/guards'
-import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
+import { listMarkdownFiles, readMarkdownFile, searchMarkdownFolder } from '../../outbound/mdFolder'
 import { logError } from '../../outbound/store'
 
 /** Phải gọi trước app ready. */
@@ -43,6 +43,20 @@ export function registerViewerIpc(): void {
       return { ok: true, data: text }
     } catch (err) {
       void logError('mdv:read', err)
+      return { ok: false, error: friendlyError(err) }
+    }
+  })
+
+  /** Tìm theo nội dung: chỉ trong thư mục đã mở bằng mdv:list. */
+  ipcMain.handle('mdv:search', async (_e, root: unknown, query: unknown) => {
+    if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'Chưa mở thư mục này.' }
+    if (typeof query !== 'string' || query.trim() === '' || query.length > 200) {
+      return { ok: false, error: 'Từ khóa không hợp lệ (1–200 ký tự).' }
+    }
+    try {
+      return { ok: true, data: await searchMarkdownFolder(root, query) }
+    } catch (err) {
+      void logError('mdv:search', err)
       return { ok: false, error: friendlyError(err) }
     }
   })

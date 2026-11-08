@@ -87,6 +87,24 @@ export interface ApiResult<T> {
 /** Chế độ làm việc của app: Excel → Markdown (mặc định), Markdown → Excel hoặc Đọc Markdown. */
 export type AppMode = 'excel2md' | 'md2excel' | 'mdview'
 
+/** Một dòng khớp khi tìm theo nội dung (chế độ Đọc Markdown). */
+export interface MdSearchHit {
+  /** Số dòng (từ 1) trong file */
+  line: number
+  /** Đoạn trích của dòng (đã cắt nếu quá dài) */
+  text: string
+  /** Heading gần nhất phía trên dòng khớp */
+  heading?: string
+}
+
+/** Kết quả tìm theo nội dung trong thư mục đang mở. */
+export interface MdSearchResult {
+  /** Theo thứ tự file của thư mục; chỉ file có dòng khớp */
+  files: { rel: string; hits: MdSearchHit[] }[]
+  /** Dừng sớm vì quá nhiều file khớp */
+  truncated: boolean
+}
+
 /** Các file Markdown trong một thư mục (chế độ Đọc Markdown). */
 export interface MdFolderListing {
   /** Thư mục gốc (đường dẫn tuyệt đối) */

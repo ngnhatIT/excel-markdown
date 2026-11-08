@@ -1,5 +1,6 @@
 ﻿import { formatRelativeTime, type MdSort, type MdTreeNode } from '../../../../shared/mdView'
-import { joinRoot, PASTE_PATH } from './useMdViewer'
+import { joinRoot, PASTE_PATH, type MdContentSearch } from './useMdViewer'
+import type { MdSearchHit } from '../../../../shared/types'
 import { baseName, cn } from '../../lib/utils'
 import { btnPrimary, btnSm, cx, iconBtn, input } from '../../lib/ui'
 import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from '../../components/icons'
@@ -19,6 +20,11 @@ interface Props {
   dragOver: boolean
   filter: string
   onFilterChange: (v: string) => void
+  /** Ô lọc tìm trong nội dung file thay vì tên */
+  contentSearch: boolean
+  onContentSearchChange: (v: boolean) => void
+  search: MdContentSearch | null
+  onOpenHit: (absPath: string, hit: MdSearchHit) => void
   onSelect: (absPath: string) => void
   onSortChange: (s: MdSort) => void
   onToggleDir: (rel: string) => void
@@ -37,7 +43,7 @@ const INDENT = 14
 
 /** Cột trái chế độ Đọc Markdown: cây file .md của thư mục đang mở + các file mở lẻ. */
 export function MdTreeList(p: Props): React.ReactElement {
-  const q = p.filter.trim().toLowerCase()
+  const q = p.contentSearch ? '' : p.filter.trim().toLowerCase()
   const empty = !p.root && p.loose.length === 0 && !p.pasted
 
   const now = Date.now()
@@ -52,7 +58,7 @@ export function MdTreeList(p: Props): React.ReactElement {
     rowClass = 'x2m-tree-row group flex items-center justify-between pr-2 py-0.5 rounded-md hover:bg-hover transition-colors [&.selected]:bg-accent-soft [&.selected]:text-accent-ink'
   ): React.ReactElement => (
     <div key={abs} className={cn(rowClass, p.selectedPath === abs && 'selected')} style={{ paddingLeft: 8 + depth * INDENT }}>
-      <button className="x2m-tree-btn x2m-tree-file flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs text-ink outline-none cursor-pointer" onClick={() => p.onSelect(abs)} title={title}>
+      <button className="x2m-tree-btn x2m-tree-file flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs text-ink outline-none focus-visible:outline-2 focus-visible:outline-accent cursor-pointer" onClick={() => p.onSelect(abs)} title={title}>
         <IconFile size={14} />
         <span className="x2m-tree-name truncate flex-1">{label}</span>
         {mtime !== undefined && (
@@ -76,7 +82,7 @@ export function MdTreeList(p: Props): React.ReactElement {
       return (
         <div key={'d:' + n.path}>
           <div className="x2m-tree-row group flex items-center justify-between pr-2 py-0.5 rounded-md hover:bg-hover transition-colors" style={{ paddingLeft: 8 + depth * INDENT }}>
-            <button className="x2m-tree-btn x2m-tree-dir flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs font-semibold text-dim outline-none cursor-pointer hover:text-ink" onClick={() => p.onToggleDir(n.path)} aria-expanded={open} title={n.path}>
+            <button className="x2m-tree-btn x2m-tree-dir flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs font-semibold text-dim outline-none focus-visible:outline-2 focus-visible:outline-accent cursor-pointer hover:text-ink" onClick={() => p.onToggleDir(n.path)} aria-expanded={open} title={n.path}>
               <span className={cn('x2m-tree-caret', !open && 'closed')}>
                 <IconChevronDown size={14} />
               </span>
@@ -132,14 +138,29 @@ export function MdTreeList(p: Props): React.ReactElement {
         </span>
       </div>
       {!empty && (
-        <div className="x2m-filter px-2.5 py-2">
+        <div className="x2m-filter flex items-center gap-1.5 px-2.5 py-2">
           <input
-            className={`x2m-filter-input ${input}`}
-            placeholder="Lọc file..."
+            className={`x2m-filter-input min-w-0 flex-1 ${input}`}
+            placeholder={p.contentSearch ? 'Tìm trong nội dung...' : 'Lọc file...'}
             value={p.filter}
             onChange={(e) => p.onFilterChange(e.target.value)}
-            aria-label="Lọc file theo tên"
+            aria-label={p.contentSearch ? 'Tìm trong nội dung file' : 'Lọc file theo tên'}
           />
+          {p.root && (
+            <span className="x2m-sort flex shrink-0 items-center gap-0.5 rounded border border-line bg-raised p-0.5">
+              {([false, true] as const).map((on) => (
+                <button
+                  key={String(on)}
+                  className="x2m-sort-btn rounded px-1.5 py-0.5 text-[10.5px] font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs"
+                  aria-pressed={p.contentSearch === on}
+                  onClick={() => p.onContentSearchChange(on)}
+                  title={on ? 'Tìm chữ trong nội dung mọi file của thư mục' : 'Lọc theo tên file'}
+                >
+                  {on ? 'Nội dung' : 'Tên'}
+                </button>
+              ))}
+            </span>
+          )}
         </div>
       )}
       {empty ? (
@@ -152,10 +173,10 @@ export function MdTreeList(p: Props): React.ReactElement {
           </button>
         </div>
       ) : (
-        <div className="x2m-tree flex-1 overflow-y-auto px-2 py-1" role="tree">
+        <div className="x2m-tree flex-1 overflow-y-auto px-2 py-1">
           {p.pasted && (
             <div className={cn('x2m-paste-row group flex items-center justify-between pr-2 py-0.5 rounded-md hover:bg-hover transition-colors mb-1 border-b border-line/40 pb-1.5', p.selectedPath === PASTE_PATH && 'selected bg-accent-soft text-accent-ink')}>
-              <button className="x2m-tree-btn x2m-tree-file flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs text-ink outline-none cursor-pointer" onClick={p.onShowPaste} title="Bản Markdown đã dán">
+              <button className="x2m-tree-btn x2m-tree-file flex min-w-0 flex-1 items-center gap-2 py-1 text-left text-xs text-ink outline-none focus-visible:outline-2 focus-visible:outline-accent cursor-pointer" onClick={p.onShowPaste} title="Bản Markdown đã dán">
                 <IconCopy size={14} />
                 <span className="x2m-tree-name truncate flex-1">Dán từ clipboard</span>
               </button>
@@ -164,13 +185,13 @@ export function MdTreeList(p: Props): React.ReactElement {
               </button>
             </div>
           )}
-          {p.root && p.recent.length > 0 && (
+          {p.root && p.recent.length > 0 && !p.search && (
             <>
               <div className="x2m-tree-section px-2 py-1.5 text-[11.5px] font-semibold text-dim">Mới sửa</div>
               {p.recent.map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r], 'x2m-recent-row'))}
             </>
           )}
-          {p.root && (
+          {p.root && !p.search && (
             <div className="x2m-tree-section x2m-tree-section-bar flex items-center justify-between px-2 py-1.5 text-[11.5px] font-semibold text-dim border-t border-line/40 mt-1.5">
               <span>Tất cả</span>
               <span className="x2m-sort flex items-center gap-0.5 rounded border border-line bg-raised p-0.5 normal-case tracking-normal">
@@ -183,7 +204,38 @@ export function MdTreeList(p: Props): React.ReactElement {
               </span>
             </div>
           )}
-          {q
+          {p.search && p.root ? (
+            <div className="x2m-search-results" aria-live="polite">
+              <div className="px-2 py-1.5 text-[11.5px] text-dim">
+                {p.search.error
+                  ? p.search.error
+                  : p.search.loading && !p.search.result
+                    ? 'Đang tìm...'
+                    : p.search.result && p.search.result.files.length > 0
+                      ? `${p.search.result.files.length}${p.search.result.truncated ? '+' : ''} file khớp${p.search.loading ? ' · đang tìm...' : ''}`
+                      : 'Không tìm thấy'}
+              </div>
+              {p.search.result?.files.map((f) => {
+                const abs = joinRoot(p.root as string, f.rel)
+                return (
+                  <div key={f.rel}>
+                    {fileRow(abs, f.rel, 0, f.rel, undefined, p.mtimes[f.rel])}
+                    {f.hits.map((h) => (
+                      <button
+                        key={h.line}
+                        className="x2m-search-hit flex w-full cursor-pointer gap-2 rounded-md py-0.5 pr-2 pl-[30px] text-left text-[11.5px] text-dim outline-none hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                        onClick={() => p.onOpenHit(abs, h)}
+                        title={h.heading ? `${h.heading} · dòng ${h.line}` : `Dòng ${h.line}`}
+                      >
+                        <span className="shrink-0 tabular-nums text-faint">{h.line}</span>
+                        <span className="truncate">{h.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })}
+            </div>
+          ) : q
             ? p.root &&
               p.relFiles
                 .filter((r) => r.toLowerCase().includes(q))

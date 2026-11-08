@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { buildMdTree, recentMdFiles, visibleTreeFiles, type MdSort } from '../../../../shared/mdView'
+import type { MdSearchResult } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
 import { toast } from '../../lib/utils'
 
@@ -8,6 +9,13 @@ export interface MdViewerDoc {
   loading: boolean
   error: string
   markdown: string
+}
+
+export interface MdContentSearch {
+  query: string
+  loading: boolean
+  error: string
+  result: MdSearchResult | null
 }
 
 /** Đường dẫn giả của bản Markdown dán từ clipboard (không phải file trên đĩa, không lưu vào `viewerFile`). */
@@ -33,25 +41,56 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
   /** Bản dán gần nhất; giữ lại để quay về sau khi chọn file khác. */
   const [pasted, setPasted] = useState<string | null>(null)
   const [filter, setFilter] = useState('')
+  /** Ô lọc tìm trong nội dung file (thay vì theo tên) */
+  const [contentSearch, setContentSearch] = useState(false)
+  const [search, setSearch] = useState<MdContentSearch | null>(null)
   const readSeq = useRef(0)
+  const listSeq = useRef(0)
+  /** Ô lọc theo tên (không áp khi đang tìm trong nội dung) */
+  const nameFilter = contentSearch ? '' : filter
+
+  // Tìm trong nội dung: chờ ngừng gõ 300ms; quét lại thư mục thì tìm lại
+  useEffect(() => {
+    const q = filter.trim()
+    if (!contentSearch || !root || q === '') {
+      setSearch(null)
+      return
+    }
+    let alive = true
+    setSearch((s) => ({ query: q, loading: true, error: '', result: s?.result ?? null }))
+    const t = setTimeout(() => {
+      window.api.searchMarkdownFolder(root, q).then(
+        (result) => alive && setSearch({ query: q, loading: false, error: '', result }),
+        (err: unknown) => alive && setSearch({ query: q, loading: false, error: errMsg(err), result: null })
+      )
+    }, 300)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [contentSearch, root, filter, relFiles])
 
   const tree = useMemo(() => buildMdTree(relFiles, sort, mtimes), [relFiles, sort, mtimes])
 
   /** "Mới sửa": file sửa gần nhất của thư mục, đã áp ô lọc. */
   const recent = useMemo(() => {
-    const q = filter.trim().toLowerCase()
+    const q = nameFilter.trim().toLowerCase()
     return recentMdFiles(relFiles, mtimes).filter((r) => !q || r.toLowerCase().includes(q))
-  }, [relFiles, mtimes, filter])
+  }, [relFiles, mtimes, nameFilter])
 
   /** Mọi file đang hiện theo thứ tự (cây hoặc kết quả lọc, rồi file lẻ), đường dẫn tuyệt đối — dùng cho ↑/↓. */
   const visible = useMemo(() => {
-    const q = filter.trim().toLowerCase()
-    const rels = q ? relFiles.filter((r) => r.toLowerCase().includes(q)) : visibleTreeFiles(tree, collapsed)
+    const q = nameFilter.trim().toLowerCase()
+    const rels = search?.result
+      ? search.result.files.map((f) => f.rel)
+      : q
+        ? relFiles.filter((r) => r.toLowerCase().includes(q))
+        : visibleTreeFiles(tree, collapsed)
     return [
       ...(root ? rels.map((r) => joinRoot(root, r)) : []),
       ...loose.filter((f) => !q || f.toLowerCase().includes(q)),
     ]
-  }, [root, tree, relFiles, collapsed, loose, filter])
+  }, [root, tree, relFiles, collapsed, loose, nameFilter, search])
 
   const select = useCallback(
     async (path: string) => {
@@ -91,9 +130,12 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
    * `quiet`: không báo lỗi (thư mục nhớ từ lần trước đã bị xóa). */
   const openFolder = useCallback(
     async (dir: string, quiet = false): Promise<string[] | null> => {
+      // Mở thư mục khác trong lúc thư mục trước còn đang quét: kết quả cũ bị bỏ
+      const seq = ++listSeq.current
       setListing(true)
       try {
         const res = await window.api.listMarkdownFolder(dir)
+        if (seq !== listSeq.current) return null
         setRoot(res.root)
         setRelFiles(res.files)
         setMtimes(res.mtimes ?? {})
@@ -103,10 +145,10 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
         else if (res.files.length === 0 && !quiet) toast('Thư mục không có file Markdown nào', 'err')
         return res.files.map((r) => joinRoot(res.root, r))
       } catch (err) {
-        if (!quiet) toast(errMsg(err), 'err')
+        if (!quiet && seq === listSeq.current) toast(errMsg(err), 'err')
         return null
       } finally {
-        setListing(false)
+        if (seq === listSeq.current) setListing(false)
       }
     },
     [persist]
@@ -170,6 +212,9 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
     doc,
     filter,
     setFilter,
+    contentSearch,
+    setContentSearch,
+    search,
     select,
     pasted,
     pasteText,

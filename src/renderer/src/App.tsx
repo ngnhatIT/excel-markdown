@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_OPTIONS,
+  type MdSearchHit,
   type RagCitation,
   type AppMode,
   type ConvertOptions,
@@ -19,7 +20,7 @@ import { MdFileList } from './features/md2excel/MdFileList'
 import { MdOptionsPanel } from './features/md2excel/MdOptionsPanel'
 import { MdTreeList } from './features/viewer/MdTreeList'
 import { OptionsPanel } from './features/excel2md/OptionsPanel'
-import { PreviewPane } from './components/PreviewPane'
+import { PreviewPane, type ScrollTarget } from './components/PreviewPane'
 import { ResultsPanel } from './components/ResultsPanel'
 import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
@@ -74,7 +75,7 @@ export default function App(): React.ReactElement {
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [leftWidth, setLeftWidth] = useState(300)
   const [rightWidth, setRightWidth] = useState(304)
-  const [scrollTarget, setScrollTarget] = useState<{ heading: string; seq: number } | null>(null)
+  const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null)
 
   const persist = useCallback((key: string, value: unknown) => {
     window.api.storeSet(key, value).catch(() => undefined)
@@ -575,6 +576,15 @@ export default function App(): React.ReactElement {
     [viewerPath, viewer.showPaste, viewerSelect]
   )
 
+  const handleOpenSearchHit = useCallback(
+    async (path: string, hit: MdSearchHit) => {
+      const text = viewer.search?.query ?? ''
+      if (path !== viewerPath) await viewerSelect(path)
+      setScrollTarget({ heading: hit.heading ?? '', text, seq: Date.now() })
+    },
+    [viewer.search, viewerPath, viewerSelect]
+  )
+
   useShortcuts({
     onEscape: () => {
       setResults(null)
@@ -685,6 +695,10 @@ export default function App(): React.ReactElement {
               dragOver={dragOver}
               filter={viewer.filter}
               onFilterChange={viewer.setFilter}
+              contentSearch={viewer.contentSearch}
+              onContentSearchChange={viewer.setContentSearch}
+              search={viewer.search}
+              onOpenHit={(p, h) => void handleOpenSearchHit(p, h)}
               onSelect={(p) => void viewerSelect(p)}
               onToggleDir={viewer.toggleDir}
               onOpenFolder={() => void pickViewerFolder()}

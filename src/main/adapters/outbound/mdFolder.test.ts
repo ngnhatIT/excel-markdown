@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { listMarkdownFiles, readMarkdownFile } from './mdFolder'
+import { listMarkdownFiles, readMarkdownFile, searchMarkdownFolder } from './mdFolder'
 
 function makeTree(): string {
   const root = mkdtempSync(join(tmpdir(), 'x2m-mdv-'))
@@ -44,5 +44,22 @@ describe('readMarkdownFile', () => {
     const p = join(mkdtempSync(join(tmpdir(), 'x2m-mdv-')), 'bom.md')
     writeFileSync(p, '﻿# 見出し\n')
     expect(await readMarkdownFile(p)).toBe('# 見出し\n')
+  })
+})
+
+describe('searchMarkdownFolder', () => {
+  it('tìm trong nội dung các file của thư mục (bỏ node_modules), giới hạn số file', async () => {
+    const root = makeTree()
+    writeFileSync(join(root, 'docs/a.md'), '# A\n顧客コード\n')
+    writeFileSync(join(root, 'README.md'), '\ufeff顧客\n')
+    writeFileSync(join(root, 'node_modules/pkg/x.md'), '顧客\n')
+    const res = await searchMarkdownFolder(root, '顧客')
+    expect(res.truncated).toBe(false)
+    expect(res.files.map((f) => f.rel).sort()).toEqual(['README.md', 'docs/a.md'])
+    expect(res.files.find((f) => f.rel === 'docs/a.md')?.hits).toEqual([{ line: 2, text: '顧客コード', heading: 'A' }])
+    const one = await searchMarkdownFolder(root, '顧客', 1)
+    expect(one.files).toHaveLength(1)
+    expect(one.truncated).toBe(true)
+    expect((await searchMarkdownFolder(root, '  ')).files).toEqual([])
   })
 })

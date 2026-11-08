@@ -11,6 +11,7 @@ import type {
   ConvertResultItem,
   MdConvertResult,
   MdFolderListing,
+  MdSearchResult,
   MdInspectResult,
   OutputMode,
 } from '../shared/types'
@@ -98,6 +99,8 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('mdv:list', root) as Promise<ApiResult<MdFolderListing>>),
   readMarkdown: (path: string): Promise<string> =>
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
+  searchMarkdownFolder: (root: string, query: string): Promise<MdSearchResult> =>
+    unwrap(ipcRenderer.invoke('mdv:search', root, query) as Promise<ApiResult<MdSearchResult>>),
 
   // Trợ lý AI (RAG: Gemini / Claude / OpenAI)
   aiGetConfig: (): Promise<AiConfigInfo> =>

@@ -4,6 +4,7 @@ import { buildGuideHtml, guideFileStem } from '../../../shared/guideHtml'
 import { errMsg } from '../lib/api'
 import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
+import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
 import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
@@ -114,8 +115,15 @@ interface Props {
   onLinkClick?: (href: string) => boolean
   /** Bản render giãn hết chiều rộng vùng xem */
   fullWidth?: boolean
-  /** Nhảy tới heading tương ứng khi bấm trích dẫn AI */
-  scrollTarget?: { heading: string; seq: number } | null
+  /** Nhảy tới heading (trích dẫn AI) và/hoặc chữ `text` sau heading đó (kết quả tìm, được tô sáng) */
+  scrollTarget?: ScrollTarget | null
+}
+
+export interface ScrollTarget {
+  heading: string
+  /** Từ khóa (cách nhau bởi khoảng trắng) cần cuộn tới và tô sáng */
+  text?: string
+  seq: number
 }
 
 /** Thanh tab + vùng xem trước (Markdown đã render, Song song, hoặc Mã nguồn). */
@@ -173,8 +181,14 @@ export function PreviewPane({
     void renderMermaidIn(root, theme === 'light' ? 'default' : 'dark')
   }, [html, tab, theme, loading])
 
+  // Tô sáng chỉ thuộc về bản render hiện tại
+  useEffect(() => () => setSearchHighlight([]), [html, tab])
+
+  /** seq của scrollTarget đã xử lý: đổi file sau đó không cuộn/tô lại theo mục tiêu cũ */
+  const doneSeq = useRef(0)
   useEffect(() => {
-    if (loading || !html || !scrollTarget?.heading) return
+    if (loading || !html || !scrollTarget || scrollTarget.seq === doneSeq.current) return
+    if (!scrollTarget.heading && !scrollTarget.text) return
     if (tab === 'source') {
       setTab('rendered')
       return
@@ -187,16 +201,28 @@ export function PreviewPane({
     if (!container) return
     const body = container.querySelector('.md-body')
     if (!body) return
+    doneSeq.current = scrollTarget.seq
     const targetHeading = scrollTarget.heading.trim()
+    const headings = Array.from(body.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[]
+    const matched = targetHeading ? headings.find((h) => matchHeadingText(h.textContent ?? '', targetHeading)) : undefined
+    if (scrollTarget.text) {
+      const ranges = findTextRanges(body, scrollTarget.text.split(/\s+/))
+      setSearchHighlight(ranges)
+      // Chỗ khớp đầu tiên sau heading của kết quả (không có thì chỗ đầu tiên của file)
+      const after = matched
+        ? ranges.find((r) => matched.compareDocumentPosition(r.startContainer) & Node.DOCUMENT_POSITION_FOLLOWING)
+        : undefined
+      const hit = after ?? ranges[0]
+      if (hit) {
+        hit.startContainer.parentElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        return
+      }
+    }
     if (targetHeading.toLowerCase() === 'tổng quan') {
       container.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
-    const headings = Array.from(body.querySelectorAll('h1, h2, h3, h4')) as HTMLElement[]
-    const matched = headings.find((h) => matchHeadingText(h.textContent ?? '', targetHeading))
-    if (matched) {
-      matched.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+    matched?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [scrollTarget, loading, html, display.truncated, tab])
 
   const outline = useMemo(() => extractOutline(display.md), [display.md])

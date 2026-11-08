@@ -9,6 +9,7 @@ import type {
   ConvertResultItem,
   MdConvertResult,
   MdFolderListing,
+  MdSearchResult,
   MdInspectResult,
   OutputMode,
 } from '../../../shared/types'
@@ -49,6 +50,7 @@ export interface WindowApi {
   convertMarkdown(payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult>
   openMarkdownFolder(): Promise<string | null>
   listMarkdownFolder(root: string): Promise<MdFolderListing>
+  searchMarkdownFolder(root: string, query: string): Promise<MdSearchResult>
   readMarkdown(path: string): Promise<string>
   aiGetConfig(): Promise<AiConfigInfo>
   aiSetConfig(payload: AiSetConfigPayload): Promise<AiConfigInfo>

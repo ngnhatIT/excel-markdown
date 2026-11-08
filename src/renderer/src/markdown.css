@@ -249,3 +249,9 @@
   color: var(--danger);
   font-size: 12px;
 }
+
+/* Từ khóa của "Tìm trong nội dung" (CSS Custom Highlight API, src/renderer/src/lib/highlight.ts) */
+::highlight(x2m-search) {
+  background-color: rgb(250 204 21 / 0.55);
+  color: inherit;
+}

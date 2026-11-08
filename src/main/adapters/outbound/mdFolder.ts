@@ -3,6 +3,8 @@
  */
 import { readdir, readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
+import type { MdSearchResult } from '../../../shared/types'
+import { searchMarkdownText, searchTerms } from '../../domain/mdSearch'
 
 /** Quá số file này thì dừng quét (chọn nhầm ổ C:\ không treo app). */
 export const MD_LIST_LIMIT = 5000
@@ -67,4 +69,30 @@ export async function readMarkdownFile(path: string): Promise<string> {
   }
   const text = await readFile(path, 'utf-8')
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
+}
+
+/** Tìm `query` trong nội dung mọi file .md dưới `root` (cùng danh sách với `listMarkdownFiles`).
+ * File không đọc được / quá lớn thì bỏ qua. Dừng khi đủ `maxFiles` file khớp. */
+export async function searchMarkdownFolder(root: string, query: string, maxFiles = 200, maxHitsPerFile = 20): Promise<MdSearchResult> {
+  const terms = searchTerms(query)
+  const out: MdSearchResult = { files: [], truncated: false }
+  if (terms.length === 0) return out
+  const { files } = await listMarkdownFiles(root)
+  for (let i = 0; i < files.length; i += 32) {
+    const batch = await Promise.all(
+      files.slice(i, i + 32).map(async (rel) => {
+        try {
+          return { rel, hits: searchMarkdownText(await readMarkdownFile(join(root, rel)), terms, maxHitsPerFile) }
+        } catch {
+          return { rel, hits: [] }
+        }
+      })
+    )
+    for (const f of batch) {
+      if (f.hits.length === 0) continue
+      if (out.files.length >= maxFiles) return { ...out, truncated: true }
+      out.files.push(f)
+    }
+  }
+  return out
 }
