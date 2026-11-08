@@ -556,6 +556,27 @@ try {
   await key('Escape', 'Escape', 27)
   check('Dịch: Esc đóng popup', (await waitFor(`!document.querySelector('.x2m-tr-popup')`, 2000)) >= 0)
 
+  // テーブル定義書 → DDL / ER: dán Markdown có bảng định nghĩa (không thêm file vào cây)
+  const tableDefMd = readFileSync(join(root, 'test', 'fixtures', 'table-def.md'), 'utf8')
+  await ev(`navigator.clipboard.readText = async () => ${JSON.stringify(tableDefMd)}; document.querySelector('[aria-label="Dán Markdown"]')?.click(), 1`)
+  check('DDL: bảng định nghĩa có nút DDL trên chip, thanh xem có nút ER',
+    (await waitFor(`document.querySelectorAll('.x2m-outline-ddl').length === 2 && !!document.querySelector('.x2m-er-btn')`, 3000)) >= 0)
+  await ev(`document.querySelector('.x2m-outline-ddl')?.click(), 1`)
+  check('DDL: bấm DDL -> popover xem trước CREATE TABLE',
+    (await waitFor(`(document.querySelector('.x2m-ddl-preview')?.textContent ?? '').includes('CREATE TABLE M_CUSTOMER')`, 2000)) >= 0)
+  await key('Escape', 'Escape', 27)
+  check('DDL: Esc đóng popover', (await waitFor(`!document.querySelector('.x2m-ddl-pop')`, 2000)) >= 0)
+  const cspBeforeEr = await ev(`window.__csp.length`)
+  await ev(`document.querySelector('.x2m-er-btn')?.click(), 1`)
+  check('ER: hộp thoại vẽ sơ đồ Mermaid (SVG)', (await waitFor(`!!document.querySelector('.x2m-er-dialog .mmd svg')`, 8000)) >= 0,
+    await ev(`document.querySelector('.x2m-er-dialog')?.innerText ?? null`))
+  await key('Escape', 'Escape', 27)
+  check('ER: Esc đóng hộp thoại', (await waitFor(`!document.querySelector('.x2m-er-dialog')`, 2000)) >= 0)
+  // mermaid.render tự gắn DOM đo chữ tạm (có <style> / style="") vào trang: CSP chặn và báo, sơ đồ vẫn đúng
+  // (lib/mermaid.ts áp CSS lại qua CSSOM). Chỉ bỏ các báo style-src của bước này; vi phạm khác vẫn bị bắt ở cuối.
+  const erCsp = await ev(`window.__csp.splice(${cspBeforeEr})`)
+  check('ER: vẽ sơ đồ chỉ bị CSP chặn style inline tạm của mermaid', erCsp.every((v) => v.startsWith('style-src')), erCsp.slice(0, 3))
+
   // So sánh 新旧: hai file Markdown, chèn một dòng giữa bảng + sửa một ô
   const cmpDir = join(tmp, 'cmp')
   mkdirSync(cmpDir, { recursive: true })

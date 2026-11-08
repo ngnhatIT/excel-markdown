@@ -200,3 +200,27 @@ describe('MCP tools', () => {
     expect(await handleMcpMessage([{ jsonrpc: '2.0', id: 1, method: 'ping' }])).toMatchObject({ error: { code: -32600 } })
   })
 })
+
+describe('MCP table_ddl', () => {
+  const tableMd = join(__dirname, '../../../../../test/fixtures/table-def.md')
+
+  it('file .md / Excel / thư mục -> DDL / JSON / Mermaid', async () => {
+    const my = await call('table_ddl', { path: tableMd, dialect: 'mysql' })
+    expect(my.result.isError).toBeUndefined()
+    expect(my.result.content[0].text).toContain(") COMMENT='顧客マスタ';")
+    expect((await call('table_ddl', { path: fixture })).result.content[0].text).toContain('CREATE TABLE TBL_CUSTOMER (')
+    expect((await call('table_ddl', { path: tableMd, format: 'mermaid' })).result.content[0].text).toMatch(/^erDiagram\n/)
+    const dir = join(tmp, 'ddl')
+    mkdirSync(dir)
+    copyFileSync(tableMd, join(dir, 't.md'))
+    expect(JSON.parse((await call('table_ddl', { path: dir, format: 'json' })).result.content[0].text)).toHaveLength(2)
+    expect((await call('table_ddl', { path: join(docs, 'SC001.md') })).result.content[0].text).toContain('Không tìm thấy')
+  })
+
+  it('từ chối đường dẫn tương đối, file không phải .md/Excel, dialect / format lạ', async () => {
+    writeFileSync(join(tmp, 'secret.txt'), 'x')
+    for (const args of [{ path: 'table-def.md' }, { path: join(tmp, 'secret.txt') }, { path: tableMd, dialect: 'db2' }, { path: tableMd, format: 'xml' }]) {
+      expect((await call('table_ddl', args)).result.isError, JSON.stringify(args)).toBe(true)
+    }
+  })
+})

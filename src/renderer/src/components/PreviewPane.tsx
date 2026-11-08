@@ -7,6 +7,8 @@ import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { SelectionTranslate } from './SelectionTranslate'
+import { DdlPopover, ErDialog } from './TableDefTools'
+import { parseTableDefs, type TableDef } from '../../../shared/tableDef'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
 import { getLocale, LOCALES, t as tr, useLang, useT } from '../i18n'
@@ -33,6 +35,8 @@ interface OutlineItem {
   tsvBlock?: string
   colCount?: number
   rowCount?: number
+  /** Dòng header của bảng (tính từ 1), để khớp với TableDef.line */
+  line?: number
 }
 
 /** Trích xuất danh sách mục lục (Headings + Bảng) từ mã Markdown để nhảy nhanh & copy bảng. */
@@ -62,6 +66,7 @@ export function extractOutline(md: string): OutlineItem[] {
       i + 1 < lines.length &&
       /^\|[\s:-]+(\|[\s:-]+)+\|?$/.test(lines[i + 1].trim())
     ) {
+      const line = i + 1
       const tableLines: string[] = []
       while (i < lines.length && lines[i].startsWith('|')) {
         tableLines.push(lines[i])
@@ -90,6 +95,7 @@ export function extractOutline(md: string): OutlineItem[] {
         tsvBlock: tsvLines,
         colCount: headerCells.length,
         rowCount: dataRows.length,
+        line,
       })
       continue
     }
@@ -246,6 +252,18 @@ export function PreviewPane({
   // Mục lục tính trên toàn văn (không phải bản đã cắt "Hiện thêm"): copy TSV/MD của bảng dài phải đủ dòng
   const outline = useMemo(() => extractOutline(md), [md, lang])
   const tablesInOutline = useMemo(() => outline.filter((x) => x.kind === 'table'), [outline])
+  // テーブル定義書: bảng có cột 物理名 + 型 -> nút DDL trên chip, nút ER trên thanh xem
+  const tableDefs = useMemo(() => parseTableDefs(md, title ?? ''), [md, title])
+  const defByLine = useMemo(() => new Map(tableDefs.map((d) => [d.line, d])), [tableDefs])
+  const hasOutlineBar = outline.length > 1 || tableDefs.length > 0
+  const [ddl, setDdl] = useState<{ def: TableDef; x: number; y: number } | null>(null)
+  const [erOpen, setErOpen] = useState(false)
+  const closeDdl = useCallback(() => setDdl(null), [])
+  const closeEr = useCallback(() => setErOpen(false), [])
+  useEffect(() => {
+    setDdl(null)
+    setErOpen(false)
+  }, [title])
 
   const jumpToItem = useCallback((item: OutlineItem) => {
     const container = previewRef.current
@@ -381,7 +399,7 @@ export function PreviewPane({
               <IconWrap size={14} /> {t(wrapTables ? 'preview.wrapOn' : 'preview.wrapOff')}
             </button>
           )}
-          {outline.length > 1 && tab !== 'source' && (
+          {hasOutlineBar && tab !== 'source' && (
             <button
               className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, showOutline && 'active-pill border-accent-line bg-accent-soft text-accent-ink')}
               onClick={() => setShowOutline((s) => !s)}
@@ -389,6 +407,11 @@ export function PreviewPane({
               aria-pressed={showOutline}
             >
               <IconList size={14} /> {t('preview.outline', { n: outline.length })}
+            </button>
+          )}
+          {tableDefs.length > 0 && !loading && (
+            <button className={cx('x2m-er-btn btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => setErOpen(true)} title={t('td.erTitle', { n: tableDefs.length })}>
+              {t('td.er')}
             </button>
           )}
           <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title={t('preview.copyTitle')}>
@@ -413,7 +436,7 @@ export function PreviewPane({
         </div>
       </div>
 
-      {showOutline && outline.length > 1 && tab !== 'source' && !loading && !error && md && (
+      {showOutline && hasOutlineBar && tab !== 'source' && !loading && !error && md && (
         <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label={t('preview.outlineAria')}>
           <div className="x2m-outline-items flex w-max items-center gap-1.5">
             {outline.map((item, idx) => (
@@ -451,6 +474,19 @@ export function PreviewPane({
                     title={t('preview.copyMdTitle')}
                   >
                     MD
+                  </button>
+                )}
+                {item.kind === 'table' && item.line !== undefined && defByLine.has(item.line) && (
+                  <button
+                    className="x2m-outline-copy x2m-outline-ddl border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                    onClick={(e) => {
+                      const r = e.currentTarget.getBoundingClientRect()
+                      setDdl({ def: defByLine.get(item.line!)!, x: r.left, y: r.bottom + 6 })
+                    }}
+                    title={t('td.ddlTitle')}
+                    aria-haspopup="dialog"
+                  >
+                    DDL
                   </button>
                 )}
               </div>
@@ -520,6 +556,8 @@ export function PreviewPane({
         </button>
       )}
       <SelectionTranslate containerRef={previewRef} />
+      {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>
   )
 }

@@ -9,7 +9,8 @@ import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { buildExcel, existingOutputs, parseArgs, runCli } from '../cli/cliCore'
+import { buildExcel, collectTableDefs, existingOutputs, parseArgs, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
+import { SQL_DIALECTS, type SqlDialect } from '../../../../shared/tableDef'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
 
@@ -126,6 +127,20 @@ export const MCP_TOOLS = [
         overwrite: { type: 'boolean', description: 'Cho phép ghi đè file đã có (mặc định false)' },
       },
       required: ['out_path'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'table_ddl',
+    description: `Đọc テーブル定義書 (bảng có cột 物理名 + 型, tên bảng từ meta テーブルID / heading) trong file .md, file Excel (convert trong bộ nhớ) hoặc thư mục .md, sinh DDL CREATE TABLE (kiểu, 桁数, NOT NULL, 既定値, PRIMARY KEY, COMMENT), JSON hoặc sơ đồ ER Mermaid (erDiagram, FK suy ra theo tên cột). Không ghi file. Kết quả dài hơn ${PREVIEW_MAX_CHARS} ký tự bị cắt.`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: { type: 'string', description: 'Đường dẫn tuyệt đối tới file .md / Excel, hoặc thư mục chứa file .md (đệ quy)' },
+        dialect: { type: 'string', enum: [...SQL_DIALECTS], description: 'Hệ CSDL cho DDL (mặc định generic)' },
+        format: { type: 'string', enum: [...TABLE_DEF_FORMATS], description: 'sql (mặc định) | json | mermaid' },
+      },
+      required: ['path'],
       additionalProperties: false,
     },
   },
@@ -279,6 +294,22 @@ async function callTool(name: string, a: Args): Promise<string> {
       if (!/\.xlsx$/i.test(out)) throw new Error('"out_path" phải có đuôi .xlsx')
       const res = await buildExcel(inputs, out, a.overwrite === true)
       return `Đã ghi ${res.outPath} (${res.sheets.length} sheet):\n` + res.sheets.join('\n')
+    }
+    case 'table_ddl': {
+      const path = str(a, 'path')
+      // Chỉ .md / Excel / thư mục tuyệt đối: không thành đường đọc file bất kỳ
+      if (!isMarkdownPath(path) && !isExcelPath(path) && !(await isOpenableDirectory(path))) {
+        throw new Error('"path" phải là đường dẫn tuyệt đối tới file .md / Excel hoặc thư mục đang tồn tại')
+      }
+      const dialect = (a.dialect ?? 'generic') as SqlDialect
+      if (!SQL_DIALECTS.includes(dialect)) throw new Error(`"dialect" phải là một trong: ${SQL_DIALECTS.join(', ')}`)
+      const format = (a.format ?? 'sql') as TableDefFormat
+      if (!TABLE_DEF_FORMATS.includes(format)) throw new Error(`"format" phải là một trong: ${TABLE_DEF_FORMATS.join(', ')}`)
+      const defs = await collectTableDefs([path])
+      if (defs.length === 0) return 'Không tìm thấy テーブル定義 nào (cần bảng Markdown có cột 物理名 và 型).'
+      const text = renderTableDefs(defs, format, dialect)
+      if (text.length <= PREVIEW_MAX_CHARS) return text
+      return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`ddl -o\` để lấy đủ.)`
     }
     default:
       throw new UnknownToolError('Không có tool: ' + name)

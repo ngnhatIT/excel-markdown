@@ -2,13 +2,14 @@
  * `node out/main/cli.js a.xlsx thuMuc/ -o outDir [tuỳ chọn]`  (Excel → Markdown)
  * `node out/main/cli.js md2xlsx a.md thuMuc/ -o Book.xlsx [--overwrite]`  (Markdown → Excel) */
 import { existsSync, mkdirSync } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, stat, writeFile } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../shared/types'
+import { parseTableDefs, SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../../shared/tableDef'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
 import { workbookMarkdownForDiff } from '../../outbound/workbookText'
-import { listMarkdownFiles } from '../../outbound/mdFolder'
+import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { plannedMdFileNames, safeFileName, workbookMdFiles } from '../../../domain/excel/output'
@@ -20,6 +21,8 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
           [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title] [--no-clobber]
      cli md2xlsx <file.md|thư mục...> -o <file.xlsx> [--overwrite]
      cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)
+     cli ddl <file.md|thư mục|file.xlsx...> [--dialect generic|postgres|mysql|oracle|sqlserver]
+          [--format sql|json|mermaid] [-o out.sql]   (テーブル定義書 → DDL / JSON / ER; không -o thì in ra stdout)
      cli --help | --version
   Mặc định file .md đã có bị ghi đè; --no-clobber: bỏ qua workbook có file .md / thư mục ảnh đầu ra đã tồn tại.`
 
@@ -141,6 +144,77 @@ export function workbookTextconv(file: string): string {
   return workbookMarkdownForDiff(file)
 }
 
+export type TableDefFormat = 'sql' | 'json' | 'mermaid'
+export const TABLE_DEF_FORMATS: readonly TableDefFormat[] = ['sql', 'json', 'mermaid']
+
+/** Mọi テーブル定義 trong các đầu vào: file .md, thư mục (mọi .md bên trong, theo thứ tự đường dẫn), file Excel
+ * (convert trong bộ nhớ như textconv). `source` là tên file (đường dẫn tương đối với thư mục). */
+export async function collectTableDefs(inputs: string[]): Promise<TableDef[]> {
+  const defs: TableDef[] = []
+  for (const input of inputs) {
+    const abs = resolve(input)
+    if (await stat(abs).then((s) => s.isDirectory(), () => false)) {
+      const { files, truncated } = await listMarkdownFiles(abs)
+      if (truncated) throw new Error('Thư mục có quá nhiều file Markdown: ' + input)
+      for (const rel of files.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))) defs.push(...parseTableDefs(await readMarkdownFile(join(abs, rel)), rel))
+    } else if (EXCEL_EXT_RE.test(abs)) defs.push(...parseTableDefs(workbookMarkdownForDiff(abs), basename(abs)))
+    else if (/\.(md|markdown)$/i.test(abs)) defs.push(...parseTableDefs(await readMarkdownFile(abs), basename(abs)))
+    else throw new Error('Chỉ nhận file .md / Excel hoặc thư mục: ' + input)
+  }
+  return defs
+}
+
+/** Kết quả theo định dạng: sql (DDL theo dialect), json, mermaid (erDiagram). */
+export function renderTableDefs(defs: TableDef[], format: TableDefFormat, dialect: SqlDialect): string {
+  return format === 'json' ? toJson(defs) : format === 'mermaid' ? toErMermaid(defs) : toDDL(defs, dialect)
+}
+
+async function runDdl(argv: string[], log: (s: string) => void): Promise<number> {
+  const inputs: string[] = []
+  let dialect: SqlDialect = 'generic'
+  let format: TableDefFormat = 'sql'
+  let outPath = ''
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    const value = (): string => {
+      if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + a)
+      return argv[++i]
+    }
+    if (a === '-o' || a === '--out') outPath = value()
+    else if (a === '--dialect') {
+      const v = value() as SqlDialect
+      if (!SQL_DIALECTS.includes(v)) throw new Error(`--dialect phải là một trong: ${SQL_DIALECTS.join(', ')}`)
+      dialect = v
+    } else if (a === '--format') {
+      const v = value() as TableDefFormat
+      if (!TABLE_DEF_FORMATS.includes(v)) throw new Error(`--format phải là một trong: ${TABLE_DEF_FORMATS.join(', ')}`)
+      format = v
+    } else if (a.startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + a)
+    else inputs.push(a)
+  }
+  if (inputs.length === 0) throw new Error('Chưa có file .md / Excel / thư mục nào')
+  let defs: TableDef[]
+  try {
+    defs = await collectTableDefs(inputs)
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  if (defs.length === 0) {
+    process.stderr.write('Không tìm thấy テーブル定義 nào (cần bảng có cột 物理名 và 型)\n')
+    return 1
+  }
+  const text = renderTableDefs(defs, format, dialect)
+  if (!outPath) {
+    // stdout chỉ chứa kết quả (dùng được với `>` / pipe)
+    process.stdout.write(text)
+    return 0
+  }
+  await writeFile(resolve(outPath), text, 'utf-8')
+  log(`${resolve(outPath)} (${defs.length} bảng)`)
+  return 0
+}
+
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
   const inputs: string[] = []
   let outPath = ''
@@ -208,6 +282,7 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
     return 0
   }
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
+  if (argv[0] === 'ddl') return runDdl(argv.slice(1), log)
   if (argv[0] === 'textconv') {
     if (argv.length !== 2) throw new Error('Dùng: cli textconv <file.xlsx>')
     // stdout là nội dung diff: lỗi chỉ ra stderr, mã thoát khác 0
