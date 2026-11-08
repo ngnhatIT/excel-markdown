@@ -16,8 +16,15 @@ XLSX.set_fs(fs)
 
 /** Đọc + parse file Excel (một lần cho cả liệt kê sheet, preview và convert). */
 export function readWorkbook(filePath: string): WorkBook {
-  return XLSX.readFile(filePath, { cellDates: false })
+  // bookFiles: giữ part gốc để đọc lớp vẽ (ảnh, shape) — xem domain/excel/drawings.ts
+  const wb = XLSX.readFile(filePath, { cellDates: false, bookFiles: true })
+  const files = (wb as { files?: Record<string, unknown> }).files
+  // Workbook nằm trong cache của worker: chỉ giữ part lớp vẽ cần, bỏ XML sheet (có thể rất lớn)
+  if (files) for (const k of Object.keys(files)) if (!KEEP_PART.test(k)) delete files[k]
+  return wb
 }
+
+const KEEP_PART = /^xl\/(?:_rels\/workbook\.xml\.rels|worksheets\/_rels\/|drawings\/|media\/)/
 
 /** Liệt kê sheet của file Excel. Ném lỗi nếu file không đọc được. */
 export function listSheets(filePath: string, skipDelSheets: boolean): ReturnType<typeof listSheetsInWorkbook> {

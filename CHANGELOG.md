@@ -5,7 +5,11 @@
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
 ## Chưa phát hành
-Minor: tính năng mới; **output Excel → Markdown và Markdown → Excel không đổi**.
+Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/comment, Markdown → Excel không đổi.
+- Tính năng: Excel → Markdown đọc **lớp vẽ** của sheet .xlsx (`domain/excel/drawings.ts`): ảnh ghi ra
+  `<tên>_images/` và chèn `![tên (A7:H24)](...)` đúng chỗ trong sheet; chữ trong shape/text box/callout
+  thành `- 〔図形 B10〕...`; mũi tên nối hai shape thành `- 〔矢印〕A → B（nhãn）`; comment ô thành
+  `- 〔コメント B56: ô〕...`. Preview nhúng ảnh dạng data:. Chưa đọc biểu đồ/SmartArt và lớp vẽ của .xls.
 - Tính năng: nhóm **Nâng cao** ở cột Tùy chọn (mặc định tắt, output cũ không đổi): vùng ô
   (`A1:F40`), hiện công thức (`` `=SUM(..)` `` cạnh giá trị), front-matter YAML (file nguồn, sheet),
   tách bảng mỗi N dòng (lặp header, cho RAG/LLM).

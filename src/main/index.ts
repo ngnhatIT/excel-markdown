@@ -412,6 +412,10 @@ ipcMain.handle(
           writing = true
           const files = workbookMdFiles(base, basename(spec.path), sheets, payload.options, payload.outputMode === 'per-workbook', usedNames)
           for (const f of files) {
+            for (const img of f.images ?? []) {
+              await mkdir(dirname(join(payload.outDir, img.path)), { recursive: true })
+              await writeFile(join(payload.outDir, img.path), img.data)
+            }
             await writeFile(join(payload.outDir, f.name), f.text, 'utf-8')
             written.push(f.name)
           }
