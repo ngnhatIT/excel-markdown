@@ -80,8 +80,13 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
   const field = 'rounded-md border border-line bg-canvas px-2 py-1 text-xs text-ink outline-none focus:border-accent'
   return (
     <section className="x2m-rev border-b border-line-subtle bg-soft/50 px-3 py-2.5" aria-label={t('compare.rev.title')}>
-      <div className="mb-2 flex flex-wrap items-end gap-2">
+      <div className="mb-1.5 flex items-center gap-2">
         <span className="mr-auto text-xs font-semibold text-ink">{t('compare.rev.title')}</span>
+        <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('compare.rev.close')} aria-label={t('compare.rev.close')}>
+          <IconX size={13} />
+        </button>
+      </div>
+      <div className="mb-2 flex flex-wrap items-end gap-2">
         <label className="flex flex-col gap-0.5 text-[11px] text-dim">
           {t('compare.rev.version')}
           <input className={cn(field, 'w-16')} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.1" />
@@ -107,9 +112,6 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
         </button>
         <button className={cx(btn, btnSm, '!border-accent-line !text-accent-ink')} onClick={() => void copy('tsv')}>
           {t('compare.rev.copyTsv')}
-        </button>
-        <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('compare.rev.close')} aria-label={t('compare.rev.close')}>
-          <IconX size={13} />
         </button>
       </div>
       <div className="max-h-48 overflow-auto rounded-md border border-line-subtle bg-canvas">

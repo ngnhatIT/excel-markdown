@@ -1,5 +1,6 @@
 /* テーブル定義書 → DDL / JSON / ER: popover của nút DDL trên chip bảng và hộp thoại sơ đồ ER của cả file. */
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../shared/tableDef'
 import { renderMermaidIn } from '../lib/mermaid'
 import { btnGhost, btnSm, cx, input } from '../lib/ui'
@@ -49,6 +50,9 @@ function useDismiss(ref: React.RefObject<HTMLElement | null>, onClose: () => voi
   }, [ref, onClose])
 }
 
+/** Focus nút đóng khi mở mà không cuộn các khung cha (autoFocus cuộn khung xem lệch sang ngang). */
+const focusNoScroll = (el: HTMLButtonElement | null): void => el?.focus({ preventScroll: true })
+
 export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: number; y: number; onClose: () => void; onCopy: Copy }): React.ReactElement {
   const t = useT()
   const ref = useRef<HTMLDivElement | null>(null)
@@ -56,7 +60,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
   const ddl = useMemo(() => toDDL([def], dialect), [def, dialect])
   useDismiss(ref, onClose)
   const left = Math.max(8, Math.min(x, window.innerWidth - POP_W - 8))
-  return (
+  return createPortal(
     <div
       ref={ref}
       role="dialog"
@@ -66,7 +70,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
     >
       <div className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
         <span className="truncate text-xs font-semibold">{t('td.title', { name: def.logicalName ? `${def.tableName} (${def.logicalName})` : def.tableName })}</span>
-        <button className={cx(btnGhost, '!p-1 ml-auto')} onClick={onClose} title={t('td.close')} aria-label={t('td.close')} autoFocus>
+        <button className={cx(btnGhost, '!p-1 ml-auto')} onClick={onClose} title={t('td.close')} aria-label={t('td.close')} ref={focusNoScroll}>
           ✕
         </button>
       </div>
@@ -103,6 +107,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
       </div>
       <pre className="x2m-ddl-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-[11.5px] leading-relaxed select-text">{ddl}</pre>
     </div>
+    , document.body
   )
 }
 
@@ -124,7 +129,7 @@ export function ErDialog({ defs, onClose, onCopy }: { defs: TableDef[]; onClose:
     box.replaceChildren(pre)
     void renderMermaidIn(box, document.documentElement.dataset.theme === 'light' ? 'default' : 'dark')
   }, [src])
-  return (
+  return createPortal(
     <div className="x2m-er-backdrop fixed inset-0 z-[90] flex items-start justify-center bg-black/40 pt-[8vh]">
       <div
         ref={ref}
@@ -138,12 +143,13 @@ export function ErDialog({ defs, onClose, onCopy }: { defs: TableDef[]; onClose:
           <button className={cx(btnGhost, btnSm, 'ml-auto')} onClick={() => onCopy(src, t('td.lblEr'))}>
             {t('td.copyMermaid')}
           </button>
-          <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('td.close')} aria-label={t('td.close')} autoFocus>
+          <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('td.close')} aria-label={t('td.close')} ref={focusNoScroll}>
             ✕
           </button>
         </div>
         <div ref={boxRef} className="x2m-er-body md-body full flex-1 overflow-auto p-4" />
       </div>
     </div>
+    , document.body
   )
 }
