@@ -8,6 +8,7 @@ import { readStore, updateStore, errorLogPath, logError, logsDir } from './adapt
 import { readLogTail } from './adapters/outbound/logFile'
 import { diagnosticsText, resetSettings } from './diagnostics'
 import { mt, setMainLang } from './i18nMain'
+import { checkForUpdate } from './updater'
 
 const focused = (): BrowserWindow | undefined => BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
 
@@ -15,6 +16,29 @@ const focused = (): BrowserWindow | undefined => BrowserWindow.getFocusedWindow(
 function messageBox(opts: Electron.MessageBoxOptions): Promise<Electron.MessageBoxReturnValue> {
   const win = focused()
   return win ? dialog.showMessageBox(win, opts) : dialog.showMessageBox(opts)
+}
+
+/** Kiểm tra bản mới trên GitHub Releases: chỉ khi người dùng bấm (app không tự gọi mạng). */
+async function checkUpdate(): Promise<void> {
+  try {
+    const r = await checkForUpdate()
+    if (!r.newer) {
+      await messageBox({ type: 'info', title: mt('menu.checkUpdate'), message: mt('update.latest', { version: app.getVersion() }), buttons: [mt('common.close')] })
+      return
+    }
+    const { response } = await messageBox({
+      type: 'info',
+      title: mt('menu.checkUpdate'),
+      message: mt('update.available', { latest: r.latest, current: app.getVersion() }),
+      buttons: [mt('update.open'), mt('common.close')],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    // url đã được updater giới hạn trong trang release của đúng repo
+    if (response === 0) await shell.openExternal(r.url)
+  } catch (err) {
+    await messageBox({ type: 'warning', title: mt('menu.checkUpdate'), message: mt('update.failed'), detail: err instanceof Error ? err.message : String(err), buttons: [mt('common.close')] })
+  }
 }
 
 function showAbout(): void {
@@ -116,6 +140,7 @@ export function buildAppMenu(): void {
       label: mt('menu.help'),
       submenu: [
         { label: mt('menu.about'), click: run('menu:about', showAbout) },
+        { label: mt('menu.checkUpdate'), click: run('menu:checkUpdate', checkUpdate) },
         { type: 'separator' },
         { label: mt('menu.openLogs'), click: run('menu:openLogs', openLogs) },
         { label: mt('menu.copyDiag'), click: run('menu:copyDiag', copyDiagnostics) },

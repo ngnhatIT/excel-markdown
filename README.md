@@ -205,6 +205,10 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   - **整合性チェック**: 画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, `TBL.COL` không có cột.
   - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
     dùng trong CI); MCP: tool `impact`.
+- **テスト観点表** (nút **観点表** khi tài liệu có bảng 【項目定義】 trong mục có 画面ID): sinh khung テスト仕様書 tại chỗ,
+  không AI: 必須, biên 桁数 (n / n+1 ký tự), 形式 (数値 / 日付 / 半角英数), 初期値, lựa chọn, nút và 画面遷移, kèm
+  参照元 file:dòng. Copy TSV dán Excel, hoặc Lưu `.md` rồi mở ở chế độ Markdown → Excel để ra `.xlsx`. Nội dung
+  tiếng Nhật / Việt / Anh.
 - **Định nghĩa bảng → DDL / ER / JSON**: bảng có cột `物理名` + `型` (テーブル定義書) có thêm nút **DDL** trên thanh
   mục lục: chọn Generic / PostgreSQL / MySQL / Oracle / SQL Server, copy `CREATE TABLE` (kèm PK, NOT NULL, DEFAULT,
   comment theo tên logic), JSON hoặc sơ đồ ER Mermaid. Nút **ER** trên thanh xem vẽ sơ đồ quan hệ của cả file
@@ -372,6 +376,19 @@ không gửi file đi đâu. Nút ⇄ đổi chỗ cũ / mới, ⟳ đọc lại
 | `F7` / `Shift+F7` | So sánh: thay đổi sau / trước |
 | `Ctrl+Shift+T` | Dịch đoạn đang bôi đen |
 | `Esc` | Đóng popup / bảng lệnh, xóa ô lọc |
+
+---
+
+## Menu Trợ giúp
+
+- **Giới thiệu**: phiên bản app, Electron, Chrome, Node.
+- **Kiểm tra cập nhật…**: hỏi trang GitHub Releases của dự án **chỉ khi bạn bấm** (app không tự gọi mạng); có bản
+  mới thì mở trang tải về.
+- **Mở thư mục log** / **Copy thông tin chẩn đoán** (phiên bản, hệ điều hành, 50 dòng log cuối, API Key đã được che)
+  để gửi kèm khi báo lỗi.
+- **Đặt lại cài đặt…**: xóa mọi cài đặt (thư mục, tùy chọn, ngôn ngữ, theme…) nhưng giữ API Key.
+
+Lỗi giao diện bất ngờ không còn làm cửa sổ trắng trơn: app hiện thông báo và nút **Tải lại**, lỗi được ghi vào log.
 
 ---
 

@@ -7,6 +7,18 @@
 ## 2.3.0 — 2026-11-09
 Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
 chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).
+- Tính năng: **テスト観点表 / テスト仕様書** sinh tại chỗ từ 画面設計書 (必須, biên 桁数, 形式, 初期値, lựa chọn, nút,
+  画面遷移; 参照元 file:dòng), copy TSV / Markdown, lưu `.md`; nội dung ja / vi / en.
+- Production: error boundary (lỗi giao diện không còn màn hình trắng), log `unhandledRejection` / renderer /
+  tiến trình con bị dừng, log xoay vòng `error.1.log`; menu app riêng (Sửa / Xem / Trợ giúp: Giới thiệu, Kiểm tra cập
+  nhật thủ công, Mở thư mục log, Copy chẩn đoán, Đặt lại cài đặt; bản đóng gói không có Reload / DevTools); chữ phía
+  main (hộp thoại, lỗi) theo ngôn ngữ giao diện; `sandbox: true`, từ chối quyền web, kiểm đầu vào `store:set` /
+  `ai:ask` / `excel:preview`; nhớ cửa sổ phóng to; preview file khổng lồ cắt ở ~2 triệu ký tự, cache worker theo dung
+  lượng (≤ 150 MB); mở `.md` bằng "Open with" vào chế độ Đọc Markdown.
+- Đóng gói: installer en / ja / vi, tên file `ExcelToMarkdown-Setup-<phiên bản>.exe`, thêm vào "Open with" cho
+  xlsx/xlsm/xls/md mà không giành app mặc định; lệnh `x2m` / `x2m-mcp` sau khi cài; workflow phát hành theo tag
+  (kèm SHA256), CI đóng gói Windows + e2e Windows.
+- Accessibility: màu đạt WCAG AA ở cả hai theme; hộp ER / popover DDL giữ Tab bên trong và trả focus khi đóng.
 - Tính năng: chế độ **So sánh 新旧** hai bản thiết kế (Excel hoặc Markdown): so theo sheet → mục → dòng bảng
   khớp theo cột khóa, tô chữ đổi trong ô, chỉ hiện thay đổi, F7 / Shift+F7, xuất / copy báo cáo
   `場所 | 項目 | 旧 | 新`. Lõi `src/shared/specDiff.ts`, IPC `compare:read` (worker riêng, giới hạn 120 giây).
