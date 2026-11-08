@@ -1,9 +1,25 @@
-import type { MdFileItem } from '../../../types'
-import { cn } from '../utils'
-import { chk, emptyBox, emptyHint, emptyP, fileCard, fileCardActive, fileError, fileHead, fileNameBtn, fileNameText, filesAside, filesAsideDrag, moveBtn, reloadBtn } from './FileList'
-import { iconBtn, paneTitle } from '../ui'
-import { btnPrimary } from '../ui'
-import { IconFile, IconRefresh, IconX } from './icons'
+import type { MdFileItem } from '../../../../shared/types'
+import { cn } from '../../lib/utils'
+import {
+  btnPrimary,
+  chk,
+  emptyBox,
+  emptyHint,
+  emptyP,
+  fileCard,
+  fileCardActive,
+  fileError,
+  fileHead,
+  fileNameBtn,
+  fileNameText,
+  filesAside,
+  filesAsideDrag,
+  iconBtn,
+  moveBtn,
+  paneTitle,
+  reloadBtn,
+} from '../../lib/ui'
+import { IconFile, IconRefresh, IconX } from '../../components/icons'
 
 interface Props {
   files: MdFileItem[]

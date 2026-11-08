@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ConvertOptions, FileItem } from '../../../types'
-import { errMsg } from '../api'
+import type { ConvertOptions, FileItem } from '../../../../shared/types'
+import { errMsg } from '../../lib/api'
 
 /** Markdown preview của sheet đang chọn. Debounce 250 ms; bỏ kết quả cũ khi người
  * dùng đã chuyển sang sheet khác (generation guard). */

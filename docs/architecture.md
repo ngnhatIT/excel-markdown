@@ -1,88 +1,138 @@
-# Kiến Trúc Dự Án ExcelToMarkdown (Hexagonal Architecture & Tailwind CSS v4)
+# Kiến trúc ExcelToMarkdown
 
-Dự án đã được tái cấu trúc theo mô hình **Hexagonal Architecture (Ports and Adapters)** cho phần backend/main process, đồng thời nâng cấp toàn diện giao diện **UI/UX với Tailwind CSS v4** cho phần frontend/renderer.
+Electron + TypeScript + React (electron-vite) + Tailwind CSS v4. UI tiếng Việt, 2 theme.
 
----
+## Luồng dữ liệu
 
-## 1. Hexagonal Architecture (Main Process)
-
-Kiến trúc phân tách rõ ràng trách nhiệm giữa nghiệp vụ cốt lõi (Domain), các cổng giao tiếp trừu tượng (Ports), các bộ điều hợp ngoại vi (Adapters), và điểm khởi chạy (Composition Root):
-
-```mermaid
-graph TD
-  subgraph Inbound Adapters
-    CLI["CLI Adapter (cliCore.ts)"]
-    IPC["IPC Handlers (main/index.ts)"]
-    WorkerH["Worker Handlers (workerHandler, mdHandler)"]
-  end
-
-  subgraph Application & Ports
-    Protocols["Worker Protocols (workerProtocol.ts)"]
-  end
-
-  subgraph Pure Domain
-    ExcelConv["Excel Converter & Escape"]
-    Md2Xlsx["Markdown to Excel Parser & Layout"]
-    RagEngine["RAG Chunker, Glossary & Retriever"]
-    Guards["Domain Guards & Errors"]
-  end
-
-  subgraph Outbound Adapters
-    XlsxRead["XLSX File Reader (xlsxFiles.ts)"]
-    XlsxWrite["XLSX File Writer (xlsxWriter.ts)"]
-    MdScan["Filesystem Scanner (mdFolder.ts)"]
-    Gemini["Gemini Client & SafeStorage (geminiClient.ts)"]
-    ConvWorker["Converter Worker Process (converterWorker.ts)"]
-  end
-
-  Inbound Adapters --> Pure Domain
-  Inbound Adapters --> Application & Ports
-  Pure Domain --> Application & Ports
-  Outbound Adapters --> Pure Domain
-  Inbound Adapters --> Outbound Adapters
+```
+Renderer (React) --IPC--> Main (Node) --message--> Worker (utilityProcess, SheetJS / exceljs)
+     ^                      |   ^                        |
+     |                      |   +---- Markdown ----------+   Excel -> Markdown
+     +-- preview/kết quả ---+--> ghi file .md
+     |                      |   +---- .xlsx (đã ghi) ----+   Markdown -> Excel
+     |                      +--> hỏi ghi đè (dialog)
+     |                      +--> RAG (chấm điểm tài liệu) --> Gemini / Claude / OpenAI   Trợ lý AI
 ```
 
-### Chi tiết các tầng:
+Renderer không đụng filesystem: mọi đọc/ghi đi qua IPC, main kiểm mọi đường dẫn từ renderer
+(`domain/guards.ts`). Parse Excel (dữ liệu không tin cậy) chạy trong utilityProcess riêng.
 
-1. **Domain (`src/main/domain/`)**:
-   - Chứa 100% logic nghiệp vụ thuần tuý, độc lập với môi trường chạy (không phụ thuộc vào Electron API hay I/O trực tiếp).
-   - `excel/`: Xử lý cấu trúc sheet, nhận diện bảng Backlog/thiết kế Nhật-Việt, gom nhóm header, xử lý merge cell ngang/dọc, escape Markdown.
-   - `md2xlsx/`: Parser cú pháp Markdown sang SheetModel, layout cột theo độ rộng ký tự CJK/Latin, glyph measurement table.
-   - `rag/`: Phân đoạn tài liệu (chunker), từ điển thuật ngữ chuyên ngành Nhật-Việt (glossary), thuật toán BM25 và hybrid retriever.
-   - `errors.ts`, `guards.ts`: Chuẩn hoá thông điệp lỗi thân thiện người dùng và các quy tắc kiểm tra đường dẫn an toàn.
+## Cấu trúc thư mục
 
-2. **Ports (`src/main/application/ports/`)**:
-   - `workerProtocol.ts`: Định nghĩa thông điệp và giao thức IPC giữa main process và `utilityProcess` xử lý chạy nền.
+```
+src/
+  shared/                        # thuần, dùng chung main + renderer (không import module Node riêng)
+    types.ts                     # type + hằng chung (ConvertOptions, AI_PROVIDERS...)
+    workbookName.ts, mdView.ts, guideHtml.ts
+  preload/index.ts               # bridge tối thiểu qua contextBridge (window.api)
+  main/
+    index.ts                     # vòng đời app, một instance, mở file từ argv; đăng ký IPC
+    window.ts                    # BrowserWindow: nhớ vị trí (bỏ nếu màn hình đã rút), chặn điều hướng
+    cli.ts, mcp.ts, worker.ts    # điểm vào khác: CLI, MCP server (stdio), utilityProcess
+    domain/                      # logic thuần, test không cần Electron
+      excel/                     # Excel -> Markdown: converter, drawings, output (tên file, escape)
+      md2xlsx/                   # Markdown -> Excel: parse, inline, cellValue, names, layout, write
+      rag/                       # chia mục, BM25 + từ điển Việt-Nhật, gom tài liệu cho AI
+      guards.ts, errors.ts       # kiểm đường dẫn/URL/vị trí cửa sổ; dịch lỗi sang tiếng Việt
+    application/ports/           # giao thức main <-> worker (chỉ type + hằng)
+    adapters/
+      inbound/
+        ipc/                     # IPC theo tính năng: system, convert (excel:* + md:*), viewer (mdv:* + ảnh), ai
+        cli/, mcp/, worker/      # CLI, MCP JSON-RPC, xử lý yêu cầu trong worker (+ cache workbook)
+      outbound/
+        store.ts                 # store.json (ghi tmp rồi rename, chuỗi hóa) + error.log
+        llm/                     # client Gemini, Claude (SDK), OpenAI; aiConfig (mã hóa key, chuẩn hóa)
+        converterWorker.ts       # client tới utilityProcess (id, tự khởi động lại, Hủy = kill)
+        mdOutput.ts              # ghi .md + ảnh (app và CLI dùng chung)
+        mdFolder.ts, ragDocCache.ts, xlsxFiles.ts, xlsxWriter.ts
+  renderer/src/
+    App.tsx                      # layout + chuyển chế độ + nối các feature
+    features/
+      excel2md/                  # FileList, OptionsPanel, useFiles, usePreview, useExcelConvert
+      md2excel/                  # MdFileList, MdOptionsPanel, useMdFiles, useMdConvert
+      viewer/                    # MdTreeList, useMdViewer
+      ai/                        # AiChatPanel
+    components/                  # UI dùng chung: Header, Footer, PreviewPane, ResultsPanel, SidePanel, Toasts, icons
+    hooks/useShortcuts.ts
+    lib/                         # api (kiểu window.api), sanitize (lọc HTML), mermaid, ui (class Tailwind), utils
+```
 
-3. **Adapters (`src/main/adapters/`)**:
-   - **Inbound Adapters**:
-     - `cli/`: Adapter giao diện dòng lệnh không giao diện (`cliCore.ts`).
-     - `worker/`: Bộ tiếp nhận tác vụ trong worker process (`workerHandler.ts`, `mdHandler.ts`, `workbookCache.ts`).
-   - **Outbound Adapters**:
-     - `xlsxFiles.ts`: Đọc và phân tích file Excel từ đĩa bằng SheetJS.
-     - `xlsxWriter.ts`: Ghi file Excel atomic xuống đĩa an toàn bằng ExcelJS và JSZip (ghi `.partial` trước khi hoàn tất).
-     - `gemini/`: Adapter gọi Google Gemini AI REST API kết hợp mã hoá mật khẩu qua Electron SafeStorage.
-     - `mdFolder.ts`: Adapter tương tác với hệ thống tệp để quét thư mục Markdown.
-     - `converterWorker.ts`: Adapter quản lý tiến trình con Electron `utilityProcess`.
+Quy tắc phụ thuộc: `domain/` không import Electron hay adapter; `adapters/inbound` gọi domain và
+`adapters/outbound`; chỉ `index.ts` ghép mọi thứ. Code mới cần Electron để ở adapter, logic để ở domain
+(hoặc file thuần trong adapter như `aiConfig.ts`) để test được.
 
-4. **Composition Root (`src/main/index.ts`)**:
-   - Khởi tạo cửa sổ BrowserWindow, đăng ký giao thức scheme hình ảnh an toàn (`x2m-img:`), cấu hình bảo mật CSP, và kết nối các adapter với IPC handlers.
+## Main process
 
----
+- **Không nạp SheetJS, không nạp exceljs** (`out/main/index.js` không được chứa `require("exceljs")`).
+- `ipc/convert.ts`: hai worker (preview cache 3 workbook, convert cache 1) để preview không chờ
+  convert hàng loạt và Hủy không ảnh hưởng preview. Hai chiều chuyển đổi dùng chung cờ
+  `convertRunning` (mỗi lúc một lần convert) và `excel:cancel`. Trước khi ghi, hỏi ghi đè nếu file
+  đích đã có (`plannedMdFileNames` tính trước tên `.md`; test giữ nó khớp `workbookMdFiles`).
+  Markdown → Excel: worker ghi `.partial` rồi đổi tên; Hủy/lỗi dọn `.partial`.
+- `ipc/system.ts`: `store:*` không bao giờ đọc/ghi khóa API Key (`isSecretStoreKey`); `shell:openPath`
+  chỉ mở thư mục.
+- `ipc/viewer.ts`: scheme ảnh `x2m-img:` chỉ phục vụ file ảnh nằm trong thư mục đã mở để đọc.
+- `ipc/ai.ts`: API Key mã hóa bằng `safeStorage` (fallback base64 khi OS không có keyring), renderer
+  chỉ thấy bản che; mọi thông báo lỗi đi qua `redactApiKey`.
 
-## 2. Nâng cấp UI/UX với Tailwind CSS v4 (Renderer)
+## Worker (`src/main/worker.ts` → `out/main/worker.js`, utilityProcess)
 
-### Kiến trúc Styling hiện đại:
-- **Tailwind CSS v4 & @tailwindcss/vite**: Không cần file cấu hình `tailwind.config.js` phức tạp, tối ưu hóa thời gian build và giảm kích thước CSS đóng gói xuống còn ~40KB.
-- **Design Tokens (`src/renderer/src/index.css`)**: Sử dụng directive `@theme inline` ánh xạ trực tiếp tới các biến CSS theo theme:
-  - Nền & Thẻ: `bg-canvas`, `bg-soft`, `bg-raised`, `bg-hover`.
-  - Màu viền: `border-line`, `border-line-subtle`.
-  - Màu chữ: `text-ink`, `text-dim`, `text-faint`.
-  - Màu nhấn (Accent) & Phản hồi: `accent`, `accent-soft`, `success`, `warning`, `danger`.
-- **Component Primitives (`src/renderer/src/ui.ts`)**:
-  - Đóng gói các lớp kiểu dáng chuẩn: `btn`, `btnPrimary`, `btnGhost`, `btnSm`, `btnMini`, `iconBtn`, `input`, `card`, `paneTitle`.
-  - Cung cấp tiện ích ghép lớp `cx(...)` linh hoạt.
-- **Bảo toàn E2E Hooks**:
-  - Toàn bộ selector và hook DOM phục vụ kiểm thử (`x2m-*`, `.btn`, `.active`, `.selected`, `.collapsed`...) được giữ nguyên vẹn trong JSX, đảm bảo toàn bộ bộ test E2E hoạt động ổn định.
-- **Tách biệt Markdown Styles (`src/renderer/src/markdown.css`)**:
-  - Dành riêng cho nội dung Markdown xem trước (`.md-body`) và định dạng in/PDF (`@media print`).
+- `workerHandler.ts` — listSheets / preview / convert (thuần, có test).
+- `mdHandler.ts` — `mdInspect` / `mdToXlsx`, không bao giờ ném (lỗi thành `ok: false` tiếng Việt).
+  **exceljs chỉ được nạp bằng import động khi có `mdToXlsx`.**
+- `workbookCache.ts` — LRU workbook đã parse, kiểm mtime + size mỗi lần lấy.
+
+## Engine converter (tóm tắt)
+
+1. `sheetToGrid`: đọc cell trong `effectiveRange` (góc trên-trái theo `!ref`, góc
+   dưới-phải cắt về ô có nội dung cuối — `!ref` của Excel có thể phình theo vùng định
+   dạng) thành string[][], escape Markdown/HTML inline từng ô (`escapeMarkdownInline`),
+   lan merge **dọc** (trừ dòng banner).
+2. `sheetToMarkdown`: duyệt từng dòng —
+   banner 基本設計 → quote + bảng version;
+   dòng meta (機能ID/画面ID/...) → bullet, dòng nối tiếp → sub-bullet;
+   `【...】`/`■...` → `###`; dòng 1 ô trên bảng → `###`;
+   bảng (No/№/項番 hoặc heuristic) → bảng Markdown, bỏ cột trống;
+   còn lại → quote/text. Block mới sau sub-bullet luôn cách 1 dòng trống.
+3. Ô: hyperlink → `[text](url)`, nhiều dòng → `<br>`, `|` → `\|`,
+   công thức → giá trị cache, lỗi → nguyên văn; text đứng đầu dòng (đoạn văn, quote,
+   sub-bullet) escape thêm cú pháp block (`# `, `> `, `- `, `1. `, `---`).
+   Khoảng trắng ASCII gộp, toàn角 (U+3000) giữ.
+
+## Engine Markdown → Excel (`src/main/domain/md2xlsx/`, tóm tắt)
+
+Thuần Node (test được không cần Electron); `write.ts` là module duy nhất nạp exceljs.
+Thiết kế và quyết định: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
+
+| Module | Việc |
+|---|---|
+| `model.ts` | Mô hình trung gian: `SheetModel` { tên, `Block[]` } với block banner / table / meta / heading / note / paragraph / code; `XCell` (chữ + link tuỳ chọn). |
+| `inline.ts` | Token inline của `marked` → chữ hiển thị của ô (chiều ngược của `escapeMarkdownInline`); cả ô là một link http/https/mailto thì giữ link. |
+| `cellValue.ts` | Quy tắc giá trị ô: `10` số, `1.0`/`1.10` số + format `0.0`/`0.00`, `1,234` → `#,##0`, `1,234.50` → `#,##0.00` (số chữ số thập phân theo chữ), `12.50%` → số/100 + `0.00%`; `0001`, số > 11 chữ số, ngày, `#N/A`... giữ text. |
+| `parse.ts` | `parseMarkdownFile(md, fileName)` → `{ title, sheets }`: tách sheet (ranh giới file và `---` ngoài cùng, `##` đầu phần là tên sheet), nhận banner 基本設計, bảng, meta `**label**:`/`**label**：` (chỉ trong list không đánh số; list đánh số luôn giữ `N. `), section, ghi chú, đoạn văn, list, code; `<br>` trong khối HTML thành xuống dòng. Không crash với Markdown bất kỳ. |
+| `names.ts` | `assignSheetNames`: tên sheet hợp lệ (ký tự cấm `[]:*?/\` và `'` ở đầu/cuối thành `_`; ký tự điều khiển cấm của XML bị bỏ; ≤ 31 ký tự; không trùng → ` (2)`; `History` → `History_`). |
+| `layout.ts` | Độ rộng hiển thị cho độ rộng cột (CJK = 2); ước lượng số dòng của ô merge theo kiểu chữ (`body` 游ゴシック 10, `bold` nhãn meta, `heading` 游ゴシック 12 đậm, `code` MS Gothic 10 đơn cách — bề rộng glyph đo bằng Excel thật; mô phỏng Excel xuống dòng sau khoảng trắng và sau dấu `-` (một dấu `-` cuối dòng được treo)); `splitByLines` tách đoạn quá cao thành nhiều hàng. |
+| `glyphTable.ts` | Dữ liệu đo (sinh bằng `scripts/measure-glyphs`, không sửa tay): ký tự BMP ngoài ASCII mà Excel hiển thị rộng hơn 1em (⟶ ⸻ U+FDFD, chữ Ấn/Đông Nam Á…); `layout.ts` cộng thêm emoji `\p{Emoji_Presentation}` (✅ ❌ ⭐ ⌛…) tính 20px. |
+| `write.ts` | `buildWorkbook(sheets)` ghi bố cục (font 游ゴシック 10, màu, viền, merge, wrap, A4 ngang vừa 1 trang rộng; chiều cao dòng = **16.5pt × số dòng**, đo bằng Excel thật; heading và từng dòng code cũng merge A..cột cuối + tự xuống dòng (heading 19.5pt/dòng, code MS Gothic 12pt/dòng + 1.5, tối thiểu 15) để không bị cắt khi in; hàng ≤ 409.5pt nên đoạn / heading / dòng code dài tách thành nhiều hàng merge liền nhau). `saveWorkbook` chèn `ignoredErrors` (không tam giác xanh) vào XML từng sheet bằng JSZip, ghi `.partial` rồi đổi tên. |
+| `mdHandler.ts` | `handleMdRequest`: `mdInspect` / `mdToXlsx`. Một file lỗi (không đọc được, hoặc không phải UTF-8) → dừng, chưa ghi gì. |
+
+Luồng `mdToXlsx`: đọc + parse từng file theo thứ tự danh sách → `assignSheetNames` trên toàn bộ
+sheet (trùng tên giữa các file cũng thành `Tên (2)`) → `buildWorkbook` → `saveWorkbook`.
+
+Ràng buộc: exceljs 4.4.0 **chỉ để ghi** file do app tạo, không bao giờ đọc file ngoài (test
+chỉ đọc lại buffer do chính code tạo, bằng SheetJS). `out/main/index.js` không được chứa
+`require("exceljs")`. Output Excel → Markdown (`test/golden/*.md`, `*.sheets.json`) không đổi.
+
+Kiểm bằng Excel thật: `scripts/xlsx-snapshot.ps1` (xem README) mở file bằng COM, báo
+`REPAIRED` nếu Excel đòi sửa file, và chụp ảnh từng sheet để review bố cục.
+
+## Quy ước
+
+- Mỗi thay đổi: typecheck + test xanh mới commit. Regression: golden test
+  (`src/main/domain/excel/golden.test.ts`, file mẫu `test/fixtures`, output `test/golden`);
+  đổi output có chủ ý thì `npm run test:update` và review diff `test/golden`.
+  Chiều Markdown → Excel: `src/main/domain/md2xlsx/golden.test.ts` (golden JSON `test/golden-md2xlsx`
+  + round-trip với Markdown do app tạo); **không** sửa `test/golden` để chiều này ổn định hơn.
+- Đổi UI / IPC / main: chạy `npm run e2e` (build + điều khiển app Electron thật qua
+  DevTools Protocol, `scripts/e2e.mjs`). Cần màn hình, không chạy trong CI.
+- Lịch sử quá trình làm: `docs/history/` (BACKLOG, PROGRESS, AUDIT, PERF).

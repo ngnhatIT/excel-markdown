@@ -4,7 +4,7 @@
  * ô merge ngang/dọc, dòng ghi chú ※ cuối bảng, ô nhiều dòng, công thức.
  */
 import * as XLSX from 'xlsx'
-import type { ConvertOptions, VerticalMergeMode } from '../../../types'
+import type { ConvertOptions, VerticalMergeMode } from '../../../shared/types'
 import { sheetDrawings, type DrawingItem } from './drawings'
 import { ASSET_TOKEN, escapeMarkdownInline, inlineAssets, type SheetResult } from './output'
 

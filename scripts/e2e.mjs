@@ -390,12 +390,12 @@ try {
 
   // ------------------------- Cột Tùy chọn ẩn/hiện -------------------------
   const sideBtn = (label) => `document.querySelector('.x2m-side button[aria-label="${label}"]')`
-  await ev(`${sideBtn('Ẩn tùy chọn')}?.click(), 1`)
+  await ev(`${sideBtn('Ẩn Tùy chọn')}?.click(), 1`)
   check(
     'Tùy chọn: Ẩn -> cột thu gọn, không còn checkbox',
     (await waitFor(`!!document.querySelector('.x2m-side.collapsed') && !document.querySelector('.x2m-side input')`, 2000)) >= 0
   )
-  await ev(`${sideBtn('Hiện tùy chọn')}?.click(), 1`)
+  await ev(`${sideBtn('Hiện Tùy chọn')}?.click(), 1`)
   check('Tùy chọn: Hiện -> cột mở lại, có checkbox', (await waitFor(`!document.querySelector('.x2m-side.collapsed') && !!document.querySelector('.x2m-side input')`, 2000)) >= 0)
 
   // ----------------------------- Đọc Markdown -----------------------------
@@ -411,7 +411,7 @@ try {
 
   await ev(`(${modeBtn('Đọc Markdown')})?.click(), 1`)
   check('Đọc Markdown: nút chế độ active, không có thanh convert, không có cột Tùy chọn',
-    (await waitFor(`!!(${modeBtn('Đọc Markdown')})?.classList.contains('active') && !document.querySelector('.x2m-footer') && !document.querySelector('.x2m-side')`, 2000)) >= 0)
+    (await waitFor(`!!(${modeBtn('Đọc Markdown')})?.classList.contains('active') && !document.querySelector('.x2m-footer') && !document.querySelector('.x2m-side button[aria-label$="Tùy chọn"]')`, 2000)) >= 0)
   await dropFiles([viewDir])
   check('Đọc Markdown: thả thư mục -> cây có docs, README.md', (await waitFor(`!!(${treeRow('docs')}) && !!(${treeRow('README.md')}) && !!(${treeRow('b.md')})`, 5000)) >= 0,
     await ev(`document.querySelector('.x2m-files')?.innerText`).catch(() => null))

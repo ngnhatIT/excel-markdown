@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { MdFileItem } from '../../../types'
-import { errMsg } from '../api'
-import { baseName, moveItem, toast, uid } from '../utils'
+import type { MdFileItem } from '../../../../shared/types'
+import { errMsg } from '../../lib/api'
+import { baseName, moveItem, toast, uid } from '../../lib/utils'
 
 export const MD_EXT = /\.(md|markdown)$/i
 

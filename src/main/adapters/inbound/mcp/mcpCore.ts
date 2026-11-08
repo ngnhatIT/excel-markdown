@@ -94,7 +94,7 @@ async function callTool(name: string, a: Args): Promise<string> {
       if (typeof a.chunk_rows === 'number') argv.push('--chunk', String(a.chunk_rows))
       if (typeof a.range === 'string' && a.range.trim()) argv.push('--range', a.range)
       const logs: string[] = []
-      const code = runCli(argv, (s) => logs.push(s))
+      const code = await runCli(argv, (s) => logs.push(s))
       if (code !== 0) throw new Error('Có file lỗi:\n' + logs.join('\n'))
       return `Đã ghi ${logs.length} file vào ${a.out_dir}:\n` + logs.join('\n')
     }

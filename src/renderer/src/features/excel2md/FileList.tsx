@@ -1,31 +1,32 @@
-import type { FileItem } from '../../../types'
-import { cn } from '../utils'
-import { btnGhost, btnSm, btnMini, iconBtn, input, paneTitle } from '../ui'
-import { IconChevronDown, IconFile, IconTrash, IconX } from './icons'
+import type { FileItem } from '../../../../shared/types'
+import { cn } from '../../lib/utils'
+import {
+  btnGhost,
+  btnSm,
+  btnMini,
+  iconBtn,
+  input,
+  paneTitle,
+  filesAside,
+  filesAsideDrag,
+  emptyBox,
+  emptyP,
+  emptyHint,
+  moveBtn,
+  reloadBtn,
+  fileCard,
+  fileCardActive,
+  fileHead,
+  fileNameBtn,
+  fileNameText,
+  fileError,
+  chk,
+} from '../../lib/ui'
+import { IconChevronDown, IconFile, IconTrash, IconX } from '../../components/icons'
 
-/** Class dùng chung cho các component cột trái (FileList, MdFileList, MdTreeList). */
-export const filesAside =
-  'flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line-subtle'
-export const filesAsideDrag = 'outline-2 -outline-offset-2 outline-dashed outline-accent'
-export const emptyBox = 'flex flex-col items-center justify-center gap-2 px-6 py-12 text-center text-faint'
-export const emptyP = 'm-0 text-[13px] text-dim'
-export const emptyHint = 'text-xs !text-faint'
-export const filterWrap = 'px-2.5 py-2'
-export const chevronBtn =
+const filterWrap = 'px-2.5 py-2'
+const chevronBtn =
   'flex rounded-md p-1 text-dim transition-[transform,color] duration-150 hover:text-ink motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-accent'
-export const moveBtn =
-  'rounded-md px-1.5 py-1 text-[13px] font-bold leading-none text-dim transition-colors duration-150 enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-default disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-accent'
-export const reloadBtn = 'flex items-center'
-export const fileCard =
-  'glass-chip overflow-hidden rounded-xl transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-line motion-reduce:transition-none'
-export const fileCardActive = '!border-accent-line !shadow-[inset_0_1px_0_var(--glass-highlight),0_0_0_3px_var(--accent-soft)]'
-export const fileHead = 'flex items-center gap-1.5 px-2 py-1.5'
-export const fileNameBtn =
-  'flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-sm p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-accent'
-export const fileNameText = 'max-w-full truncate text-[12.5px] font-semibold'
-export const fileError =
-  'mx-2 mb-2 flex items-center justify-between gap-2 rounded-lg bg-danger-soft px-2.5 py-[7px] text-xs text-danger'
-export const chk = 'size-3.5 shrink-0 cursor-pointer accent-accent'
 
 interface Props {
   files: FileItem[]

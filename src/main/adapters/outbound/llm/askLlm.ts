@@ -1,6 +1,6 @@
 /* Điểm vào duy nhất cho tiến trình main: chọn nhà cung cấp, gọi model, bóc trích dẫn. */
-import type { AiChatTurn, AiModelId, AiProvider, AiUsage, RagCitation } from '../../../../types'
-import { callGeminiApi, listGeminiModels } from '../gemini/geminiClient'
+import type { AiChatTurn, AiModelId, AiProvider, AiUsage, RagCitation } from '../../../../shared/types'
+import { callGeminiApi, listGeminiModels } from './geminiClient'
 import { callClaudeApi, listClaudeModels } from './claudeClient'
 import { callOpenAiApi, listOpenAiModels } from './openaiClient'
 import { extractCitationsFromAnswer } from './shared'
@@ -20,8 +20,8 @@ export async function askLlm(
   provider: AiProvider,
   opts: AskLlmOpts
 ): Promise<{ answer: string; citations: RagCitation[]; usage?: AiUsage }> {
-  if (provider === 'gemini') return callGeminiApi(opts)
-  const { text, usage } = provider === 'claude' ? await callClaudeApi(opts) : await callOpenAiApi(opts)
+  const call = provider === 'gemini' ? callGeminiApi : provider === 'claude' ? callClaudeApi : callOpenAiApi
+  const { text, usage } = await call(opts)
   const { cleanAnswer, citations } = extractCitationsFromAnswer(text, opts.availableCitations)
   return { answer: cleanAnswer, citations, usage }
 }

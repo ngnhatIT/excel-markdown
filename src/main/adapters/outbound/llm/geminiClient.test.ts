@@ -1,12 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  buildGeminiRequestBody,
-  callGeminiApi,
-  extractCitationsFromAnswer,
-  filterGeminiModels,
-  maskApiKey,
-  redactApiKey,
-} from './geminiClient'
+import { buildGeminiRequestBody, callGeminiApi, filterGeminiModels } from './geminiClient'
+import { extractCitationsFromAnswer, maskApiKey, redactApiKey } from './shared'
 
 describe('redactApiKey & maskApiKey', () => {
   it('xóa sạch ?key=... và chuỗi apiKey khỏi thông báo lỗi URL/log', () => {
@@ -73,7 +67,6 @@ describe('callGeminiApi stability & resilience', () => {
         question: 'hi',
         contextText: '',
         history: [],
-        availableCitations: [],
       })
     ).rejects.toThrow('Chưa cấu hình Gemini API Key')
   })
@@ -90,7 +83,7 @@ describe('callGeminiApi stability & resilience', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
     try {
       const key = 'AIzaSyFakeKey123456789'
-      await callGeminiApi({ apiKey: key, model: 'gemini-2.5-flash', question: 'q', contextText: '', history: [], availableCitations: [] })
+      await callGeminiApi({ apiKey: key, model: 'gemini-2.5-flash', question: 'q', contextText: '', history: [] })
       const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
       expect(url).not.toContain(key)
       expect(url).not.toContain('key=')
@@ -127,10 +120,9 @@ describe('callGeminiApi stability & resilience', () => {
         question: 'Chào bạn',
         contextText: '',
         history: [],
-        availableCitations: [],
       })
       expect(callCount).toBe(2)
-      expect(res.answer).toBe('Xin chào bạn')
+      expect(res.text).toBe('Xin chào bạn')
       expect(res.usage?.totalTokens).toBe(42)
     } finally {
       globalThis.fetch = originalFetch
@@ -163,13 +155,12 @@ describe('callGeminiApi stability & resilience', () => {
         question: 'Hỏi câu hỏi',
         contextText: '',
         history: [],
-        availableCitations: [],
       })
       expect(urlsCalled.some((u) => u.includes('gemini-deprecated-model'))).toBe(true)
       expect(urlsCalled.some((u) => u.includes('gemini-2.5-flash'))).toBe(true)
-      expect(res.answer).toContain('Trả lời từ fallback')
+      expect(res.text).toContain('Trả lời từ fallback')
       // người dùng phải biết câu trả lời đến từ model khác model đã chọn
-      expect(res.answer).toContain('model "gemini-deprecated-model" không còn dùng được')
+      expect(res.text).toContain('model "gemini-deprecated-model" không còn dùng được')
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -192,7 +183,6 @@ describe('callGeminiApi stability & resilience', () => {
           question: 'Câu hỏi dài',
           contextText: '',
           history: [],
-          availableCitations: [],
         })
       ).rejects.toThrow('Quá thời gian')
       await vi.advanceTimersByTimeAsync(120_000)
@@ -223,7 +213,6 @@ describe('callGeminiApi stability & resilience', () => {
           question: 'Nội dung nhạy cảm',
           contextText: '',
           history: [],
-          availableCitations: [],
         })
       ).rejects.toThrow('SAFETY')
     } finally {

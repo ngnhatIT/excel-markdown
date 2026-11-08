@@ -13,7 +13,7 @@ import type {
   MdFolderListing,
   MdInspectResult,
   OutputMode,
-} from '../types'
+} from '../shared/types'
 
 interface SheetListItem {
   name: string

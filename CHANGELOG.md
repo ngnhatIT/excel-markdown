@@ -6,6 +6,16 @@
 
 ## Chưa phát hành
 Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/comment, Markdown → Excel không đổi.
+- Bảo mật: renderer không còn đọc/ghi được API Key Claude / OpenAI qua `store:get` / `store:set`
+  (trước chỉ chặn khóa của Gemini).
+- Sửa: cửa sổ không còn mở ra ngoài màn hình khi màn hình phụ lần trước đã rút (bỏ vị trí đã lưu).
+- Sửa: thanh tiến độ Excel → Markdown chạy tới cuối cả khi có file bị hủy / không đọc được;
+  bấm Dừng trong chat AI không còn ghi vào `error.log`.
+- Nội bộ: tách `src/main/index.ts` (847 dòng) thành `window.ts` + IPC theo tính năng
+  (`adapters/inbound/ipc/`); renderer gom theo tính năng (`features/`), tách hook convert khỏi `App.tsx`;
+  client Gemini về `llm/` cùng kiểu trả về với Claude/OpenAI; app và CLI dùng chung một hàm ghi `.md`;
+  xóa 22 icon và 3 class không dùng; `types.ts` vào `src/shared/`; tài liệu kiến trúc gộp về
+  `docs/architecture.md`, nhật ký quá trình vào `docs/history/`. CI chạy thêm Windows.
 - Tính năng: **Trợ lý AI nhiều nhà cung cấp**: Gemini, Claude (SDK `@anthropic-ai/sdk`, mặc định
   `claude-opus-5-5`, bật `fallbacks: "default"` cho model hỗ trợ) và OpenAI / Codex (Responses API,
   `store: false`). Key riêng từng bên (key Gemini cũ giữ nguyên), danh sách model lấy từ API.

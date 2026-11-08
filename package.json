@@ -67,5 +67,8 @@
     "e2e": "electron-vite build && node scripts/e2e.mjs"
   },
   "version": "2.2.0",
-  "license": "MIT"
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  }
 }

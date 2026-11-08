@@ -1,7 +1,7 @@
 /* Phần dùng chung cho mọi nhà cung cấp AI (Gemini / Claude / OpenAI):
  * prompt hệ thống, lịch sử hội thoại, che API Key, trích dẫn nguồn, gọi HTTP có thử lại và đọc SSE.
  */
-import type { AiChatTurn, RagCitation } from '../../../../types'
+import type { AiChatTurn, RagCitation } from '../../../../shared/types'
 
 const MAX_HISTORY_MESSAGES = 12 // 6 lượt hỏi - đáp gần nhất
 

@@ -5,7 +5,7 @@
  */
 import { estimateTokens, type RagDocument, type RagSection } from './chunker'
 import { expandViJaQueryTerms } from './glossary'
-import type { RagCitation } from '../../../types'
+import type { RagCitation } from '../../../shared/types'
 
 export interface RagContextResult {
   mode: 'full-active' | 'full-folder' | 'parent-rag'

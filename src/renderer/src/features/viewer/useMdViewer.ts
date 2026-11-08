@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { buildMdTree, recentMdFiles, visibleTreeFiles, type MdSort } from '../../../shared/mdView'
-import { errMsg } from '../api'
-import { toast } from '../utils'
+import { buildMdTree, recentMdFiles, visibleTreeFiles, type MdSort } from '../../../../shared/mdView'
+import { errMsg } from '../../lib/api'
+import { toast } from '../../lib/utils'
 
 export interface MdViewerDoc {
   path: string

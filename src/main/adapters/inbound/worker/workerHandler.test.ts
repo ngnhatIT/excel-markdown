@@ -4,7 +4,7 @@ import { readWorkbook } from '../../outbound/xlsxFiles'
 import { createWorkbookCache } from './workbookCache'
 import { handleRequest } from './workerHandler'
 import type { WorkerRequest } from '../../../application/ports/workerProtocol'
-import { DEFAULT_OPTIONS } from '../../../../types'
+import { DEFAULT_OPTIONS } from '../../../../shared/types'
 
 const fixture = fileURLToPath(new URL('../../../../../test/fixtures/kihon-sekkei.xlsx', import.meta.url))
 

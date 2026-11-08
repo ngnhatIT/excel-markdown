@@ -2,14 +2,8 @@
  * Worker khởi động lười, tự khởi động lại sau khi bị hủy hoặc crash.
  */
 import { utilityProcess, type UtilityProcess } from 'electron'
-import type { DistributiveOmit, WorkerRequest, WorkerResponse } from '../../application/ports/workerProtocol'
+import { CancelledError, type DistributiveOmit, type WorkerRequest, type WorkerResponse } from '../../application/ports/workerProtocol'
 
-export class CancelledError extends Error {
-  constructor() {
-    super('Đã hủy')
-    this.name = 'CancelledError'
-  }
-}
 
 interface Pending {
   resolve: (v: unknown) => void

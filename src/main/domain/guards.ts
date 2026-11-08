@@ -61,6 +61,23 @@ export function isInsideDir(root: string, p: string): boolean {
   return r !== '' && !r.startsWith('..') && !isAbsolute(r)
 }
 
+export interface Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/** Thanh tiêu đề của cửa sổ (dải 30px trên cùng) còn thấy được trên một màn hình đang cắm: ít nhất
+ * 100×20px nằm trong vùng làm việc. Rút màn hình phụ thì vị trí đã lưu không dùng được nữa. */
+export function isTitleBarOnScreen(win: Rect, workAreas: Rect[]): boolean {
+  return workAreas.some((a) => {
+    const w = Math.min(win.x + win.width, a.x + a.width) - Math.max(win.x, a.x)
+    const h = Math.min(win.y + 30, a.y + a.height) - Math.max(win.y, a.y)
+    return w >= 100 && h >= 20
+  })
+}
+
 const IMAGE_MIME: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',

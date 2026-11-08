@@ -1,17 +1,14 @@
-/* Client gọi Gemini API ở tiến trình main (stream SSE). Phần dùng chung (prompt, che key, trích dẫn) ở ../llm/shared. */
-import { DEFAULT_AI_MODEL, type AiChatTurn, type AiModelId, type AiUsage, type RagCitation } from '../../../../types'
+/* Client gọi Gemini API ở tiến trình main (stream SSE). Phần dùng chung (prompt, che key, gọi HTTP) ở ./shared. */
+import { DEFAULT_AI_MODEL, type AiChatTurn, type AiModelId, type AiUsage } from '../../../../shared/types'
 import {
   errorMessageOf,
-  extractCitationsFromAnswer,
   postJsonWithRetry,
   readSse,
   redactApiKey,
   SYSTEM_INSTRUCTION,
   contextBlock,
   trimHistory,
-} from '../llm/shared'
-
-export { extractCitationsFromAnswer, maskApiKey, redactApiKey } from '../llm/shared'
+} from './shared'
 
 /** Tạo payload JSON gửi tới Gemini generateContent API.
  * Khối <context> nằm trong systemInstruction để Gemini tự cache phần đầu khi hỏi tiếp trên cùng tài liệu. */
@@ -96,10 +93,9 @@ export async function callGeminiApi(opts: {
   question: string
   contextText: string
   history: AiChatTurn[]
-  availableCitations: RagCitation[]
   signal?: AbortSignal
   onDelta?: (text: string) => void
-}): Promise<{ answer: string; citations: RagCitation[]; usage?: AiUsage }> {
+}): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
   if (!key) {
     throw new Error('Chưa cấu hình Gemini API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
@@ -167,7 +163,6 @@ export async function callGeminiApi(opts: {
     rawText += `\n\n*(Lưu ý: model "${opts.model}" không còn dùng được, câu trả lời này do ${activeModel} tạo. Hãy chọn model khác.)*`
   }
 
-  const { cleanAnswer, citations } = extractCitationsFromAnswer(rawText, opts.availableCitations)
   const um = data.usageMetadata
   const usage =
     um && typeof um.totalTokenCount === 'number'
@@ -179,7 +174,7 @@ export async function callGeminiApi(opts: {
         }
       : undefined
 
-  return { answer: cleanAnswer, citations, usage }
+  return { text: rawText, usage }
 }
 
 /** Lọc & sắp xếp danh sách model từ `GET /v1beta/models`: chỉ giữ model `gemini-*` hỗ trợ

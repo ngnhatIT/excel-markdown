@@ -1,6 +1,6 @@
-import type { AppMode } from '../../../types'
-import { cn } from '../utils'
-import { btnGhost, btnSm, cx } from '../ui'
+import type { AppMode } from '../../../shared/types'
+import { cn } from '../lib/utils'
+import { btnGhost, btnSm, cx } from '../lib/ui'
 import { IconFolder, IconMarkdown, IconMoon, IconPlus, IconSun } from './icons'
 
 interface Props {

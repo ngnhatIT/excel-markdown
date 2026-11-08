@@ -10,14 +10,14 @@ import {
   type AiConfigInfo,
   type AiProvider,
   type RagCitation,
-} from '../../../types'
-import { errMsg } from '../api'
-import { PASTE_PATH } from '../hooks/useMdViewer'
-import { sanitizeHtml } from '../sanitize'
-import { cn, copyText, toast, uid } from '../utils'
-import { btnGhost, btnPrimary, btnSm, cx } from '../ui'
-import { SidePanel } from './SidePanel'
-import { IconCopy } from './icons'
+} from '../../../../shared/types'
+import { errMsg } from '../../lib/api'
+import { PASTE_PATH } from '../viewer/useMdViewer'
+import { sanitizeHtml } from '../../lib/sanitize'
+import { cn, copyText, toast, uid } from '../../lib/utils'
+import { btnGhost, btnPrimary, btnSm, cx } from '../../lib/ui'
+import { SidePanel } from '../../components/SidePanel'
+import { IconCopy } from '../../components/icons'
 
 /** Câu trả lời đã render. memo: gõ vào ô hỏi không parse lại Markdown của mọi câu trả lời cũ. */
 const AnswerHtml = memo(function AnswerHtml({ text }: { text: string }) {

@@ -1,6 +1,6 @@
-﻿import type { ConvertResultItem } from '../../../types'
-import { cn } from '../utils'
-import { btn, btnSm, cx, iconBtn } from '../ui'
+﻿import type { ConvertResultItem } from '../../../shared/types'
+import { cn } from '../lib/utils'
+import { btn, btnSm, cx, iconBtn } from '../lib/ui'
 import { IconCheck, IconCopy, IconOpen, IconX } from './icons'
 
 interface Props {

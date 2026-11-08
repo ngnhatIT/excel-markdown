@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { marked } from 'marked'
 import { buildGuideHtml, guideFileStem } from '../../../shared/guideHtml'
-import { errMsg } from '../api'
-import { sanitizeHtml } from '../sanitize'
-import { inlineMermaid, renderMermaidIn } from '../mermaid'
-import { cn, copyText, matchHeadingText, toast } from '../utils'
-import { btnGhost, btnSm, cx } from '../ui'
+import { errMsg } from '../lib/api'
+import { sanitizeHtml } from '../lib/sanitize'
+import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
+import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
+import { btnGhost, btnSm, cx } from '../lib/ui'
 import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
 
 /** Preview dài hơn số dòng này thì cắt, bấm "Hiện thêm" để xem hết. */

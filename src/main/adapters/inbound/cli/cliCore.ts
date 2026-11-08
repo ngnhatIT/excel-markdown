@@ -1,8 +1,9 @@
 /* CLI headless: cùng engine với app. `node out/main/cli.js a.xlsx b.xlsx -o outDir [tuỳ chọn]` */
-import { mkdirSync, writeFileSync } from 'node:fs'
-import { basename, dirname, extname, join } from 'node:path'
-import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../types'
+import { mkdirSync } from 'node:fs'
+import { basename, extname } from 'node:path'
+import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../shared/types'
 import { readWorkbook } from '../../outbound/xlsxFiles'
+import { writeMdFiles } from '../../outbound/mdOutput'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { workbookMdFiles } from '../../../domain/excel/output'
 
@@ -55,7 +56,7 @@ export function parseArgs(argv: string[]): CliArgs {
 }
 
 /** Convert mọi sheet hiển thị của từng file. Trả về mã thoát (0 = ok, 1 = có file lỗi). */
-export function runCli(argv: string[], log: (s: string) => void = console.log): number {
+export async function runCli(argv: string[], log: (s: string) => void = console.log): Promise<number> {
   const args = parseArgs(argv)
   mkdirSync(args.outDir, { recursive: true })
   const used = new Set<string>()
@@ -67,14 +68,7 @@ export function runCli(argv: string[], log: (s: string) => void = console.log): 
       const wb = readWorkbook(file)
       const names = listSheetsInWorkbook(wb, args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
       const sheets = convertSheetsInWorkbook(wb, names, args.options)
-      for (const f of workbookMdFiles(base, basename(file), sheets, args.options, args.perWorkbook, used)) {
-        for (const img of f.images ?? []) {
-          mkdirSync(dirname(join(args.outDir, img.path)), { recursive: true })
-          writeFileSync(join(args.outDir, img.path), img.data)
-        }
-        writeFileSync(join(args.outDir, f.name), f.text, 'utf-8')
-        log(f.name)
-      }
+      await writeMdFiles(args.outDir, workbookMdFiles(base, basename(file), sheets, args.options, args.perWorkbook, used), log)
     } catch (err) {
       failed++
       log('LỖI ' + file + ': ' + (err instanceof Error ? err.message : String(err)))
