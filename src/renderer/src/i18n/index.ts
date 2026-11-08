@@ -1,0 +1,60 @@
+/* Đa ngôn ngữ giao diện (vi / en / ja), không thư viện: từ điển phẳng + store nhỏ cho React. */
+import { useSyncExternalStore } from 'react'
+import { vi } from './vi'
+import { en } from './en'
+import { ja } from './ja'
+
+export type Lang = 'vi' | 'en' | 'ja'
+export type TKey = keyof typeof vi
+export type Dict = Record<TKey, string>
+export type TFn = (key: TKey, params?: Record<string, string | number>) => string
+
+export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
+const DICTS: Record<Lang, Dict> = { vi, en, ja }
+
+/** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
+export function detectLang(locale = typeof navigator === 'undefined' ? 'vi' : navigator.language): Lang {
+  const l = locale.toLowerCase()
+  return l.startsWith('ja') ? 'ja' : l.startsWith('vi') ? 'vi' : l.startsWith('en') ? 'en' : 'vi'
+}
+
+export const isLang = (v: unknown): v is Lang => typeof v === 'string' && (LANGS as readonly string[]).includes(v)
+
+let current: Lang = detectLang()
+const listeners = new Set<() => void>()
+
+export function getLang(): Lang {
+  return current
+}
+
+export function setLang(lang: Lang): void {
+  if (lang === current) return
+  current = lang
+  if (typeof document !== 'undefined') document.documentElement.lang = lang
+  for (const f of listeners) f()
+}
+
+/** Dịch `key` theo ngôn ngữ `lang`; thay {tham số}. Thiếu bản dịch thì lấy tiếng Việt. */
+export function translate(lang: Lang, key: TKey, params?: Record<string, string | number>): string {
+  const s = DICTS[lang][key] ?? vi[key] ?? key
+  return params ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m)) : s
+}
+
+/** Dùng ngoài React (toast, hàm tiện ích): theo ngôn ngữ hiện tại. */
+export const t: TFn = (key, params) => translate(current, key, params)
+
+const subscribe = (cb: () => void): (() => void) => {
+  listeners.add(cb)
+  return () => listeners.delete(cb)
+}
+
+/** Ngôn ngữ hiện tại; component render lại khi đổi. */
+export function useLang(): Lang {
+  return useSyncExternalStore(subscribe, getLang)
+}
+
+/** Hàm dịch gắn với ngôn ngữ hiện tại; component render lại khi đổi ngôn ngữ. */
+export function useT(): TFn {
+  const lang = useLang()
+  return (key, params) => translate(lang, key, params)
+}
