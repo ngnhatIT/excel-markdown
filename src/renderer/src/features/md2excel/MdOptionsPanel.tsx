@@ -1,4 +1,5 @@
 ﻿import { SidePanel } from '../../components/SidePanel'
+import { useT } from '../../i18n'
 
 interface Props {
   /** Giá trị ô tên file (không đuôi .xlsx) */
@@ -20,12 +21,13 @@ export function MdOptionsPanel({
   onToggleCollapsed,
   width,
 }: Props): React.ReactElement {
+  const t = useT()
   return (
     <SidePanel collapsed={collapsed} onToggle={onToggleCollapsed} width={width}>
       <div className="x2m-opts flex flex-col gap-4 p-3">
         <div className="x2m-opt-group flex flex-col gap-1.5">
           <label className="x2m-opt-label text-xs font-semibold text-ink" htmlFor="x2m-xlsx-name">
-            Tên file Excel
+            {t('mdopts.fileName')}
           </label>
           <div className="x2m-name-field flex items-center rounded-lg border border-line bg-canvas px-2.5 py-1.5 focus-within:border-accent focus-within:ring-1 focus-within:ring-accent">
             <input
@@ -35,16 +37,14 @@ export function MdOptionsPanel({
               value={fileName}
               placeholder={defaultName}
               onChange={(e) => onFileNameChange(e.target.value)}
-              aria-label="Tên file Excel"
+              aria-label={t('mdopts.fileName')}
               spellCheck={false}
             />
             <span className="x2m-name-ext text-xs font-medium text-dim select-none ml-1">.xlsx</span>
           </div>
         </div>
         <div className="x2m-opt-note text-xs text-faint leading-relaxed">
-          Các file trong danh sách được gộp thành một file Excel, mỗi phần là một sheet, theo
-          thứ tự danh sách (dùng ↑/↓ để đổi thứ tự). File trùng tên trong thư mục lưu sẽ được hỏi
-          trước khi ghi đè. Phím tắt: Ctrl+O thêm file, Ctrl+Enter để tạo file Excel.
+          {t('mdopts.note')}
         </div>
       </div>
     </SidePanel>

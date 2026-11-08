@@ -1,5 +1,6 @@
 /* Xuất cuộc trò chuyện Trợ lý AI ra Markdown (thuần, có test). */
 import type { RagCitation } from '../../../shared/types'
+import { t } from '../i18n'
 
 /** Đường dẫn giả của bản dán (trùng PASTE_PATH của useMdViewer; không import hook vào hàm thuần). */
 const PASTE_PATH = 'clipboard:paste'
@@ -21,7 +22,7 @@ function citationRel(c: RagCitation, rootDir: string | null): string {
 }
 
 function citationLine(c: RagCitation, rootDir: string | null): string {
-  if (c.filePath === PASTE_PATH) return `- Dán từ clipboard › ${escText(c.sectionTitle)}`
+  if (c.filePath === PASTE_PATH) return `- ${t('viewer.paste')} › ${escText(c.sectionTitle)}`
   const rel = citationRel(c, rootDir)
   // Khoảng trắng / ngoặc trong tên file: bọc <...> (CommonMark) để link không vỡ
   const dest = /[\s()]/.test(rel) ? `<${rel}>` : rel
@@ -31,18 +32,18 @@ function citationLine(c: RagCitation, rootDir: string | null): string {
 /** Markdown của cuộc trò chuyện: mỗi câu hỏi một mục `##` (trích dạng quote), câu trả lời giữ nguyên Markdown,
  * trích dẫn thành link tương đối tới file nguồn. Câu trả lời lỗi bị bỏ. */
 export function chatToMarkdown(entries: readonly ChatExportEntry[], rootDir: string | null): string {
-  const out: string[] = ['# Trò chuyện Trợ lý AI', '']
-  if (rootDir) out.push(`Thư mục: \`${rootDir}\``, '')
+  const out: string[] = [`# ${t('chat.title')}`, '']
+  if (rootDir) out.push(t('chat.folder', { dir: rootDir }), '')
   let n = 0
   for (const e of entries) {
     if (e.isError) continue
     if (e.role === 'user') {
-      out.push(`## Câu hỏi ${++n}`, '', ...e.text.trim().split('\n').map((l) => (l ? `> ${l}` : '>')), '')
+      out.push(`## ${t('chat.question', { n: ++n })}`, '', ...e.text.trim().split('\n').map((l) => (l ? `> ${l}` : '>')), '')
       continue
     }
-    out.push('### Trả lời', '', e.text.trim(), '')
+    out.push(`### ${t('chat.answer')}`, '', e.text.trim(), '')
     if (e.citations && e.citations.length > 0) {
-      out.push('**Nguồn:**', '', ...e.citations.map((c) => citationLine(c, rootDir)), '')
+      out.push(`**${t('chat.sources')}**`, '', ...e.citations.map((c) => citationLine(c, rootDir)), '')
     }
   }
   return out.join('\n').trimEnd() + '\n'

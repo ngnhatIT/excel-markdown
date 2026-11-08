@@ -10,6 +10,8 @@ export type Dict = Record<TKey, string>
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
+/** Locale cho Intl / toLocaleString theo ngôn ngữ giao diện. */
+export const LOCALES: Record<Lang, string> = { vi: 'vi-VN', en: 'en-US', ja: 'ja-JP' }
 const DICTS: Record<Lang, Dict> = { vi, en, ja }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
@@ -21,11 +23,15 @@ export function detectLang(locale = typeof navigator === 'undefined' ? 'vi' : na
 export const isLang = (v: unknown): v is Lang => typeof v === 'string' && (LANGS as readonly string[]).includes(v)
 
 let current: Lang = detectLang()
+if (typeof document !== 'undefined') document.documentElement.lang = current
 const listeners = new Set<() => void>()
 
 export function getLang(): Lang {
   return current
 }
+
+/** Locale của ngôn ngữ hiện tại (dùng ngoài React). */
+export const getLocale = (): string => LOCALES[current]
 
 export function setLang(lang: Lang): void {
   if (lang === current) return

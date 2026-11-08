@@ -1,5 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { chatToMarkdown } from './chatExport'
+import { setLang } from '../i18n'
+
+// Bản xuất theo ngôn ngữ giao diện; máy chạy test có thể đặt locale en/ja
+beforeAll(() => setLang('vi'))
 
 const cite = (filePath: string, relPath: string, sectionTitle: string) => ({ filePath, relPath, sheetName: relPath, sectionTitle })
 

@@ -8,6 +8,7 @@ import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
+import { getLocale, LOCALES, t as tr, useLang, useT } from '../i18n'
 import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
 
 /** Preview dài hơn số dòng này thì cắt, bấm "Hiện thêm" để xem hết. */
@@ -78,11 +79,11 @@ export function extractOutline(md: string): OutlineItem[] {
           )
       const headerCells = parseCells(tableLines[0])
       const dataRows = tableLines.slice(2).map(parseCells)
-      const firstHeader = headerCells.find((c) => c !== '') ?? `Bảng ${tableIdx + 1}`
+      const firstHeader = headerCells.find((c) => c !== '') ?? tr('preview.table', { n: tableIdx + 1 })
       const tsvLines = [headerCells, ...dataRows].map((r) => r.join('\t')).join('\n')
       items.push({
         kind: 'table',
-        label: `Bảng: ${firstHeader.slice(0, 22)}${firstHeader.length > 22 ? '…' : ''}`,
+        label: tr('preview.tableLabel', { name: `${firstHeader.slice(0, 22)}${firstHeader.length > 22 ? '…' : ''}` }),
         domIndex: tableIdx++,
         mdBlock: tableLines.join('\n'),
         tsvBlock: tsvLines,
@@ -139,15 +140,17 @@ export function PreviewPane({
   error,
   zoom,
   onResetZoom,
-  noSelectionText = 'Chưa chọn sheet',
-  loadingText = 'Đang convert...',
-  emptyText = 'Chọn một sheet để xem trước kết quả convert',
+  noSelectionText,
+  loadingText,
+  emptyText,
   resolveImage,
   onLinkClick,
   fullWidth = true,
   scrollTarget,
   leading,
 }: Props): React.ReactElement {
+  const t = useT()
+  const lang = useLang()
   const [tab, setTab] = useState<'rendered' | 'split' | 'source'>('rendered')
   const [expanded, setExpanded] = useState(false)
   const [wrapTables, setWrapTables] = useState(true)
@@ -238,7 +241,8 @@ export function PreviewPane({
     matched?.scrollIntoView({ behavior: scrollTarget.instant ? 'instant' : 'smooth', block: 'start' })
   }, [scrollTarget, loading, html, display.truncated, tab])
 
-  const outline = useMemo(() => extractOutline(display.md), [display.md])
+  // lang: nhãn "Bảng: ..." theo ngôn ngữ giao diện
+  const outline = useMemo(() => extractOutline(display.md), [display.md, lang])
   const tablesInOutline = useMemo(() => outline.filter((x) => x.kind === 'table'), [outline])
 
   const jumpToItem = useCallback((item: OutlineItem) => {
@@ -256,7 +260,7 @@ export function PreviewPane({
 
   const copyTableData = useCallback(async (text: string, label: string) => {
     const ok = await copyText(text)
-    toast(ok ? `Đã copy ${label}` : 'Copy thất bại', ok ? 'ok' : 'err')
+    toast(ok ? tr('toast.copied', { label }) : tr('common.copyFailed'), ok ? 'ok' : 'err')
   }, [])
 
   const exportHtml = useCallback(async () => {
@@ -274,10 +278,10 @@ export function PreviewPane({
       const doc = new DOMParser().parseFromString(body, 'text/html')
       const docHeading = (doc.querySelector('h1') ?? doc.querySelector('h2'))?.textContent?.trim()
       const stem = guideFileStem(title)
-      const saved = await window.api.saveHtml(stem, buildGuideHtml(docHeading || stem, body, { date: new Date().toLocaleDateString('vi-VN') }))
-      if (saved) toast('Đã lưu HTML: ' + saved, 'ok')
+      const saved = await window.api.saveHtml(stem, buildGuideHtml(docHeading || stem, body, { date: new Date().toLocaleDateString(getLocale()) }))
+      if (saved) toast(tr('toast.htmlSaved', { path: saved }), 'ok')
     } catch (err) {
-      toast('Xuất HTML thất bại: ' + errMsg(err), 'err')
+      toast(tr('toast.htmlFailed', { err: errMsg(err) }), 'err')
     }
   }, [md, title])
 
@@ -300,7 +304,7 @@ export function PreviewPane({
   const copy = useCallback(async () => {
     if (!md) return
     const ok = await copyText(md)
-    toast(ok ? 'Đã copy Markdown vào clipboard' : 'Copy thất bại', ok ? 'ok' : 'err')
+    toast(tr(ok ? 'toast.mdCopied' : 'common.copyFailed'), ok ? 'ok' : 'err')
   }, [md])
 
   const sourceLines = useMemo(() => display.md.split('\n'), [display.md])
@@ -316,7 +320,7 @@ export function PreviewPane({
             )}
             onClick={() => setTab('rendered')}
           >
-            <IconEye size={15} /> Xem trước
+            <IconEye size={15} /> {t('preview.tab.rendered')}
           </button>
           <button
             className={cn(
@@ -324,9 +328,9 @@ export function PreviewPane({
               tab === 'split' && 'active seg-on'
             )}
             onClick={() => setTab('split')}
-            title="Xem song song Mã Markdown và Bản hiển thị"
+            title={t('preview.tab.splitTitle')}
           >
-            <IconSplit size={15} /> Song song
+            <IconSplit size={15} /> {t('preview.tab.split')}
           </button>
           <button
             className={cn(
@@ -335,7 +339,7 @@ export function PreviewPane({
             )}
             onClick={() => setTab('source')}
           >
-            <IconMarkdown size={15} /> Mã Markdown
+            <IconMarkdown size={15} /> {t('preview.tab.source')}
           </button>
         </div>
         <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] items-center justify-end gap-1 text-xs">
@@ -343,13 +347,13 @@ export function PreviewPane({
           {title ? (
             <span className="x2m-meta-stats dim mr-auto min-w-48 truncate pl-1 text-dim" title={title}>
               <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
-              {stats ? ` · ${stats.lines} dòng · ${stats.tables} bảng · ${stats.chars.toLocaleString('vi-VN')} ký tự` : ''}
+              {stats ? ` · ${t('preview.stats', { lines: stats.lines, tables: stats.tables, chars: stats.chars.toLocaleString(LOCALES[lang]) })}` : ''}
             </span>
           ) : (
-            <span className="dim text-dim">{noSelectionText}</span>
+            <span className="dim text-dim">{noSelectionText ?? t('preview.noSheet')}</span>
           )}
           {zoom !== 1 && (
-            <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={onResetZoom} title="Khôi phục cỡ chữ (Ctrl+0)">
+            <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={onResetZoom} title={t('preview.resetZoom')}>
               {Math.round(zoom * 100)}%
             </button>
           )}
@@ -357,46 +361,46 @@ export function PreviewPane({
             <button
               className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, wrapTables && 'active-pill border-accent-line bg-accent-soft text-accent-ink')}
               onClick={() => setWrapTables((w) => !w)}
-              title={wrapTables ? 'Đang tự xuống dòng trong ô bảng dài (bấm để giữ 1 dòng ngang)' : 'Đang giữ 1 dòng ngang (bấm để tự xuống dòng ô dài)'}
+              title={t(wrapTables ? 'preview.wrapOnTitle' : 'preview.wrapOffTitle')}
               aria-pressed={wrapTables}
             >
-              <IconWrap size={14} /> {wrapTables ? 'Gói dòng' : '1 dòng'}
+              <IconWrap size={14} /> {t(wrapTables ? 'preview.wrapOn' : 'preview.wrapOff')}
             </button>
           )}
           {outline.length > 1 && tab !== 'source' && (
             <button
               className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, showOutline && 'active-pill border-accent-line bg-accent-soft text-accent-ink')}
               onClick={() => setShowOutline((s) => !s)}
-              title="Ẩn/hiện thanh Mục lục & Công cụ Bảng"
+              title={t('preview.outlineTitle')}
               aria-pressed={showOutline}
             >
-              <IconList size={14} /> Mục lục ({outline.length})
+              <IconList size={14} /> {t('preview.outline', { n: outline.length })}
             </button>
           )}
-          <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title="Copy toàn bộ Markdown">
-            <IconCopy size={14} /> Copy
+          <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title={t('preview.copyTitle')}>
+            <IconCopy size={14} /> {t('common.copy')}
           </button>
           <button
             className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
             onClick={() => void exportHtml()}
             disabled={!md || loading}
-            title="Xuất trang HTML đứng riêng có mục lục (ghi chú hướng dẫn)"
+            title={t('preview.exportHtmlTitle')}
           >
-            Xuất HTML
+            {t('preview.exportHtml')}
           </button>
           <button
             className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
             onClick={() => window.print()}
             disabled={!md || loading}
-            title="In hoặc lưu PDF (chọn 'Lưu dưới dạng PDF')"
+            title={t('preview.printTitle')}
           >
-            In / PDF
+            {t('preview.print')}
           </button>
         </div>
       </div>
 
       {showOutline && outline.length > 1 && tab !== 'source' && !loading && !error && md && (
-        <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label="Mục lục nhanh">
+        <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label={t('preview.outlineAria')}>
           <div className="x2m-outline-items flex w-max items-center gap-1.5">
             {outline.map((item, idx) => (
               <div key={idx} className={cn('x2m-outline-chip glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-full text-xs', item.kind === 'table' && 'is-table')}>
@@ -405,8 +409,8 @@ export function PreviewPane({
                   onClick={() => jumpToItem(item)}
                   title={
                     item.kind === 'table'
-                      ? `Nhảy tới ${item.label} (${item.rowCount} dòng × ${item.colCount} cột)`
-                      : `Nhảy tới mục: ${item.label}`
+                      ? t('preview.jumpTable', { label: item.label, rows: item.rowCount ?? 0, cols: item.colCount ?? 0 })
+                      : t('preview.jumpHeading', { label: item.label })
                   }
                 >
                   {item.kind === 'table' && <IconTable size={12} />}
@@ -420,8 +424,8 @@ export function PreviewPane({
                 {item.kind === 'table' && item.tsvBlock && (
                   <button
                     className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
-                    onClick={() => void copyTableData(item.tsvBlock!, `${item.label} (TSV cho Excel)`)}
-                    title="Copy bảng dạng TSV (dán thẳng vào Excel / Google Sheets)"
+                    onClick={() => void copyTableData(item.tsvBlock!, t('preview.copyTsv', { label: item.label }))}
+                    title={t('preview.copyTsvTitle')}
                   >
                     TSV
                   </button>
@@ -429,8 +433,8 @@ export function PreviewPane({
                 {item.kind === 'table' && item.mdBlock && tablesInOutline.length > 1 && (
                   <button
                     className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
-                    onClick={() => void copyTableData(item.mdBlock!, `${item.label} (Markdown)`)}
-                    title="Copy riêng bảng này dạng Markdown"
+                    onClick={() => void copyTableData(item.mdBlock!, t('preview.copyMd', { label: item.label }))}
+                    title={t('preview.copyMdTitle')}
                   >
                     MD
                   </button>
@@ -447,13 +451,13 @@ export function PreviewPane({
         style={{ zoom }}
       >
         {loading ? (
-          <div className="x2m-loading flex h-full items-center justify-center p-8 text-sm text-dim">{loadingText}</div>
+          <div className="x2m-loading flex h-full items-center justify-center p-8 text-sm text-dim">{loadingText ?? t('common.converting')}</div>
         ) : error ? (
           <div className="x2m-error m-4 rounded-lg border border-danger/30 bg-danger-soft p-4 text-sm text-danger">{error}</div>
         ) : !md ? (
           <div className="x2m-empty flex h-full flex-col items-center justify-center gap-3 p-12 text-center text-faint">
             <IconEye size={36} />
-            <p className="text-dim text-sm">{emptyText}</p>
+            <p className="text-dim text-sm">{emptyText ?? t('preview.empty')}</p>
           </div>
         ) : tab === 'source' ? (
           <div className="x2m-source-wrap flex min-h-full overflow-auto rounded-lg border border-line bg-code font-mono text-xs">
@@ -467,7 +471,7 @@ export function PreviewPane({
         ) : tab === 'split' ? (
           <div className="x2m-split-pane grid h-full grid-cols-2 gap-4">
             <div className="x2m-split-col x2m-split-source flex flex-col overflow-hidden rounded-lg border border-line">
-              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">Mã nguồn Markdown</div>
+              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">{t('preview.sourceHead')}</div>
               <div className="x2m-source-wrap flex flex-1 overflow-auto bg-code font-mono text-xs">
                 <div className="x2m-gutter flex select-none flex-col border-r border-line bg-raised/40 px-2 py-3 text-right text-faint" aria-hidden="true">
                   {sourceLines.map((_, i) => (
@@ -478,7 +482,7 @@ export function PreviewPane({
               </div>
             </div>
             <div className="x2m-split-col x2m-split-rendered flex flex-col overflow-hidden rounded-lg border border-line">
-              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">Bản hiển thị</div>
+              <div className="x2m-split-col-head border-b border-line bg-raised px-3 py-1.5 text-xs font-semibold text-dim">{t('preview.renderedHead')}</div>
               <div className="flex-1 overflow-auto p-4">
                 <div
                   className={cn('md-body', fullWidth && 'full', wrapTables && 'wrap-cells')}
@@ -498,7 +502,7 @@ export function PreviewPane({
       </div>
       {display.truncated && (
         <button className={cx('btn btn-sm x2m-show-more mx-auto my-3', btnGhost, btnSm)} onClick={() => setExpanded(true)}>
-          Hiện thêm {display.hidden} dòng
+          {t('preview.showMore', { n: display.hidden })}
         </button>
       )}
     </>
