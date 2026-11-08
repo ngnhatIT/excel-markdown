@@ -51,9 +51,9 @@ export function registerViewerIpc(): void {
   let searchGen = 0
   ipcMain.handle('mdv:search', async (_e, root: unknown, query: unknown) => {
     const gen = ++searchGen
-    if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'Chưa mở thư mục này.' }
+    if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'E_SEARCH_NOT_OPENED' } // mã lỗi, renderer dịch
     if (typeof query !== 'string' || query.trim() === '' || query.length > 200) {
-      return { ok: false, error: 'Từ khóa không hợp lệ (1–200 ký tự).' }
+      return { ok: false, error: 'E_SEARCH_BAD_QUERY' }
     }
     try {
       return { ok: true, data: await searchMarkdownFolder(root, query, undefined, undefined, () => gen !== searchGen) }

@@ -70,16 +70,15 @@ export function registerAiIpc(): void {
   const translateCache = new Map<string, string>()
   ipcMain.handle('ai:translate', async (_e, text: unknown, target: unknown) => {
     let rawKey = ''
+    // Kiểm đầu vào trước: yêu cầu sai không được hủy bản dịch hợp lệ đang chạy
+    if (typeof text !== 'string' || text.trim() === '' || !isTranslateLang(target)) {
+      return { ok: false, error: 'E_TR_INVALID' } // mã lỗi, renderer dịch
+    }
+    if (text.length > MAX_TRANSLATE_CHARS) return { ok: false, error: 'E_TR_TOO_LONG' }
     translateAbort?.abort()
     const controller = new AbortController()
     translateAbort = controller
     try {
-      if (typeof text !== 'string' || text.trim() === '' || !isTranslateLang(target)) {
-        return { ok: false, error: 'Đoạn chọn hoặc ngôn ngữ đích không hợp lệ.' }
-      }
-      if (text.length > MAX_TRANSLATE_CHARS) {
-        return { ok: false, error: `Đoạn chọn quá dài (tối đa ${MAX_TRANSLATE_CHARS} ký tự). Hãy chọn ngắn hơn hoặc dùng khung Trợ lý AI.` }
-      }
       const store = await readStore()
       const provider = normalizeProvider(store['aiProvider'])
       rawKey = decryptApiKey(store[keyField(provider)], safeStorage)

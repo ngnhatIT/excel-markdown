@@ -31,12 +31,14 @@ async function statMtimes(root: string, files: string[]): Promise<Record<string,
   return mtimes
 }
 
-/** Mọi file .md/.markdown dưới `root` (đệ quy, không theo symlink), đường dẫn tương đối phân cách `/`,
- * kèm mtime từng file. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw. */
-export async function listMarkdownFiles(
+/** Mọi file dưới `root` có tên thỏa `test` (đệ quy theo chiều rộng, không theo symlink, bỏ thư mục ẩn và SKIP_DIRS),
+ * đường dẫn tương đối phân cách `/`. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw.
+ * Quá `limit` file thì dừng, `truncated: true`. Dùng chung cho Đọc Markdown và đầu vào thư mục của CLI / MCP. */
+export async function walkFiles(
   root: string,
-  limit = MD_LIST_LIMIT
-): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
+  test: (name: string) => boolean,
+  limit: number
+): Promise<{ files: string[]; truncated: boolean }> {
   const files: string[] = []
   const queue: string[] = ['']
   while (queue.length > 0) {
@@ -52,13 +54,22 @@ export async function listMarkdownFiles(
       const childRel = rel ? `${rel}/${e.name}` : e.name
       if (e.isDirectory()) {
         if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) queue.push(childRel)
-      } else if (e.isFile() && /\.(md|markdown)$/i.test(e.name)) {
-        if (files.length >= limit) return { files, mtimes: await statMtimes(root, files), truncated: true }
+      } else if (e.isFile() && test(e.name)) {
+        if (files.length >= limit) return { files, truncated: true }
         files.push(childRel)
       }
     }
   }
-  return { files, mtimes: await statMtimes(root, files), truncated: false }
+  return { files, truncated: false }
+}
+
+/** Mọi file .md/.markdown dưới `root` (xem walkFiles), kèm mtime từng file. */
+export async function listMarkdownFiles(
+  root: string,
+  limit = MD_LIST_LIMIT
+): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
+  const { files, truncated } = await walkFiles(root, (name) => /\.(md|markdown)$/i.test(name), limit)
+  return { files, mtimes: await statMtimes(root, files), truncated }
 }
 
 /** Nội dung file Markdown (UTF-8, bỏ BOM). Throw lỗi tiếng Việt nếu file quá lớn. */
@@ -115,10 +126,11 @@ export async function searchMarkdownFolder(
   const out: MdSearchResult = { files: [], truncated: false }
   if (terms.length === 0) return out
   const { files } = await listMarkdownFiles(root)
-  for (let i = 0; i < files.length; i += 32) {
+  // 8 file một đợt: file tới 20 MB, đợt lớn hơn làm main process ngốn bộ nhớ
+  for (let i = 0; i < files.length; i += 8) {
     if (isStale()) return out
     const batch = await Promise.all(
-      files.slice(i, i + 32).map(async (rel) => {
+      files.slice(i, i + 8).map(async (rel) => {
         try {
           return { rel, hits: searchMarkdownText(await readMarkdownCached(join(root, rel)), terms, maxHitsPerFile) }
         } catch {

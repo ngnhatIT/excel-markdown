@@ -116,6 +116,18 @@ describe('listRules', () => {
     ])
   })
 
+  it('tham chiếu cả cột ($A:$A) -> lấy giá trị tới dòng có dữ liệu', () => {
+    const wb = { SheetNames: ['S', 'L'], Sheets: { S: XLSX.utils.aoa_to_sheet([[]]), L: XLSX.utils.aoa_to_sheet([['x'], ['y']]) } } as XLSX.WorkBook
+    const xml = '<dataValidation type="list" sqref="A2"><formula1>L!$A:$A</formula1></dataValidation>'
+    expect(listRules(xml, wb, 'S')[0].values).toEqual(['x', 'y'])
+  })
+
+  it('tham chiếu ký tự ngoài Unicode (&#x110000;) không làm lỗi: thay bằng ký tự thay thế', () => {
+    const wb = { SheetNames: ['S'], Sheets: { S: XLSX.utils.aoa_to_sheet([[]]) } } as XLSX.WorkBook
+    const xml = '<dataValidation type="list" sqref="A1"><formula1>"a&#x110000;,b"</formula1></dataValidation>'
+    expect(listRules(xml, wb, 'S')[0].values).toEqual(['a\ufffd', 'b'])
+  })
+
   it('thẻ không đóng không treo', () => {
     expect(listRules('<dataValidation type="list" sqref="A1">'.repeat(20000), { SheetNames: [], Sheets: {} }, 'S')).toEqual([])
   })

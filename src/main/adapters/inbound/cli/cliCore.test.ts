@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import * as XLSX from 'xlsx'
-import { expandExcelInputs, parseArgs, runCli, USAGE, workbookTextconv } from './cliCore'
+import { expandExcelInputs, parseArgs, runCli, USAGE } from './cliCore'
+import { workbookMarkdownForDiff as workbookTextconv } from '../../outbound/workbookText'
 import pkg from '../../../../../package.json'
 
 const fixture = join(__dirname, '../../../../../test/fixtures/excel-authored.xlsx')

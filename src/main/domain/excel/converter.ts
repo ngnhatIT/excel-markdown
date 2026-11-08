@@ -818,11 +818,20 @@ export function listSheetsInWorkbook(
   })
 }
 
+/** Lớp vẽ (ảnh / shape / biểu đồ) chỉ là phần thêm: XML lạ làm lỗi thì bỏ lớp vẽ, vẫn convert giá trị ô của sheet. */
+function safeDrawings(wb: WorkBook, sheetName: string): ReturnType<typeof sheetDrawings> {
+  try {
+    return sheetDrawings(wb, sheetName)
+  } catch {
+    return { items: [], media: {} }
+  }
+}
+
 /** Convert một sheet của workbook theo tên. Ném lỗi nếu không tìm thấy sheet. */
 export function convertSheetInWorkbook(wb: WorkBook, sheetName: string, opts: ConvertOptions): string {
   const ws = wb.Sheets[sheetName]
   if (!ws) throw new Error('Không tìm thấy sheet: ' + sheetName)
-  const d = sheetDrawings(wb, sheetName)
+  const d = safeDrawings(wb, sheetName)
   // Preview không có thư mục ảnh: nhúng ảnh dạng data:; một sheet nên link sang sheet khác thành chữ thường
   return linkSheets(inlineAssets(sheetToMarkdown(ws, sheetName, opts, d.items, sheetExtras(wb, sheetName)), d.media), () => undefined)
 }
@@ -838,7 +847,7 @@ export function convertSheetsInWorkbook(
   for (const sn of sheetNames) {
     const ws = wb.Sheets[sn]
     if (!ws) continue
-    const d = sheetDrawings(wb, sn)
+    const d = safeDrawings(wb, sn)
     const md = sheetToMarkdown(ws, sn, opts, d.items, sheetExtras(wb, sn))
     if (opts.skipEmptySheets && md.trim() === '') continue
     const images = Object.fromEntries(Object.entries(d.media).filter(([name]) => md.includes(ASSET_TOKEN + encodeURIComponent(name))))

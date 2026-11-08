@@ -7,7 +7,8 @@ import { ConverterWorker } from '../../outbound/converterWorker'
 import { readMarkdownFile } from '../../outbound/mdFolder'
 import { logError } from '../../outbound/store'
 
-const NOT_SUPPORTED = 'Chỉ so sánh được file Excel (.xlsx/.xlsm/.xls) hoặc Markdown (.md) theo đường dẫn tuyệt đối.'
+/** Mã lỗi: renderer dịch theo ngôn ngữ giao diện (i18n `err.E_COMPARE_UNSUPPORTED`). */
+const NOT_SUPPORTED = 'E_COMPARE_UNSUPPORTED'
 
 export function registerCompareIpc(workerEntry: string): void {
   // cache 2: cặp 新旧 đang so sánh, đổi qua lại không parse lại

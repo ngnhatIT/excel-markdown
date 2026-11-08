@@ -5,6 +5,7 @@ import { en } from './en'
 import { ja } from './ja'
 import { compareEn, compareJa, compareVi } from './compare'
 import { translateEn, translateJa, translateVi } from './translate'
+import { errorsEn, errorsJa, errorsVi } from './errors'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
@@ -16,6 +17,8 @@ describe('i18n', () => {
       [compareVi, compareJa],
       [translateVi, translateEn],
       [translateVi, translateJa],
+      [errorsVi, errorsEn],
+      [errorsVi, errorsJa],
     ]
     for (const [base, d] of pairs) {
       expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())
@@ -36,5 +39,16 @@ describe('i18n', () => {
     expect(detectLang('en-US')).toBe('en')
     expect(detectLang('vi')).toBe('vi')
     expect(detectLang('fr-FR')).toBe('vi')
+  })
+})
+
+describe('errCodeText', () => {
+  it('mã lỗi E_… dịch theo ngôn ngữ; chữ thường giữ nguyên (null)', async () => {
+    const { errCodeText, setLang } = await import('./index')
+    setLang('ja')
+    expect(errCodeText('E_SEARCH_NOT_OPENED')).toBe('このフォルダは開かれていません。')
+    expect(errCodeText('E_UNKNOWN_CODE')).toBeNull()
+    expect(errCodeText('Lỗi bất kỳ')).toBeNull()
+    setLang('vi')
   })
 })

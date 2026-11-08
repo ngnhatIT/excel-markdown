@@ -2,13 +2,13 @@
  * `node out/main/cli.js a.xlsx thuMuc/ -o outDir [tuỳ chọn]`  (Excel → Markdown)
  * `node out/main/cli.js md2xlsx a.md thuMuc/ -o Book.xlsx [--overwrite]`  (Markdown → Excel) */
 import { existsSync, mkdirSync } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
+import { stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../shared/types'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
 import { workbookMarkdownForDiff } from '../../outbound/workbookText'
-import { listMarkdownFiles } from '../../outbound/mdFolder'
+import { listMarkdownFiles, walkFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { workbookMdFiles } from '../../../domain/excel/output'
@@ -26,12 +26,9 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
 /** Quá số file Excel này trong một thư mục thì từ chối (chọn nhầm ổ đĩa không chạy mãi). */
 export const EXCEL_DIR_LIMIT = 2000
 
-/** Thư mục không quét khi mở rộng thư mục đầu vào (giống mdFolder: thư mục ẩn cũng bỏ). */
-const SKIP_DIRS = new Set(['node_modules', 'bower_components', '$RECYCLE.BIN', 'System Volume Information'])
-
-/** Mở rộng đối số đầu vào: thư mục → mọi file Excel bên trong (đệ quy, không theo symlink, bỏ `~$*`,
- * thư mục ẩn, node_modules), sắp theo đường dẫn. `relDir` là thư mục con (phân cách `/`) để giữ cấu trúc
- * ở đầu ra. Đối số không phải thư mục giữ nguyên (lỗi đọc báo theo từng file như trước). */
+/** Mở rộng đối số đầu vào: thư mục → mọi file Excel bên trong (walkFiles: đệ quy, không theo symlink, bỏ thư mục ẩn,
+ * node_modules, thư mục con không đọc được; ở đây bỏ thêm `~$*`), sắp theo đường dẫn. `relDir` là thư mục con (phân cách
+ * `/`) để giữ cấu trúc ở đầu ra. Đối số không phải thư mục giữ nguyên (lỗi đọc báo theo từng file như trước). */
 export async function expandExcelInputs(inputs: string[]): Promise<{ file: string; relDir: string }[]> {
   const out: { file: string; relDir: string }[] = []
   for (const input of inputs) {
@@ -40,21 +37,8 @@ export async function expandExcelInputs(inputs: string[]): Promise<{ file: strin
       out.push({ file: input, relDir: '' })
       continue
     }
-    const found: string[] = []
-    const queue = ['']
-    while (queue.length > 0) {
-      const rel = queue.shift() as string
-      // Dirent của symlink không phải isDirectory/isFile -> không bao giờ theo symlink
-      for (const e of await readdir(rel ? join(input, rel) : input, { withFileTypes: true })) {
-        const childRel = rel ? `${rel}/${e.name}` : e.name
-        if (e.isDirectory()) {
-          if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) queue.push(childRel)
-        } else if (e.isFile() && EXCEL_EXT_RE.test(e.name) && !e.name.startsWith('~$')) {
-          if (found.length >= EXCEL_DIR_LIMIT) throw new Error(`Thư mục có quá ${EXCEL_DIR_LIMIT} file Excel: ${input}`)
-          found.push(childRel)
-        }
-      }
-    }
+    const { files: found, truncated } = await walkFiles(input, (name) => EXCEL_EXT_RE.test(name) && !name.startsWith('~$'), EXCEL_DIR_LIMIT)
+    if (truncated) throw new Error(`Thư mục có quá ${EXCEL_DIR_LIMIT} file Excel: ${input}`)
     // So sánh theo mã ký tự (không theo locale) để thứ tự giống nhau trên mọi máy
     found.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
     for (const rel of found) {
@@ -135,12 +119,6 @@ export async function buildExcel(inputs: string[], outPath: string, overwrite: b
   return res.data as { outPath: string; sheets: string[] }
 }
 
-/** Markdown của cả workbook để so sánh bằng git (`git diff` qua textconv): mọi sheet kể cả sheet ẩn và `DEL_`,
- * không tiêu đề tên file (git đưa file tạm tên ngẫu nhiên), ảnh thành tên + sha1 nội dung để đổi ảnh cũng hiện trong diff. */
-export function workbookTextconv(file: string): string {
-  return workbookMarkdownForDiff(file)
-}
-
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
   const inputs: string[] = []
   let outPath = ''
@@ -188,7 +166,7 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
     // stdout là nội dung diff: lỗi chỉ ra stderr, mã thoát khác 0
     let text: string
     try {
-      text = workbookTextconv(argv[1])
+      text = workbookMarkdownForDiff(argv[1])
     } catch (err) {
       process.stderr.write('LỖI ' + argv[1] + ': ' + friendlyError(err) + '\n')
       return 1

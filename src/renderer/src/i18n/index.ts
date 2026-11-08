@@ -5,19 +5,20 @@ import { en } from './en'
 import { ja } from './ja'
 import { compareEn, compareJa, compareVi } from './compare'
 import { translateEn, translateJa, translateVi } from './translate'
+import { errorsEn, errorsJa, errorsVi } from './errors'
 
 export type Lang = 'vi' | 'en' | 'ja'
 /** Khóa của từ điển chính (vi.ts); en.ts / ja.ts phải đủ các khóa này. */
 export type Dict = Record<keyof typeof vi, string>
-export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi
+export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi | keyof typeof errorsVi
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
 /** Locale cho Intl / toLocaleString theo ngôn ngữ giao diện. */
 export const LOCALES: Record<Lang, string> = { vi: 'vi-VN', en: 'en-US', ja: 'ja-JP' }
 type FullDict = Record<TKey, string>
-const VI: FullDict = { ...vi, ...compareVi, ...translateVi }
-const DICTS: Record<Lang, FullDict> = { vi: VI, en: { ...en, ...compareEn, ...translateEn }, ja: { ...ja, ...compareJa, ...translateJa } }
+const VI: FullDict = { ...vi, ...compareVi, ...translateVi, ...errorsVi }
+const DICTS: Record<Lang, FullDict> = { vi: VI, en: { ...en, ...compareEn, ...translateEn, ...errorsEn }, ja: { ...ja, ...compareJa, ...translateJa, ...errorsJa } }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
 export function detectLang(locale = typeof navigator === 'undefined' ? 'vi' : navigator.language): Lang {
@@ -69,4 +70,10 @@ export function useT(): TFn {
   const lang = useLang()
   // Cùng một hàm cho tới khi đổi ngôn ngữ: hook nào phụ thuộc `t` không chạy lại sau mỗi lần render
   return useMemo<TFn>(() => (key, params) => translate(lang, key, params), [lang])
+}
+
+/** Chữ của mã lỗi `E_…` do main trả về (dịch theo ngôn ngữ hiện tại); không phải mã đã biết -> null. */
+export function errCodeText(msg: string): string | null {
+  const key = `err.${msg}`
+  return /^E_[A-Z_]+$/.test(msg) && key in VI ? t(key as TKey) : null
 }

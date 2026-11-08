@@ -83,8 +83,11 @@ export function refTarget(wb: XLSX.WorkBook, s: string, sheet?: string): { sheet
 
 /** Giá trị của vùng ô (theo thứ tự hàng, bỏ ô rỗng), tối đa MAX_LIST_VALUES. */
 function rangeValues(wb: XLSX.WorkBook, sheet: string, range: string): string[] {
+  // Cả cột (`$A:$A`, cách hay dùng cho list master) -> A1:A1048576; phần dưới chỉ quét tới dòng có dữ liệu
+  range = range.replace(/^([A-Z]{1,3}):([A-Z]{1,3})$/i, '$11:$21048576')
   if (!/^[A-Z]{1,3}\d{1,7}(:[A-Z]{1,3}\d{1,7})?$/i.test(range)) return []
   const ws = wb.Sheets[sheet]
+  if (!ws) return []
   const r = XLSX.utils.decode_range(range.toUpperCase())
   const decl = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : null
   // Vùng kiểu A1:A1048576: chỉ quét phần có dữ liệu

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { listMarkdownFiles, readMarkdownFile, searchMarkdownFolder } from './mdFolder'
+import { listMarkdownFiles, readMarkdownFile, searchMarkdownFolder, walkFiles } from './mdFolder'
 
 function makeTree(): string {
   const root = mkdtempSync(join(tmpdir(), 'x2m-mdv-'))
@@ -77,5 +77,25 @@ describe('searchMarkdownFolder: cache và hủy sớm', () => {
     const root = makeTree()
     writeFileSync(join(root, 'docs/a.md'), 'x\n')
     expect((await searchMarkdownFolder(root, 'x', 200, 20, () => true)).files).toEqual([])
+  })
+})
+
+describe('walkFiles', () => {
+  // chmod không chặn được đọc trên Windows / khi chạy bằng root
+  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)('thư mục con không đọc được: bỏ qua, vẫn trả các file khác', async () => {
+    const root = makeTree()
+    mkdirSync(join(root, 'locked'))
+    writeFileSync(join(root, 'locked', 'z.md'), '# z\n')
+    chmodSync(join(root, 'locked'), 0o000)
+    try {
+      const res = await walkFiles(root, (n) => n.endsWith('.md'), 100)
+      expect(res.files.sort()).toEqual(['README.md', 'docs/a.md'])
+    } finally {
+      chmodSync(join(root, 'locked'), 0o755)
+    }
+  })
+
+  it('quá giới hạn -> truncated', async () => {
+    expect((await walkFiles(makeTree(), () => true, 2)).truncated).toBe(true)
   })
 })

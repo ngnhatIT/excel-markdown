@@ -13,6 +13,7 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../../../shared/types'
+import { errCodeText } from '../i18n'
 
 export interface SheetListItem {
   name: string
@@ -71,4 +72,8 @@ declare global {
 }
 
 /** Message lỗi để hiện cho người dùng. */
-export const errMsg = (err: unknown): string => (err instanceof Error ? err.message : String(err))
+/** Chữ lỗi để hiện: main trả mã `E_…` cho lỗi mới (dịch theo ngôn ngữ giao diện), còn lại giữ nguyên chữ. */
+export const errMsg = (err: unknown): string => {
+  const msg = err instanceof Error ? err.message : String(err)
+  return errCodeText(msg) ?? msg
+}

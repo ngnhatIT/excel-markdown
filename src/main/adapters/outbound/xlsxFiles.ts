@@ -31,7 +31,11 @@ export function readWorkbook(filePath: string): WorkBook {
   }
   const files = (wb as { files?: Record<string, unknown> }).files
   // Gạch ngang cả ô + 入力規則: SheetJS không đọc, lấy từ XML sheet trước khi bỏ part
-  attachCellExtras(wb)
+  try {
+    attachCellExtras(wb)
+  } catch {
+    /* gạch ngang / 入力規則 chỉ là thông tin thêm: XML lạ thì bỏ, vẫn convert giá trị ô */
+  }
   // Workbook nằm trong cache của worker: chỉ giữ part lớp vẽ cần, bỏ XML sheet (có thể rất lớn)
   if (files) for (const k of Object.keys(files)) if (!KEEP_PART.test(k)) delete files[k]
   return wb

@@ -77,7 +77,11 @@ export const runsText = (xml: string): string => elements(xml, 't').map((t) => d
 export function decodeXml(s: string): string {
   return s.replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos);/gi, (_m, e: string) => {
     const k = e.toLowerCase()
-    if (k[0] === '#') return String.fromCodePoint(k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10))
+    if (k[0] === '#') {
+      const cp = k[1] === 'x' ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10)
+      // Số ký tự ngoài Unicode (file hỏng/độc): fromCodePoint ném RangeError -> thay bằng ký tự thay thế
+      return cp <= 0x10ffff ? String.fromCodePoint(cp) : '\ufffd'
+    }
     return { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }[k] ?? _m
   })
 }
