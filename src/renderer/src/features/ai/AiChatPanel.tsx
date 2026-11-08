@@ -12,6 +12,7 @@ import {
   type RagCitation,
 } from '../../../../shared/types'
 import { errMsg } from '../../lib/api'
+import { chatToMarkdown } from '../../lib/chatExport'
 import { PASTE_PATH } from '../viewer/useMdViewer'
 import { sanitizeHtml } from '../../lib/sanitize'
 import { cn, copyText, toast, uid } from '../../lib/utils'
@@ -319,6 +320,15 @@ export function AiChatPanel({
     await window.api.aiCancel().catch(() => {})
   }, [])
 
+  const exportChat = useCallback(async () => {
+    try {
+      const saved = await window.api.saveMarkdown(`tro-chuyen-AI-${new Date().toISOString().slice(0, 10)}`, chatToMarkdown(entries, rootDir))
+      if (saved) toast('Đã lưu Markdown: ' + saved, 'ok')
+    } catch (e) {
+      toast('Xuất Markdown thất bại: ' + errMsg(e), 'err')
+    }
+  }, [entries, rootDir])
+
   const hasPaste = Boolean((pastedMarkdown && pastedMarkdown.trim() !== '') || activeFilePath === PASTE_PATH)
   const totalFiles = relFiles.length + looseFiles.length + (hasPaste ? 1 : 0)
 
@@ -338,6 +348,11 @@ export function AiChatPanel({
             🔑 {providerInfo.label}
             {config.hasKey ? ` · ${config.maskedKey}` : ''}
           </button>
+          {entries.length > 0 && (
+            <button className="btn btn-sm btn-ghost" onClick={() => void exportChat()} title="Lưu cuộc trò chuyện ra file Markdown">
+              Xuất .md
+            </button>
+          )}
           {entries.length > 0 && (
             <button
               className="btn btn-sm btn-ghost"

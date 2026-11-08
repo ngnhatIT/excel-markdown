@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { marked } from 'marked'
 import { buildGuideHtml, guideFileStem } from '../../../shared/guideHtml'
+import { slugifyHeading, uniqueSlugs } from '../../../shared/mdView'
 import { errMsg } from '../lib/api'
 import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
@@ -33,7 +34,7 @@ interface OutlineItem {
 }
 
 /** Trích xuất danh sách mục lục (Headings + Bảng) từ mã Markdown để nhảy nhanh & copy bảng. */
-function extractOutline(md: string): OutlineItem[] {
+export function extractOutline(md: string): OutlineItem[] {
   if (!md) return []
   const lines = md.split('\n')
   const items: OutlineItem[] = []
@@ -117,12 +118,16 @@ interface Props {
   fullWidth?: boolean
   /** Nhảy tới heading (trích dẫn AI) và/hoặc chữ `text` sau heading đó (kết quả tìm, được tô sáng) */
   scrollTarget?: ScrollTarget | null
+  /** Nút đặt trước tiêu đề trên thanh preview (vd Lùi/Tiến của chế độ Đọc Markdown) */
+  leading?: React.ReactNode
 }
 
 export interface ScrollTarget {
   heading: string
   /** Từ khóa (cách nhau bởi khoảng trắng) cần cuộn tới và tô sáng */
   text?: string
+  /** Nhảy ngay (link #anchor, Lùi/Tiến) thay vì cuộn mượt */
+  instant?: boolean
   seq: number
 }
 
@@ -141,6 +146,7 @@ export function PreviewPane({
   onLinkClick,
   fullWidth = true,
   scrollTarget,
+  leading,
 }: Props): React.ReactElement {
   const [tab, setTab] = useState<'rendered' | 'split' | 'source'>('rendered')
   const [expanded, setExpanded] = useState(false)
@@ -148,9 +154,10 @@ export function PreviewPane({
   const [showOutline, setShowOutline] = useState(true)
   const previewRef = useRef<HTMLDivElement | null>(null)
 
+  // Đổi file mới thu gọn lại; cùng file được tải lại (đổi md) thì giữ "Hiện thêm" để không mất vị trí cuộn
   useEffect(() => {
     setExpanded(false)
-  }, [md])
+  }, [title])
 
   const display = useMemo(() => {
     const lines = md.split('\n')
@@ -188,7 +195,6 @@ export function PreviewPane({
   const doneSeq = useRef(0)
   useEffect(() => {
     if (loading || !html || !scrollTarget || scrollTarget.seq === doneSeq.current) return
-    if (!scrollTarget.heading && !scrollTarget.text) return
     if (tab === 'source') {
       setTab('rendered')
       return
@@ -203,8 +209,15 @@ export function PreviewPane({
     if (!body) return
     doneSeq.current = scrollTarget.seq
     const targetHeading = scrollTarget.heading.trim()
+    // Không heading, không chữ: về đầu file (Lùi/Tiến tới mục không có anchor)
+    if (!targetHeading && !scrollTarget.text) {
+      container.scrollTo({ top: 0 })
+      return
+    }
     const headings = Array.from(body.querySelectorAll('h1, h2, h3, h4, h5, h6')) as HTMLElement[]
-    const matched = targetHeading ? headings.find((h) => matchHeadingText(h.textContent ?? '', targetHeading)) : undefined
+    // Slug kiểu GitHub trước (link `#anchor`), rồi mới so gần đúng (tiêu đề trích dẫn AI)
+    const bySlug = targetHeading ? headings[uniqueSlugs(headings.map((h) => h.textContent ?? '')).indexOf(slugifyHeading(targetHeading))] : undefined
+    const matched = bySlug ?? (targetHeading ? headings.find((h) => matchHeadingText(h.textContent ?? '', targetHeading)) : undefined)
     if (scrollTarget.text) {
       const ranges = findTextRanges(body, scrollTarget.text.split(/\s+/))
       setSearchHighlight(ranges)
@@ -222,7 +235,7 @@ export function PreviewPane({
       container.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
-    matched?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    matched?.scrollIntoView({ behavior: scrollTarget.instant ? 'instant' : 'smooth', block: 'start' })
   }, [scrollTarget, loading, html, display.truncated, tab])
 
   const outline = useMemo(() => extractOutline(display.md), [display.md])
@@ -326,6 +339,7 @@ export function PreviewPane({
           </button>
         </div>
         <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] items-center justify-end gap-1 text-xs">
+          {leading}
           {title ? (
             <span className="x2m-meta-stats dim mr-auto min-w-48 truncate pl-1 text-dim" title={title}>
               <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
