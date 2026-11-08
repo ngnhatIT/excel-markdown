@@ -561,3 +561,15 @@ describe('parseMarkdownFile: round-trip với Excel -> Markdown', () => {
     keep('- 〔入力規則 C2:C50〕1 / 2 / 3', '| a | b |\n|---|---|\n| 1 | 2 |\n') // hai cột cùng khớp
   })
 })
+
+describe('front-matter YAML', () => {
+  it('bỏ front-matter đầu file (do app tạo), không thành sheet rác', () => {
+    const r = parseMarkdownFile('---\nsource: a.xlsx\nsheet: 表紙\n---\n## 表紙\n\n本文\n', 'a.md')
+    expect(r.sheets.map((s) => s.name)).toEqual(['表紙'])
+    expect(JSON.stringify(r)).not.toContain('source')
+  })
+
+  it('`---` giữa file vẫn tách sheet như cũ', () => {
+    expect(parseMarkdownFile('## A\n\nx\n\n---\n\n## B\n\ny\n', 'a.md').sheets.map((s) => s.name)).toEqual(['A', 'B'])
+  })
+})

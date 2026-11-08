@@ -291,8 +291,13 @@ function splitParts(tokens: Token[]): Token[][] {
  * Phân tích một file Markdown thành các sheet.
  * `fileName` là tên file kèm đuôi (để đặt tên sheet khi không có `##`).
  */
+// Dòng đầu sau `---` phải là khóa YAML (`source: …`): `---` rồi dòng trống / chữ thường là đường kẻ tách sheet
+const FRONT_MATTER = /^---[ \t]*\r?\n(?=[\w.-]+:[ \t])[\s\S]{0,20000}?\r?\n---[ \t]*(?:\r?\n|$)/
+
 export function parseMarkdownFile(md: string, fileName: string): ParsedFile {
-  const src = md.replace(BOM, '').replace(LONG_INDENT, '$1')
+  // Front-matter YAML ở đầu file (Excel → Markdown bật tùy chọn front-matter): là siêu dữ liệu, không phải nội dung.
+  // Không bỏ thì `---` đóng biến dòng trên thành heading setext -> sheet rác tên "source: … sheet: …"
+  const src = md.replace(BOM, '').replace(FRONT_MATTER, '').replace(LONG_INDENT, '$1')
   try {
     return parseTokens(new SafeLexer(safeMarked.defaults).lex(src) as Token[], fileName)
   } catch (err) {
