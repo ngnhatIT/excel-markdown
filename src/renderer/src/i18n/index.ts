@@ -3,14 +3,18 @@ import { useSyncExternalStore } from 'react'
 import { vi } from './vi'
 import { en } from './en'
 import { ja } from './ja'
+import { compareEn, compareJa, compareVi } from './compare'
 
 export type Lang = 'vi' | 'en' | 'ja'
-export type TKey = keyof typeof vi
-export type Dict = Record<TKey, string>
+/** Khóa của từ điển chính (vi.ts); en.ts / ja.ts phải đủ các khóa này. */
+export type Dict = Record<keyof typeof vi, string>
+export type TKey = keyof typeof vi | keyof typeof compareVi
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
-const DICTS: Record<Lang, Dict> = { vi, en, ja }
+type FullDict = Record<TKey, string>
+const VI: FullDict = { ...vi, ...compareVi }
+const DICTS: Record<Lang, FullDict> = { vi: VI, en: { ...en, ...compareEn }, ja: { ...ja, ...compareJa } }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
 export function detectLang(locale = typeof navigator === 'undefined' ? 'vi' : navigator.language): Lang {
@@ -36,7 +40,7 @@ export function setLang(lang: Lang): void {
 
 /** Dịch `key` theo ngôn ngữ `lang`; thay {tham số}. Thiếu bản dịch thì lấy tiếng Việt. */
 export function translate(lang: Lang, key: TKey, params?: Record<string, string | number>): string {
-  const s = DICTS[lang][key] ?? vi[key] ?? key
+  const s = DICTS[lang][key] ?? VI[key] ?? key
   return params ? s.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m)) : s
 }
 

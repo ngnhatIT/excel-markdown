@@ -38,6 +38,10 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('dialog:openExcelFiles') as Promise<ApiResult<string[]>>),
   openMarkdownFiles: (): Promise<string[]> =>
     unwrap(ipcRenderer.invoke('dialog:openMarkdownFiles') as Promise<ApiResult<string[]>>),
+  openCompareFile: (): Promise<string | null> =>
+    unwrap(ipcRenderer.invoke('dialog:openCompareFile') as Promise<ApiResult<string | null>>),
+  /** Nội dung Markdown của file để so sánh (Excel được convert trong worker riêng). */
+  compareRead: (path: string): Promise<string> => unwrap(ipcRenderer.invoke('compare:read', path) as Promise<ApiResult<string>>),
   openDirectory: (): Promise<string | null> =>
     unwrap(ipcRenderer.invoke('dialog:openDirectory') as Promise<ApiResult<string | null>>),
   saveHtml: (defaultName: string, html: string): Promise<string | null> =>

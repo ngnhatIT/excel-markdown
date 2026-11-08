@@ -3,15 +3,22 @@ import { detectLang, translate } from './index'
 import { vi } from './vi'
 import { en } from './en'
 import { ja } from './ja'
+import { compareEn, compareJa, compareVi } from './compare'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
     const params = (s: string): string[] => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
-    for (const d of [en, ja]) {
-      expect(Object.keys(d).sort()).toEqual(Object.keys(vi).sort())
-      for (const k of Object.keys(vi) as (keyof typeof vi)[]) {
+    const pairs: [Record<string, string>, Record<string, string>][] = [
+      [vi, en],
+      [vi, ja],
+      [compareVi, compareEn],
+      [compareVi, compareJa],
+    ]
+    for (const [base, d] of pairs) {
+      expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())
+      for (const k of Object.keys(base)) {
         expect(d[k].trim(), k).not.toBe('')
-        expect(params(d[k]), k).toEqual(params(vi[k]))
+        expect(params(d[k]), k).toEqual(params(base[k]))
       }
     }
   })

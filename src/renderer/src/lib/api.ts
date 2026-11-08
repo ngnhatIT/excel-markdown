@@ -30,6 +30,8 @@ export interface WindowApi {
   storeSet(key: string, value: unknown): Promise<void>
   openExcelFiles(): Promise<string[]>
   openMarkdownFiles(): Promise<string[]>
+  openCompareFile(): Promise<string | null>
+  compareRead(path: string): Promise<string>
   openDirectory(): Promise<string | null>
   saveHtml(defaultName: string, html: string): Promise<string | null>
   saveMarkdown(defaultName: string, md: string): Promise<string | null>

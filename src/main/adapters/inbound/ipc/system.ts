@@ -62,6 +62,20 @@ export function registerSystemIpc(): void {
     }
   })
 
+  /** Chọn một file để so sánh 新旧 (Excel hoặc Markdown). */
+  ipcMain.handle('dialog:openCompareFile', async () => {
+    try {
+      const [file] = await pickPaths({
+        title: 'Chọn file để so sánh',
+        properties: ['openFile'],
+        filters: [{ name: 'Excel / Markdown', extensions: ['xlsx', 'xlsm', 'xls', 'md', 'markdown'] }],
+      })
+      return { ok: true, data: file ?? null }
+    } catch (err) {
+      return { ok: false, error: errText(err) }
+    }
+  })
+
   ipcMain.handle('dialog:openDirectory', async () => {
     try {
       const [dir] = await pickPaths({ title: 'Chọn thư mục lưu kết quả', properties: ['openDirectory', 'createDirectory'] })
