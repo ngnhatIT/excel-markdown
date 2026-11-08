@@ -27,7 +27,7 @@ export function MdFileList({ files, selectedId, dragOver, onSelect, onReload, on
           <p className={cn("dim", emptyP, emptyHint)}>hoặc bấm nút Thêm file Markdown ở trên</p>
         </div>
       ) : (
-        <div className="x2m-file-list flex flex-col gap-1.5 px-2 pb-4">
+        <div className="x2m-file-list flex flex-col gap-1.5 px-2 pt-2 pb-4">
           {files.map((f, idx) => (
             <div key={f.id} className={cn('x2m-file', 'x2m-md-file', fileCard, selectedId === f.id && 'active', selectedId === f.id && fileCardActive)}>
               <div className={cn("x2m-file-head", fileHead)}>

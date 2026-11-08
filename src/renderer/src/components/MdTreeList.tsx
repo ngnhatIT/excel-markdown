@@ -92,9 +92,9 @@ export function MdTreeList(p: Props): React.ReactElement {
   const rootLabel = p.root ? baseName(p.root.replace(/[\\/]+$/, '')) || p.root : 'Đọc Markdown'
 
   return (
-    <aside className={cn('x2m-files flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line bg-soft', p.dragOver && 'drag-over outline-2 -outline-offset-2 outline-dashed outline-accent')}>
-      <div className="x2m-pane-title flex items-center justify-between gap-1.5 px-3 pb-1.5 pt-2.5 text-xs font-bold tracking-[0.01em] text-dim">
-        <span className="x2m-tree-title truncate font-bold text-ink" title={p.root ?? undefined}>
+    <aside className={cn('x2m-files flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line-subtle', p.dragOver && 'drag-over outline-2 -outline-offset-2 outline-dashed outline-accent')}>
+      <div className="x2m-pane-title flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-faint [&_button]:normal-case [&_button]:tracking-normal">
+        <span className="x2m-tree-title truncate text-[12.5px] font-semibold normal-case tracking-normal text-ink" title={p.root ?? undefined}>
           {rootLabel}
           {p.root ? ` (${p.relFiles.length})` : ''}
         </span>
@@ -132,7 +132,7 @@ export function MdTreeList(p: Props): React.ReactElement {
         </span>
       </div>
       {!empty && (
-        <div className="x2m-filter px-2.5 pb-2">
+        <div className="x2m-filter px-2.5 py-2">
           <input
             className={`x2m-filter-input ${input}`}
             placeholder="Lọc file..."

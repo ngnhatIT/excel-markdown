@@ -15,7 +15,7 @@ export function Toasts(): React.ReactElement {
   }, [])
 
   return (
-    <div className="x2m-toasts fixed bottom-[68px] right-4 z-[100] flex flex-col gap-2" aria-live="polite">
+    <div className="x2m-toasts fixed bottom-24 right-6 z-[100] flex flex-col gap-2" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className={cn(
             'x2m-toast glass max-w-[380px] rounded-xl px-4 py-2.5 text-[13px] text-ink',

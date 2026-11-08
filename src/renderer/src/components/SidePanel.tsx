@@ -16,7 +16,7 @@ export function SidePanel({ title = 'Tùy chọn', collapsed, onToggle, actions,
   const hideTitle = `Ẩn ${title}`
   if (collapsed) {
     return (
-      <aside className="x2m-side glass collapsed w-10 min-w-10 shrink-0 overflow-hidden rounded-2xl">
+      <aside className="x2m-side collapsed w-10 min-w-10 shrink-0 overflow-hidden border-l border-line-subtle">
         <button className="x2m-side-strip flex size-full cursor-pointer flex-col items-center gap-2.5 py-3 text-dim transition-colors duration-150 hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent" onClick={onToggle} title={showTitle} aria-label={showTitle} aria-expanded={false}>
           <span className="x2m-side-chevron open flex rotate-90">
             <IconChevronDown size={14} />
@@ -28,8 +28,8 @@ export function SidePanel({ title = 'Tùy chọn', collapsed, onToggle, actions,
     )
   }
   return (
-    <aside className="x2m-side glass w-[304px] min-w-60 shrink-0 overflow-y-auto rounded-2xl" style={width ? { width, minWidth: width } : undefined}>
-      <div className="x2m-pane-title flex items-center justify-between gap-1.5 px-3 pb-1.5 pt-2.5 text-xs font-bold tracking-[0.01em] text-dim">
+    <aside className="x2m-side flex w-[304px] min-w-60 shrink-0 flex-col overflow-y-auto border-l border-line-subtle" style={width ? { width, minWidth: width } : undefined}>
+      <div className="x2m-pane-title sticky top-0 z-[1] flex shrink-0 bg-canvas/80 h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-faint [&_button]:normal-case [&_button]:tracking-normal">
         {title}
         <span className="x2m-side-head-actions flex items-center gap-1">
           {actions}

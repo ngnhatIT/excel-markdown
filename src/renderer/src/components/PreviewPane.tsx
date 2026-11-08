@@ -268,11 +268,11 @@ export function PreviewPane({
 
   return (
     <>
-      <div className="x2m-preview-bar flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-2">
-        <div className="x2m-tabs flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5">
+      <div className="x2m-preview-bar flex min-h-10 flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-3 py-1">
+        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-lg border border-line-subtle bg-canvas p-0.5">
           <button
             className={cn(
-              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-2.5 py-[3px] text-xs font-medium text-dim transition-colors duration-300 ease-spring hover:text-ink',
               tab === 'rendered' && 'active seg-on'
             )}
             onClick={() => setTab('rendered')}
@@ -281,7 +281,7 @@ export function PreviewPane({
           </button>
           <button
             className={cn(
-              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-2.5 py-[3px] text-xs font-medium text-dim transition-colors duration-300 ease-spring hover:text-ink',
               tab === 'split' && 'active seg-on'
             )}
             onClick={() => setTab('split')}
@@ -291,7 +291,7 @@ export function PreviewPane({
           </button>
           <button
             className={cn(
-              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+              'x2m-tab inline-flex items-center gap-1.5 rounded-md px-2.5 py-[3px] text-xs font-medium text-dim transition-colors duration-300 ease-spring hover:text-ink',
               tab === 'source' && 'active seg-on'
             )}
             onClick={() => setTab('source')}
@@ -299,9 +299,9 @@ export function PreviewPane({
             <IconMarkdown size={15} /> Mã Markdown
           </button>
         </div>
-        <div className="x2m-preview-meta flex items-center gap-2 text-xs">
+        <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] items-center justify-end gap-1 text-xs">
           {title ? (
-            <span className="x2m-meta-stats dim text-dim" title={title}>
+            <span className="x2m-meta-stats dim mr-auto min-w-48 truncate pl-1 text-dim" title={title}>
               <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
               {stats ? ` · ${stats.lines} dòng · ${stats.tables} bảng · ${stats.chars.toLocaleString('vi-VN')} ký tự` : ''}
             </span>

@@ -5,12 +5,12 @@ import { IconChevronDown, IconFile, IconTrash, IconX } from './icons'
 
 /** Class dùng chung cho các component cột trái (FileList, MdFileList, MdTreeList). */
 export const filesAside =
-  'glass flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto rounded-2xl'
+  'flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line-subtle'
 export const filesAsideDrag = 'outline-2 -outline-offset-2 outline-dashed outline-accent'
 export const emptyBox = 'flex flex-col items-center justify-center gap-2 px-6 py-12 text-center text-faint'
 export const emptyP = 'm-0 text-[13px] text-dim'
 export const emptyHint = 'text-xs !text-faint'
-export const filterWrap = 'px-2.5 pb-2'
+export const filterWrap = 'px-2.5 py-2'
 export const chevronBtn =
   'flex rounded-md p-1 text-dim transition-[transform,color] duration-150 hover:text-ink motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-accent'
 export const moveBtn =
@@ -53,7 +53,7 @@ export function FileList(p: Props): React.ReactElement {
 
   if (p.collapsed && p.onToggleCollapsed) {
     return (
-      <aside className="x2m-files collapsed flex w-10 min-w-10 shrink-0 flex-col overflow-hidden border-r border-line bg-soft">
+      <aside className="x2m-files collapsed flex w-10 min-w-10 shrink-0 flex-col overflow-hidden border-r border-line-subtle">
         <button
           className="x2m-side-strip flex size-full cursor-pointer flex-col items-center gap-2.5 py-3 text-dim transition-colors duration-150 hover:bg-hover hover:text-ink motion-reduce:transition-none"
           onClick={p.onToggleCollapsed}

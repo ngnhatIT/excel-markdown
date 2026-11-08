@@ -260,7 +260,7 @@ export function AiChatPanel({
         </div>
       }
     >
-      <div className="x2m-ai-panel flex h-full flex-col bg-soft">
+      <div className="x2m-ai-panel flex min-h-0 flex-1 flex-col">
         {showKeyBox && (
           <div className="x2m-ai-keybox flex flex-col gap-2 border-b border-line bg-raised/50 p-3">
             <div className="x2m-ai-keybox-row flex items-center gap-2">
