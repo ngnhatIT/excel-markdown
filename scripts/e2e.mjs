@@ -592,8 +592,8 @@ try {
   check('Bản đồ: mở thư mục specmap -> có nút Bản đồ thiết kế trên cây', (await waitFor(`!!(${treeRow('flow.md')}) && !!document.querySelector('.x2m-specmap-btn')`, 5000)) >= 0)
   const cspBeforeMap = await ev(`window.__csp.length`)
   await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
-  check('Bản đồ: 画面遷移図 vẽ SVG, chip 5 màn hình / 2 bảng / 4 vấn đề',
-    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 màn hình.*2 bảng.*4 vấn đề/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
+  check('Bản đồ: 画面遷移図 vẽ SVG, chip 5 màn hình / 2 bảng / 5 vấn đề',
+    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 màn hình.*2 bảng.*5 vấn đề/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
     await ev(`document.querySelector('.x2m-specmap')?.innerText ?? null`))
   check('Bản đồ: nút màn hình bấm được bằng bàn phím (tabindex, role=button), nút treo không',
     await ev(`document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"][tabindex="0"]').length === 4 && document.querySelectorAll('.x2m-specmap-diagram g.node').length === 7`),
@@ -617,8 +617,32 @@ try {
   await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
   await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
   await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '整合性チェック')?.click(), 1`)
-  check('整合性チェック: 2 lỗi trước, 2 cảnh báo (ô rẽ nhánh 権限あり？ không bị báo)', (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')]; return b.length === 4 && b[0].innerText.startsWith('Lỗi') && b[3].innerText.startsWith('Cảnh báo') })()`, 3000)) >= 0,
+  check('整合性チェック: 2 lỗi trước, 3 cảnh báo (ô rẽ nhánh 権限あり？ không bị báo)', (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')]; return b.length === 5 && b[0].innerText.startsWith('Lỗi') && b[4].innerText.startsWith('Cảnh báo') })()`, 3000)) >= 0,
     await ev(`document.querySelector('.x2m-specmap-lint')?.innerText ?? null`))
+  check('整合性チェック: cảnh báo cách viết mơ hồ 「要確認」 ở screens/SCR002_menu.md:17',
+    await ev(`[...document.querySelectorAll('.x2m-specmap-lint .x2m-specmap-hit')].some(b => b.innerText.startsWith('Cảnh báo') && b.innerText.includes('Cách viết mơ hồ') && b.innerText.includes('要確認') && b.innerText.includes('screens/SCR002_menu.md:17'))`),
+    await ev(`document.querySelector('.x2m-specmap-lint')?.innerText ?? null`))
+  // CRUD図: ma trận 画面 × テーブル, header dính, bấm ô -> bằng chứng -> mở tài liệu
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === 'CRUD図')?.click(), 1`)
+  const crudCell = (label) => `document.querySelector('.x2m-crud-cell[aria-label=${JSON.stringify(label)}]')`
+  check('CRUD図: ma trận có SCR011 × TBL_CUSTOMER = RUD, SCR011 × TBL_ORDER = C, SCR010 × TBL_CUSTOMER = R, header sticky',
+    (await waitFor(`${crudCell('SCR011 × TBL_CUSTOMER: RUD')}?.textContent === 'RUD' && ${crudCell('SCR011 × TBL_ORDER: C')}?.textContent === 'C' && !!${crudCell('SCR010 × TBL_CUSTOMER: R')} && getComputedStyle(document.querySelector('.x2m-crud-grid thead th')).position === 'sticky'`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-crud')?.innerText ?? null`))
+  await ev(`${crudCell('SCR011 × TBL_CUSTOMER: RUD')}?.click(), 1`)
+  check('CRUD図: chọn ô -> 3 dòng bằng chứng (R / U / D)',
+    (await waitFor(`(() => { const b = [...document.querySelectorAll('.x2m-specmap-crud .x2m-specmap-hit')]; return b.length === 3 && b[1].innerText.includes('screens/SCR011_detail.md:14') && b[1].innerText.startsWith('U') })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-crud')?.innerText ?? null`))
+  await ev(`[...document.querySelectorAll('.x2m-specmap-crud .x2m-specmap-hit')][2]?.click(), 1`)
+  check('CRUD図: bấm bằng chứng -> mở screens/SCR011_detail.md',
+    (await waitFor(`!document.querySelector('.x2m-specmap') && document.querySelector('.x2m-meta-title')?.textContent === 'screens/SCR011_detail.md'`, 5000)) >= 0,
+    await ev(`document.querySelector('.x2m-meta-title')?.textContent`))
+  // 用語集: đọc 用語集.md ở gốc, có nút copy gợi ý
+  await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
+  await waitFor(`!!document.querySelector('.x2m-specmap-tab')`, 3000)
+  await ev(`[...document.querySelectorAll('.x2m-specmap-tab')].find(b => b.textContent === '用語集')?.click(), 1`)
+  check('用語集: hiện bảng 3 mục từ 用語集.md, nút Copy gợi ý 用語集 bật',
+    (await waitFor(`(() => { const g = document.querySelector('.x2m-specmap-glossary'); return !!g && g.querySelectorAll('tbody tr').length === 3 && g.innerText.includes('khách hàng') && [...g.querySelectorAll('button')].some(b => b.textContent.startsWith('Copy gợi ý 用語集') && !b.disabled) })()`, 3000)) >= 0,
+    await ev(`document.querySelector('.x2m-specmap-glossary')?.innerText ?? null`))
   await ev(`document.querySelector('.x2m-specmap-close')?.click(), 1`)
   check('Bản đồ: nút đóng -> về bản xem', (await waitFor(`!document.querySelector('.x2m-specmap') && !!document.querySelector('.x2m-preview')`, 2000)) >= 0)
   // Như bước ER: chỉ bỏ báo style-src tạm của mermaid khi vẽ sơ đồ

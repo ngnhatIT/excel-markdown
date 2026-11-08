@@ -1,14 +1,15 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { buildSpecIndex, erMermaid, impactOf, impactSuggestions, SPEC_MAX_DOCS, SPEC_MAX_NODES, SPEC_MAX_REFS, transitionMermaid, type SpecDoc } from './specIndex'
+import { buildSpecIndex, crudMatrix, crudOpsOf, crudText, erMermaid, impactOf, impactSuggestions, SPEC_MAX_DOCS, SPEC_MAX_NODES, SPEC_MAX_REFS, transitionMermaid, type SpecDoc } from './specIndex'
 
 const root = join(__dirname, '../..')
 const fx = join(root, 'test/fixtures/specmap')
 // Thứ tự như listMarkdownFiles (theo chiều rộng): file ở gốc trước, rồi thư mục con
-const REL = ['flow.md', 'db/customer.md', 'screens/SCR001_login.md', 'screens/SCR002_menu.md', 'screens/SCR010_search.md', 'screens/SCR011_detail.md', 'screens/old/SCR010_v1.md']
+const REL = ['flow.md', '用語集.md', 'db/customer.md', 'screens/SCR001_login.md', 'screens/SCR002_menu.md', 'screens/SCR010_search.md', 'screens/SCR011_detail.md', 'screens/old/SCR010_v1.md']
 const docs: SpecDoc[] = REL.map((rel) => ({ rel, text: readFileSync(join(fx, rel), 'utf8') }))
 const index = buildSpecIndex(docs)
+const doc = (rel: string): SpecDoc => docs.find((d) => d.rel === rel) as SpecDoc
 
 const mermaidParses = async (src: string): Promise<void> => {
   const mermaid = (await import('mermaid')).default
@@ -76,6 +77,7 @@ describe('buildSpecIndex: fixture specmap', () => {
       'warning dangling-transition エラー画面 SCR099 flow.md:9',
       'warning dangling-transition 受注一覧 screens/SCR002_menu.md:9',
       'error unknown-column TBL_CUSTOMER.CUST_KANA screens/SCR010_search.md:22',
+      'warning ambiguous-term 要確認 screens/SCR002_menu.md:17',
     ])
     expect(index.issues[0].other).toEqual({ rel: 'screens/SCR010_search.md', line: 7 })
   })
@@ -179,7 +181,7 @@ describe('giới hạn đầu vào không tin cậy', () => {
     const a = buildSpecIndex(many)
     expect(a.docCount).toBe(SPEC_MAX_DOCS)
     expect(a.truncated.docs).toBe(true)
-    const def = docs[1]
+    const def = doc('db/customer.md')
     const spam = { rel: 'spam.md', text: Array.from({ length: SPEC_MAX_REFS + 10 }, () => 'TBL_CUSTOMER').join('\n') }
     const b = buildSpecIndex([def, spam])
     expect(b.refs).toHaveLength(SPEC_MAX_REFS)
@@ -193,12 +195,12 @@ describe('giới hạn đầu vào không tin cậy', () => {
     const md = '## T\n\n- **テーブルID**: AB\n\n| 物理名 | 型 |\n|---|---|\n| ID | INT |\n'
     const r = buildSpecIndex([{ rel: 't.md', text: md }, { rel: 'u.md', text: 'AB ID AB.ID TBL_CUSTOMER.md' }])
     expect(r.refs).toEqual([])
-    const s = buildSpecIndex([docs[1], { rel: 'u.md', text: 'see TBL_CUSTOMER.md' }])
+    const s = buildSpecIndex([doc('db/customer.md'), { rel: 'u.md', text: 'see TBL_CUSTOMER.md' }])
     expect(s.issues).toEqual([])
   })
 
   it('bảng trùng tên giữa hai tài liệu -> lỗi duplicate-table', () => {
-    const r = buildSpecIndex([docs[1], { rel: 'copy.md', text: docs[1].text }])
+    const r = buildSpecIndex([doc('db/customer.md'), { rel: 'copy.md', text: doc('db/customer.md').text }])
     expect(r.issues.filter((i) => i.code === 'duplicate-table').map((i) => `${i.subject} ${i.rel}`)).toEqual(['TBL_CUSTOMER copy.md', 'TBL_ORDER copy.md'])
   })
 })
@@ -223,5 +225,118 @@ describe('nút điều kiện (rẽ nhánh) trong sơ đồ 画面遷移', () =>
     expect(source).toMatch(/n\d+\{"権限あり？"\}/)
     const decisionId = /(n\d+)\{"権限あり？"\}/.exec(source)?.[1]
     expect(source).not.toMatch(new RegExp(`class [^\\n]*\\b${decisionId}\\b[^\\n]* dangling`))
+  })
+})
+
+describe('CRUD図', () => {
+  const m = crudMatrix(index)
+
+  it('hàng = màn hình (không trùng ID), cột = bảng; thao tác từ động từ trong dòng / heading, không rõ -> ?', () => {
+    expect(m.screens.map((s) => s.id)).toEqual(['SCR001', 'SCR002', 'SCR010', 'SCR011'])
+    expect(m.tables).toEqual(['TBL_CUSTOMER', 'TBL_ORDER'])
+    const ops = Object.fromEntries(Object.entries(m.cells).map(([id, row]) => [id, Object.fromEntries(Object.entries(row).map(([t, c]) => [t, c.ops]))]))
+    expect(ops).toEqual({
+      SCR002: { TBL_ORDER: '?' }, // 「要確認」: không có động từ -> không đoán
+      SCR010: { TBL_CUSTOMER: 'R' }, // 検索キー / 表示順
+      SCR011: { TBL_CUSTOMER: 'RUD', TBL_ORDER: 'C' }, // 取得して表示 / 更新 / 削除 / 新規登録
+    })
+  })
+
+  it('bằng chứng theo dòng: rel:line, thao tác từng dòng; bảng + cột cùng dòng chỉ một', () => {
+    expect(m.cells.SCR011.TBL_CUSTOMER.evidence.map((e) => `${e.rel}:${e.line}:${e.ops}`)).toEqual([
+      'screens/SCR011_detail.md:10:R',
+      'screens/SCR011_detail.md:14:U',
+      'screens/SCR011_detail.md:15:D',
+    ])
+    // dòng 21 có cả TBL_CUSTOMER và TBL_CUSTOMER.CUST_CD
+    expect(m.cells.SCR010.TBL_CUSTOMER.evidence.filter((e) => e.line === 21)).toHaveLength(1)
+    // ô bảng 項目定義 không có động từ (heading 【項目定義】 cũng không) -> ?
+    expect(m.cells.SCR010.TBL_CUSTOMER.evidence.find((e) => e.line === 17)?.ops).toBe('?')
+  })
+
+  it('heading làm ngữ cảnh khi dòng không có động từ; tên của chính tham chiếu (論理名 登録日) không tính', () => {
+    const md = [
+      '## 画面',
+      '- **画面ID**: A001',
+      '### 【削除処理】',
+      '- 対象: TBL_X',
+      '### 【項目定義】',
+      '| No | 項目名 | 区分 |',
+      '|---|---|---|',
+      '| 1 | 登録日 | 表示 |',
+      '| 2 | 更新者 | 入力 |',
+      '## TBL_X',
+      '| 論理名 | 物理名 | 型 |',
+      '|---|---|---|',
+      '| 登録日 | REG_DATE | DATE |',
+      '| 更新者 | UPD_USER | VARCHAR |',
+    ].join('\n')
+    const c = crudMatrix(buildSpecIndex([{ rel: 'a.md', text: md }])).cells.A001.TBL_X
+    expect(c.evidence.map((e) => `${e.line}:${e.ops}`)).toEqual(['4:D', '8:R', '9:?'])
+    expect(c.ops).toBe('RD')
+  })
+
+  it('động từ Nhật / Việt / Anh; tiếng Anh phải nguyên từ', () => {
+    expect(crudOpsOf('新規登録して一覧に表示、変更、取消')).toEqual(['C', 'R', 'U', 'D'])
+    expect(crudOpsOf('Thêm mới, tìm kiếm, cập nhật, xoá khách hàng')).toEqual(['C', 'R', 'U', 'D'])
+    expect(crudOpsOf('INSERT then select, updated, deleting')).toEqual(['C', 'R', 'U', 'D'])
+    expect(crudOpsOf('address preview already target')).toEqual([])
+    expect(crudOpsOf('顧客コード（前方一致）')).toEqual([])
+  })
+
+  it('xuất TSV / Markdown: hàng màn hình, ô trống khi không có tham chiếu; escape `|`', () => {
+    expect(crudText(m, 'tsv').split('\n')[0]).toBe('画面\tTBL_CUSTOMER\tTBL_ORDER')
+    expect(crudText(m, 'tsv')).toContain('SCR011 顧客詳細画面\tRUD\tC\n')
+    const md = crudText(m, 'md').split('\n')
+    expect(md.slice(0, 2)).toEqual(['| 画面 | TBL_CUSTOMER | TBL_ORDER |', '|---|---|---|'])
+    expect(md).toContain('| SCR001 ログイン画面 |  |  |')
+    const x = crudText({ screens: [{ id: 'A|1', name: '' }], tables: ['T'], cells: {} }, 'md')
+    expect(x).toContain('| A\\|1 |  |')
+  })
+})
+
+describe('lint: ambiguous-term / column-mismatch', () => {
+  it('cách viết mơ hồ chỉ trong tài liệu 画面 / テーブル, một cảnh báo mỗi dòng; 同等 / 等しい không tính', () => {
+    const screen = '- **画面ID**: A001\n\n顧客名など、適宜表示する。\n金額が等しい場合は同等とみなす。\n仕様は TBD。\n未定\nTBDX ok\n'
+    const r = buildSpecIndex([{ rel: 's.md', text: screen }, { rel: 'memo.md', text: 'など TBD 未定\n' }])
+    expect(r.issues.filter((i) => i.code === 'ambiguous-term').map((i) => `${i.rel}:${i.line}:${i.subject}`)).toEqual(['s.md:3:など', 's.md:5:TBD', 's.md:6:未定'])
+    expect(buildSpecIndex([{ rel: 's.md', text: '- **画面ID**: A001\n顧客名等を表示\n' }]).issues.map((i) => i.subject)).toEqual(['等'])
+  })
+
+  it('giới hạn số cảnh báo mơ hồ', () => {
+    const r = buildSpecIndex([{ rel: 's.md', text: '- **画面ID**: A001\n' + 'TBD\n'.repeat(2000) }])
+    expect(r.issues.filter((i) => i.code === 'ambiguous-term').length).toBe(500)
+  })
+
+  it('cùng 物理名 / 論理名 ở hai bảng mà khác kiểu hoặc 桁数 -> cảnh báo ở bảng sau; giống nhau / kiểu trống -> không', () => {
+    const tbl = (name: string, rows: string[]): string => `## ${name}\n\n| 論理名 | 物理名 | 型 | 桁数 |\n|---|---|---|---|\n${rows.join('\n')}\n\n---\n\n`
+    const md =
+      tbl('TBL_A', ['| 顧客コード | CUST_CD | VARCHAR | 10 |', '| 登録日 | REG_DATE | DATE |  |', '| 備考 | NOTE |  |  |']) +
+      tbl('TBL_B', ['| 顧客コード | CUST_CD | VARCHAR(10) |  |', '| 登録日時 | REG_DATE | TIMESTAMP |  |', '| 備考 | MEMO | TEXT |  |']) +
+      tbl('TBL_C', ['| 顧客コード | CUSTOMER_CD | CHAR | 8 |'])
+    const r = buildSpecIndex([{ rel: 'db.md', text: md }])
+    expect(r.issues.map((i) => `${i.code} ${i.subject} ${i.detail} @${i.other?.line}`)).toEqual([
+      'column-mismatch TBL_B.REG_DATE TIMESTAMP ≠ TBL_A.REG_DATE DATE @6',
+      'column-mismatch TBL_C.CUSTOMER_CD CHAR(8) ≠ TBL_A.CUST_CD VARCHAR(10) @5',
+    ])
+    expect(r.issues[0]).toMatchObject({ severity: 'warning', rel: 'db.md' })
+  })
+
+  it('fixture: CUST_CD giống nhau ở TBL_CUSTOMER và TBL_ORDER -> không cảnh báo', () => {
+    expect(index.issues.filter((i) => i.code === 'column-mismatch')).toEqual([])
+  })
+})
+
+describe('用語集 trong chỉ mục', () => {
+  it('đọc 用語集.md ở gốc', () => {
+    expect(index.glossary?.rel).toBe('用語集.md')
+    expect(index.glossary?.entries.map((e) => `${e.ja}=${e.vi}=${e.en}`)).toEqual(['顧客=khách hàng=customer', '受注=đơn hàng=order', '画面遷移=chuyển màn hình=screen transition'])
+  })
+
+  it('không có file -> null; glossary.md ở thư mục con (≤ 2 cấp) cũng được, sâu hơn thì không', () => {
+    expect(buildSpecIndex([doc('flow.md')]).glossary).toBeNull()
+    const g = '| JA | VI | EN |\n|---|---|---|\n| 顧客 | khách hàng | customer |\n'
+    expect(buildSpecIndex([{ rel: 'docs/spec/Glossary.md', text: g }]).glossary?.entries).toHaveLength(1)
+    expect(buildSpecIndex([{ rel: 'a/b/c/glossary.md', text: g }]).glossary).toBeNull()
   })
 })

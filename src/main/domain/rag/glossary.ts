@@ -1,6 +1,8 @@
 /* Từ điển ánh xạ thuật ngữ chuyên ngành BA/BrSE Việt - Anh <-> Nhật (基本設計)
  * để câu hỏi bằng tiếng Việt khớp trực tiếp với các bảng/mục tiếng Nhật mà không tốn thêm 1 lượt gọi API phụ.
+ * Thêm 用語集 của dự án (file 用語集.md / glossary.md của thư mục đang mở ở Đọc Markdown) khi có.
  */
+import type { GlossaryEntry as ProjectTerm } from '../../../shared/glossary'
 
 interface GlossaryEntry {
   triggers: string[]
@@ -58,14 +60,27 @@ const VI_JA_GLOSSARY: GlossaryEntry[] = [
   },
 ]
 
-/** Bung câu hỏi tiếng Việt/Anh thành danh sách các từ khóa tiếng Nhật chuyên ngành tương ứng. */
-export function expandViJaQueryTerms(query: string): string[] {
+/* 用語集 của thư mục mở gần nhất ở Đọc Markdown: viewer.ts đặt (mdv:list / mdv:specIndex), ai:translate và RAG đọc.
+ * shortcut: một bản cho cả app (chỉ có một cửa sổ, một thư mục đang xem); nhiều cửa sổ thì cần khóa theo thư mục. */
+let projectTerms: readonly ProjectTerm[] = []
+export function setProjectGlossary(entries: readonly ProjectTerm[]): void {
+  projectTerms = entries
+}
+export const projectGlossary = (): readonly ProjectTerm[] => projectTerms
+
+/** Bung câu hỏi tiếng Việt/Anh thành danh sách các từ khóa tiếng Nhật chuyên ngành tương ứng.
+ * `extra`: cặp thuật ngữ của dự án (mặc định 用語集 đang mở), thêm vào sau từ điển có sẵn. */
+export function expandViJaQueryTerms(query: string, extra: readonly ProjectTerm[] = projectTerms): string[] {
   const qLower = query.toLowerCase()
   const out = new Set<string>()
   for (const entry of VI_JA_GLOSSARY) {
     if (entry.triggers.some((t) => qLower.includes(t))) {
       for (const ja of entry.jaTerms) out.add(ja)
     }
+  }
+  for (const e of extra) {
+    // Thuật ngữ quá ngắn (`id`, `no`) khớp lung tung: bỏ
+    if ([e.vi, e.en].some((t) => t.trim().length >= 3 && qLower.includes(t.trim().toLowerCase()))) out.add(e.ja)
   }
   return Array.from(out)
 }

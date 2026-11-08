@@ -1,13 +1,15 @@
 /* IPC chế độ Đọc Markdown (mdv:*) và scheme ảnh cục bộ `x2m-img:`. */
 import { ipcMain, protocol } from 'electron'
 import { readFile } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { dirname, join } from 'node:path'
 import type { MdFolderListing } from '../../../../shared/types'
 import { IMG_SCHEME, imagePathFromUrl } from '../../../../shared/mdView'
 import { errorCode } from '../../../domain/errors'
 import { imageMime, isInsideDir, isMarkdownPath, isOpenableDirectory } from '../../../domain/guards'
 import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, searchMarkdownFolder } from '../../outbound/mdFolder'
 import { buildSpecIndex, type SpecIndex } from '../../../../shared/specIndex'
+import { findGlossaryRel, parseGlossary } from '../../../../shared/glossary'
+import { setProjectGlossary } from '../../../domain/rag/glossary'
 import { logError } from '../../outbound/store'
 
 /** Chỉ mục 影響調査 lớn hơn (ký tự JSON) thì không gửi sang renderer. */
@@ -31,6 +33,9 @@ export function registerViewerIpc(): void {
     try {
       const { files, mtimes, truncated } = await listMarkdownFiles(root as string)
       viewerRoots.add(root as string)
+      // 用語集 của thư mục vừa mở: ai:translate (dịch nhanh) + RAG dùng; lỗi đọc không chặn việc mở thư mục
+      const gRel = findGlossaryRel(files)
+      setProjectGlossary(gRel ? await readMarkdownFile(join(root as string, gRel)).then(parseGlossary, () => []) : [])
       const listing: MdFolderListing = { root: root as string, files, mtimes, truncated }
       return { ok: true, data: listing }
     } catch (err) {
@@ -78,10 +83,14 @@ export function registerViewerIpc(): void {
       const { files, mtimes } = await listMarkdownFiles(root)
       const key = JSON.stringify(files.map((f) => [f, mtimes[f]]))
       const hit = specCache.get(root)
-      if (hit?.key === key) return { ok: true, data: hit.index }
+      if (hit?.key === key) {
+        setProjectGlossary(hit.index.glossary?.entries ?? [])
+        return { ok: true, data: hit.index }
+      }
       const docs = await readMarkdownFolder(root, files, () => gen !== specGen)
       if (!docs) return { ok: false, error: 'E_SPECMAP_STALE' }
       const index = buildSpecIndex(docs)
+      setProjectGlossary(index.glossary?.entries ?? [])
       // Chặn payload IPC quá lớn (thư mục khổng lồ): báo lỗi thay vì treo renderer
       if (JSON.stringify(index).length > SPEC_PAYLOAD_MAX) return { ok: false, error: 'E_SPECMAP_TOO_BIG' }
       specCache.delete(root)

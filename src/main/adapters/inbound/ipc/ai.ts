@@ -17,7 +17,9 @@ import { askLlm, listModels } from '../../outbound/llm/askLlm'
 import { redactApiKey } from '../../outbound/llm/shared'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { errText } from '../../../domain/errors'
-import { isTranslateLang, MAX_TRANSLATE_CHARS, translatePrompt } from '../../../../shared/translate'
+import { isTranslateLang, MAX_TRANSLATE_CHARS, MAX_PROMPT_TERMS, translatePrompt } from '../../../../shared/translate'
+import { termsIn } from '../../../../shared/glossary'
+import { projectGlossary } from '../../../domain/rag/glossary'
 import { logError, readStore, updateStore } from '../../outbound/store'
 import { mt } from '../../../i18nMain'
 
@@ -103,10 +105,12 @@ export function registerAiIpc(): void {
       rawKey = decryptApiKey(store[keyField(provider)], safeStorage)
       if (!rawKey) return { ok: false, error: 'NO_KEY' }
       const model = normalizeAiModel(provider, store[modelField(provider)])
-      const key = `${provider}|${model}|${target}|${text}`
+      // 用語集 của thư mục đang mở ở Đọc Markdown (viewer.ts đặt khi mở thư mục); đổi 用語集 thì không dùng cache cũ
+      const terms = termsIn(text, projectGlossary(), MAX_PROMPT_TERMS)
+      const key = `${provider}|${model}|${target}|${JSON.stringify(terms)}|${text}`
       const hit = translateCache.get(key)
       if (hit !== undefined) return { ok: true, data: hit }
-      const { system, question } = translatePrompt(text.trim(), target)
+      const { system, question } = translatePrompt(text.trim(), target, terms)
       const res = await askLlm(provider, { apiKey: rawKey, model, question, contextText: '', history: [], availableCitations: [], signal: controller.signal, system })
       const out = res.answer.trim()
       if (translateCache.size >= 200) translateCache.delete(translateCache.keys().next().value as string)
