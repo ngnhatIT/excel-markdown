@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { friendlyError, NOT_EXCEL_MESSAGE } from './errors'
+import { codeText, describeError, errorCode, friendlyError, NOT_EXCEL_MESSAGE } from './errors'
 
 describe('friendlyError', () => {
   it('lỗi password-protected -> tiếng Việt', () => {
@@ -42,5 +42,25 @@ describe('friendlyError', () => {
     expect(friendlyError(new Error('EBUSY: resource busy or locked'), 'write')).toBe(w)
     expect(friendlyError(new Error('EPERM: operation not permitted, rename'), 'write')).toBe(w)
     expect(friendlyError(new Error('EPERM: x'))).toContain('Không đọc được file') // 'read' giữ nguyên
+  })
+})
+
+describe('errorCode / describeError', () => {
+  it('lỗi đã biết -> mã E_…; lỗi khác giữ nguyên', () => {
+    expect(errorCode(new Error("ENOENT: no such file or directory, open 'x'"))).toBe('E_FILE_NOT_FOUND')
+    expect(errorCode(new Error('EBUSY: resource busy'), 'write')).toBe('E_WRITE_LOCKED')
+    expect(errorCode(new Error('File is password-protected'))).toBe('E_PASSWORD')
+    expect(errorCode(new Error(NOT_EXCEL_MESSAGE))).toBe('E_NOT_EXCEL_FILE') // message từ worker
+    expect(errorCode(new Error('E_WORKER_TIMEOUT|120'))).toBe('E_WORKER_TIMEOUT|120')
+    expect(errorCode(new Error('boom'))).toBe('boom')
+  })
+
+  it('dịch mã theo ngôn ngữ, thay tham số; CLI (friendlyError) vẫn tiếng Việt', () => {
+    expect(codeText('E_WORKER_TIMEOUT|120', 'en')).toContain('120 seconds')
+    expect(codeText('E_WORKER_CRASHED|3', 'vi')).toContain('(mã 3)')
+    expect(codeText('E_UNKNOWN|x', 'ja')).toBe('E_UNKNOWN|x')
+    expect(describeError(new Error('EISDIR'), 'ja')).toContain('フォルダー')
+    expect(friendlyError(new Error('E_WORKER_TIMEOUT|60'))).toBe('Đọc file quá 60 giây nên đã dừng. File có thể bị hỏng hoặc quá lớn.')
+    expect(friendlyError(new Error(NOT_EXCEL_MESSAGE))).toBe(NOT_EXCEL_MESSAGE)
   })
 })

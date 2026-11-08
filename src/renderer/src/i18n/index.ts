@@ -8,22 +8,23 @@ import { translateEn, translateJa, translateVi } from './translate'
 import { errorsEn, errorsJa, errorsVi } from './errors'
 import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
 import { specMapEn, specMapJa, specMapVi } from './specMap'
+import { appEn, appJa, appVi } from './app'
 
 export type Lang = 'vi' | 'en' | 'ja'
 /** Khóa của từ điển chính (vi.ts); en.ts / ja.ts phải đủ các khóa này. */
 export type Dict = Record<keyof typeof vi, string>
-export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi | keyof typeof errorsVi | keyof typeof tableDefVi | keyof typeof specMapVi
+export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi | keyof typeof errorsVi | keyof typeof tableDefVi | keyof typeof specMapVi | keyof typeof appVi
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
 /** Locale cho Intl / toLocaleString theo ngôn ngữ giao diện. */
 export const LOCALES: Record<Lang, string> = { vi: 'vi-VN', en: 'en-US', ja: 'ja-JP' }
 type FullDict = Record<TKey, string>
-const VI: FullDict = { ...vi, ...compareVi, ...translateVi, ...errorsVi, ...tableDefVi, ...specMapVi }
+const VI: FullDict = { ...vi, ...compareVi, ...translateVi, ...errorsVi, ...tableDefVi, ...specMapVi, ...appVi }
 const DICTS: Record<Lang, FullDict> = {
   vi: VI,
-  en: { ...en, ...compareEn, ...translateEn, ...errorsEn, ...tableDefEn, ...specMapEn },
-  ja: { ...ja, ...compareJa, ...translateJa, ...errorsJa, ...tableDefJa, ...specMapJa },
+  en: { ...en, ...compareEn, ...translateEn, ...errorsEn, ...tableDefEn, ...specMapEn, ...appEn },
+  ja: { ...ja, ...compareJa, ...translateJa, ...errorsJa, ...tableDefJa, ...specMapJa, ...appJa },
 }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
@@ -78,8 +79,10 @@ export function useT(): TFn {
   return useMemo<TFn>(() => (key, params) => translate(lang, key, params), [lang])
 }
 
-/** Chữ của mã lỗi `E_…` do main trả về (dịch theo ngôn ngữ hiện tại); không phải mã đã biết -> null. */
+/** Chữ của mã lỗi `E_…` do main trả về (dịch theo ngôn ngữ hiện tại); tham số sau dấu `|` thay vào `{0}`
+ * (vd `E_OUTDIR_NOT_WRITABLE|/out`). Không phải mã đã biết -> null. */
 export function errCodeText(msg: string): string | null {
-  const key = `err.${msg}`
-  return /^E_[A-Z_]+$/.test(msg) && key in VI ? t(key as TKey) : null
+  const m = /^(E_[A-Z_]+)(?:\|([\s\S]*))?$/.exec(msg)
+  const key = `err.${m?.[1]}`
+  return m && key in VI ? t(key as TKey, m[2] === undefined ? undefined : { 0: m[2] }) : null
 }

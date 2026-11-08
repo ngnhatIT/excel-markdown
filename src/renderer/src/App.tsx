@@ -230,14 +230,24 @@ export default function App(): React.ReactElement {
   addPathsRef.current = addPaths
   const appModeRef = useRef(appMode)
   appModeRef.current = appMode
-  // main chỉ chuyển tiếp file Excel (mở bằng app): luôn vào danh sách Excel
+  const viewerOpenFilesRef = useRef(viewerOpenFiles)
+  viewerOpenFilesRef.current = viewerOpenFiles
+  // File mở bằng app: Markdown -> chế độ Đọc Markdown; Excel -> luôn vào danh sách Excel
   useEffect(
     () =>
       window.api.onOpenFiles((paths) => {
-        void addPathsRef.current(paths)
-        if (appModeRef.current !== 'excel2md') toast(hintExcelFile(), 'err')
+        const md = paths.filter((p) => MD_EXT.test(p))
+        const excel = paths.filter((p) => !MD_EXT.test(p))
+        if (md.length > 0) {
+          setAppMode('mdview')
+          persist('mode', 'mdview')
+          viewerOpenFilesRef.current(md)
+        }
+        if (excel.length === 0) return
+        void addPathsRef.current(excel)
+        if (md.length === 0 && appModeRef.current !== 'excel2md') toast(hintExcelFile(), 'err')
       }),
-    []
+    [persist]
   )
 
   useEffect(() => {

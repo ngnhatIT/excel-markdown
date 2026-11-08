@@ -1,7 +1,8 @@
 /* Cài đặt của app (userData/store.json) và log lỗi (userData/logs/error.log). */
 import { app } from 'electron'
-import { appendFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { appendLog } from './logFile'
 
 function storePath(): string {
   return join(app.getPath('userData'), 'store.json')
@@ -53,20 +54,17 @@ export function updateStore(mutate: (store: Record<string, unknown>) => void): P
 
 const LOG_MAX_BYTES = 512 * 1024
 
-/** Ghi lỗi ra logs/error.log trong userData (xoay vòng khi > 512KB). Không bao giờ throw. */
+/** Thư mục log (userData/logs). */
+export const logsDir = (): string => join(app.getPath('userData'), 'logs')
+
+/** File log lỗi hiện tại. */
+export const errorLogPath = (): string => join(logsDir(), 'error.log')
+
+/** Ghi lỗi ra logs/error.log trong userData (quá 512KB thì chuyển sang error.1.log). Không bao giờ throw. */
 export async function logError(scope: string, err: unknown): Promise<void> {
   try {
-    const dir = join(app.getPath('userData'), 'logs')
-    await mkdir(dir, { recursive: true })
-    const p = join(dir, 'error.log')
-    try {
-      const st = await stat(p)
-      if (st.size > LOG_MAX_BYTES) await writeFile(p, '', 'utf-8')
-    } catch {
-      /* chưa có file log */
-    }
     const msg = err instanceof Error ? (err.stack ?? err.message) : String(err)
-    await appendFile(p, '[' + new Date().toISOString() + '] [' + scope + '] ' + msg + '\n', 'utf-8')
+    await appendLog(errorLogPath(), '[' + new Date().toISOString() + '] [' + scope + '] ' + msg + '\n', LOG_MAX_BYTES)
   } catch {
     /* logging không được làm crash app */
   }

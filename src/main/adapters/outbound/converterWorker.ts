@@ -4,7 +4,6 @@
 import { utilityProcess, type UtilityProcess } from 'electron'
 import { CancelledError, type DistributiveOmit, type WorkerRequest, type WorkerResponse } from '../../application/ports/workerProtocol'
 
-
 interface Pending {
   resolve: (v: unknown) => void
   reject: (e: Error) => void
@@ -52,11 +51,8 @@ export class ConverterWorker {
     proc.on('exit', (code) => {
       clearTimeout(live.watchdog)
       if (this.live === live) this.live = null
-      const err =
-        live.reason ??
-        new Error(
-            `Tiến trình đọc Excel dừng bất thường (mã ${code}). File có thể quá lớn hoặc bị hỏng; hãy thử lại.`
-          )
+      // Mã lỗi (domain/errors.ts): renderer / main dịch theo ngôn ngữ giao diện
+      const err = live.reason ?? new Error(`E_WORKER_CRASHED|${code}`)
       for (const p of live.pending.values()) p.reject(err)
       live.pending.clear()
     })
@@ -81,7 +77,7 @@ export class ConverterWorker {
     live.watchdog = undefined
     if (this.timeoutMs <= 0 || live.pending.size === 0) return
     live.watchdog = setTimeout(() => {
-      this.kill(live, new Error(`Đọc file quá ${Math.round(this.timeoutMs / 1000)} giây nên đã dừng. File có thể bị hỏng hoặc quá lớn.`))
+      this.kill(live, new Error(`E_WORKER_TIMEOUT|${Math.round(this.timeoutMs / 1000)}`))
     }, this.timeoutMs)
   }
 

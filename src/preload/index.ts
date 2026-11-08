@@ -25,7 +25,7 @@ interface SheetListItem {
 
 async function unwrap<T>(p: Promise<ApiResult<T>>): Promise<T> {
   const res = await p
-  if (!res.ok) throw new Error(res.error ?? 'Lỗi không xác định')
+  if (!res.ok) throw new Error(res.error ?? 'E_UNKNOWN') // mã lỗi, renderer dịch (errMsg)
   return res.data as T
 }
 
@@ -62,6 +62,9 @@ contextBridge.exposeInMainWorld('api', {
       return ''
     }
   },
+  /** Gửi lỗi render (ErrorBoundary) sang main để ghi error.log. */
+  logRenderer: (msg: string): void => ipcRenderer.send('log:renderer', String(msg).slice(0, 20_000)),
+  /** File Excel / Markdown mở bằng app (Explorer, dòng lệnh, instance thứ hai); renderer chia theo đuôi. */
   onOpenFiles: (cb: (paths: string[]) => void): (() => void) => {
     const listener = (_e: unknown, v: string[]): void => cb(v)
     ipcRenderer.on('open-files', listener)

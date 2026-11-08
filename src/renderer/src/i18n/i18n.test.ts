@@ -8,6 +8,7 @@ import { translateEn, translateJa, translateVi } from './translate'
 import { errorsEn, errorsJa, errorsVi } from './errors'
 import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
 import { specMapEn, specMapJa, specMapVi } from './specMap'
+import { appEn, appJa, appVi } from './app'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
@@ -25,6 +26,8 @@ describe('i18n', () => {
       [tableDefVi, tableDefJa],
       [specMapVi, specMapEn],
       [specMapVi, specMapJa],
+      [appVi, appEn],
+      [appVi, appJa],
     ]
     for (const [base, d] of pairs) {
       expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())
@@ -55,6 +58,11 @@ describe('errCodeText', () => {
     expect(errCodeText('E_SEARCH_NOT_OPENED')).toBe('このフォルダは開かれていません。')
     expect(errCodeText('E_UNKNOWN_CODE')).toBeNull()
     expect(errCodeText('Lỗi bất kỳ')).toBeNull()
+    // Tham số sau `|` (đường dẫn có thể chứa `|` trên macOS/Linux: lấy hết phần còn lại)
+    expect(errCodeText('E_WORKER_TIMEOUT|120')).toContain('120 秒')
+    setLang('en')
+    expect(errCodeText('E_OUTDIR_NOT_WRITABLE|/a|b')).toBe('Cannot write to the folder: /a|b')
+    expect(errCodeText('E_BUSY')).toBe('A conversion is running. Please wait or click Cancel.')
     setLang('vi')
   })
 })
