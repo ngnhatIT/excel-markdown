@@ -16,6 +16,7 @@ cũng convert được.
 | Cho Claude Code / Codex làm việc trên tài liệu, không cần API key | [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp) |
 | Xem bản thiết kế mới đổi gì so với bản cũ (新旧比較), xuất báo cáo thay đổi | [So sánh](#6-so-sánh-bản-cũ--bản-mới-新旧比較) |
 | Xem thay đổi file Excel ngay trong `git diff` | [textconv](#convert-bằng-dòng-lệnh) |
+| Sửa bảng / cột / màn hình thì ảnh hưởng tới đâu? Sơ đồ 画面遷移, ER cả thư mục | [Bản đồ thiết kế](#3-đọc-markdown) |
 
 Bốn chế độ (Excel → Markdown, Markdown → Excel, Đọc Markdown, So sánh) đổi ở thanh trên cùng; app nhớ
 chế độ dùng lần cuối. Giao diện có **tiếng Việt / English / 日本語** (nút VI · EN · 日本語 ở thanh trên;
@@ -179,6 +180,15 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   `file.md#mục` cuộn đúng tới mục.
 - File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì quay lại cửa sổ app là tự tải lại,
   giữ vị trí cuộn.
+- **Bản đồ thiết kế + 影響調査** (nút bản đồ ở đầu cây file): toàn thư mục, chạy cục bộ, không AI.
+  - **画面遷移図**: sơ đồ chuyển màn hình tự dựng từ meta `画面ID` / `画面遷移` và mũi tên `〔矢印〕`; bấm một màn
+    hình để mở đúng chỗ định nghĩa. Ô rẽ nhánh (`権限あり？`) vẽ hình thoi; màn hình chưa định nghĩa viền đứt.
+  - **ER**: sơ đồ quan hệ của mọi テーブル定義 trong thư mục.
+  - **影響調査**: gõ bảng, `TBL.COL` hoặc 画面ID → các tài liệu / màn hình tham chiếu tới nó (và màn hình liên quan qua
+    遷移), bấm để mở và tô sáng.
+  - **整合性チェック**: 画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, `TBL.COL` không có cột.
+  - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
+    dùng trong CI); MCP: tool `impact`.
 - **Định nghĩa bảng → DDL / ER / JSON**: bảng có cột `物理名` + `型` (テーブル定義書) có thêm nút **DDL** trên thanh
   mục lục: chọn Generic / PostgreSQL / MySQL / Oracle / SQL Server, copy `CREATE TABLE` (kèm PK, NOT NULL, DEFAULT,
   comment theo tên logic), JSON hoặc sơ đồ ER Mermaid. Nút **ER** trên thanh xem vẽ sơ đồ quan hệ của cả file
@@ -306,6 +316,7 @@ Máy chỉ cài bản `.exe` (không có Node): dùng chính app thay Node:
 | `outline` | Danh sách heading của một file `.md` kèm số dòng |
 | `list_sheets` | Danh sách sheet của file Excel (số dòng, sheet ẩn) |
 | `preview_sheet` | Markdown của một sheet, không ghi file |
+| `impact` | 影響調査 (bảng / cột / màn hình) + 整合性チェック cho cả thư mục tài liệu |
 | `table_ddl` | DDL / JSON / ER Mermaid từ テーブル定義書 trong file `.md`, file Excel hoặc cả thư mục |
 | `build_excel` | Gộp file `.md` (hoặc cả thư mục) thành một `.xlsx`; file đích đã có thì cần `overwrite: true` |
 

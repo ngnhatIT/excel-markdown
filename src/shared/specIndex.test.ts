@@ -73,7 +73,6 @@ describe('buildSpecIndex: fixture specmap', () => {
   it('整合性: 画面ID trùng, cột không có (TBL.COL), 遷移 treo (cảnh báo)', () => {
     expect(index.issues.map((i) => `${i.severity} ${i.code} ${i.subject} ${i.rel}:${i.line}`)).toEqual([
       'error duplicate-screen SCR010 screens/old/SCR010_v1.md:5',
-      'warning dangling-transition 権限あり？ flow.md:7',
       'warning dangling-transition エラー画面 SCR099 flow.md:9',
       'warning dangling-transition 受注一覧 screens/SCR002_menu.md:9',
       'error unknown-column TBL_CUSTOMER.CUST_KANA screens/SCR010_search.md:22',
@@ -142,7 +141,7 @@ describe('Mermaid', () => {
     const f = transitionMermaid(index)
     expect(f.source).toMatch(/^flowchart LR\n/)
     expect(f.source).toContain('<-->|"行ダブルクリック／戻る"|')
-    expect(f.source).toMatch(/class n\d+(,n\d+){2} dangling/)
+    expect(f.source).toMatch(/class n\d+(,n\d+){1} dangling/)
     expect(Object.values(f.ids)).toEqual(expect.arrayContaining(['SCR001', 'SCR011', '?受注一覧']))
     expect(f.truncated).toBe(false)
     expect(f.source.split('\n').filter((l) => /^\s+n\d+\[/.test(l)).every((l) => /^\s+n\d+\["[^"]*"\]$/.test(l))).toBe(true)
@@ -201,5 +200,28 @@ describe('giới hạn đầu vào không tin cậy', () => {
   it('bảng trùng tên giữa hai tài liệu -> lỗi duplicate-table', () => {
     const r = buildSpecIndex([docs[1], { rel: 'copy.md', text: docs[1].text }])
     expect(r.issues.filter((i) => i.code === 'duplicate-table').map((i) => `${i.subject} ${i.rel}`)).toEqual(['TBL_CUSTOMER copy.md', 'TBL_ORDER copy.md'])
+  })
+})
+
+describe('nút điều kiện (rẽ nhánh) trong sơ đồ 画面遷移', () => {
+  const docs: SpecDoc[] = [
+    {
+      rel: 'flow.md',
+      text: '## 遷移\n\n- **画面ID**: SCR001\n- **画面名**: ログイン\n\n- 〔矢印〕ログイン SCR001 → 権限あり？\n- 〔矢印〕権限あり？ → 未定義画面（はい）\n',
+    },
+  ]
+  const index = buildSpecIndex(docs)
+
+  it('không báo 権限あり？ là màn hình thiếu định nghĩa; màn hình thật thiếu vẫn báo', () => {
+    const subjects = index.issues.filter((i) => i.code === 'dangling-transition').map((i) => i.subject)
+    expect(subjects).not.toContain('権限あり？')
+    expect(subjects).toContain('未定義画面')
+  })
+
+  it('vẽ hình thoi, không có viền đứt', () => {
+    const { source } = transitionMermaid(index)
+    expect(source).toMatch(/n\d+\{"権限あり？"\}/)
+    const decisionId = /(n\d+)\{"権限あり？"\}/.exec(source)?.[1]
+    expect(source).not.toMatch(new RegExp(`class [^\\n]*\\b${decisionId}\\b[^\\n]* dangling`))
   })
 })

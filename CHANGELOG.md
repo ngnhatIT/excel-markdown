@@ -24,6 +24,9 @@ chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet
   link sang sheet khác, 入力規則 thành danh sách thả xuống, コメント thành note của ô, nhúng ảnh PNG/JPEG cạnh file .md.
   Sửa: trích dẫn / list lồng rất sâu làm tràn stack, đoạn văn rất dài chạy chậm theo hàm bậc hai, khối code 100 000 dòng
   bị treo, bảng > 16 384 cột, số > 15 chữ số sai chữ số; file chỉ có heading không còn bị bỏ, file rỗng báo lỗi rõ.
+- Tính năng nổi bật: **Bản đồ thiết kế + 影響調査** trong Đọc Markdown: 画面遷移図 tự dựng từ 画面ID / 画面遷移 /
+  〔矢印〕 (bấm để mở), ER cả thư mục, phân tích ảnh hưởng khi sửa bảng / cột / màn hình, 整合性チェック (ID trùng,
+  遷移 treo, cột không tồn tại). Lõi `src/shared/specIndex.ts`, IPC `mdv:specIndex`; CLI `impact` / `lint` (CI), MCP `impact`.
 - Tính năng: **テーブル定義書 → DDL / ER / JSON**: nút DDL trên bảng định nghĩa (Generic / PostgreSQL / MySQL / Oracle /
   SQL Server), nút ER vẽ sơ đồ quan hệ Mermaid của file; CLI `ddl`, MCP `table_ddl`.
 - Tính năng: So sánh tự tạo dòng **改訂履歴** (版数 / 改訂日 / 改訂者 / 改訂箇所 / 改訂内容) từ các thay đổi, copy

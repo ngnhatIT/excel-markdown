@@ -235,7 +235,7 @@ describe('MCP impact', () => {
     expect(text).toContain('影響調査: SCR011 (màn hình)')
     expect(text).toContain('  ~ SCR010 顧客検索画面 (liên quan qua 画面遷移)')
     expect(text).toContain('flow.md\n')
-    expect(text).toContain('整合性チェック (5):')
+    expect(text).toContain('整合性チェック (4):')
   })
 
   it('từ chối thư mục tương đối / không tồn tại / là file, query rỗng hoặc quá dài', async () => {

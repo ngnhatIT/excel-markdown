@@ -253,8 +253,9 @@ describe('impact / lint (Bản đồ thiết kế + 影響調査)', () => {
     expect(r.code).toBe(1)
     expect(r.log).toContain('screens/old/SCR010_v1.md:5: error: 画面ID trùng: SCR010 (đã định nghĩa ở screens/SCR010_search.md:7)')
     expect(r.log).toContain('screens/SCR010_search.md:22: error: Cột không có trong テーブル定義: TBL_CUSTOMER.CUST_KANA')
-    expect(r.log).toContain('flow.md:7: warning: 画面遷移 tới màn hình chưa định nghĩa: 権限あり？')
-    expect(r.log).toContain('2 lỗi, 3 cảnh báo')
+    // ô rẽ nhánh 権限あり？ không bị báo là màn hình thiếu
+    expect(r.log).not.toContain('権限あり？')
+    expect(r.log).toContain('2 lỗi, 2 cảnh báo')
     const clean = join(tmp, 'spec-clean')
     mkdirSync(clean, { recursive: true })
     writeFileSync(join(clean, 'a.md'), '- **画面ID**: A001\n- **画面遷移**: → A001\n')

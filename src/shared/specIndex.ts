@@ -296,7 +296,8 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
   const danglingSeen = new Set<string>()
   for (const tr of transitions) {
     for (const k of [tr.from, tr.to]) {
-      if (k.startsWith('?') && !danglingSeen.has(k)) {
+      // Ô rẽ nhánh của sơ đồ (権限あり？) không phải màn hình: không báo thiếu định nghĩa
+      if (k.startsWith('?') && !danglingSeen.has(k) && !isDecision(nodes.get(k)?.label ?? k.slice(1))) {
         danglingSeen.add(k)
         issues.push({ rel: tr.rel, line: tr.line, heading: tr.heading, severity: 'warning', code: 'dangling-transition', subject: nodes.get(k)?.label ?? k.slice(1) })
       }
@@ -561,6 +562,9 @@ export interface FlowDiagram {
   truncated: boolean
 }
 
+/** Nút điều kiện / rẽ nhánh trong sơ đồ 画面遷移 (kết thúc bằng ？ / ?), vd 権限あり？, 入力OK? */
+export const isDecision = (label: string): boolean => /[?？]\s*$/.test(label)
+
 /** Mermaid `flowchart LR` của 画面遷移: id nút an toàn (`n0`...), nút treo có class `dangling` (viền đứt). */
 export function transitionMermaid(index: SpecIndex): FlowDiagram {
   // Nút có cạnh trước (sơ đồ hữu ích hơn), rồi tới screen đứng một mình
@@ -569,7 +573,12 @@ export function transitionMermaid(index: SpecIndex): FlowDiagram {
   const kept = ordered.slice(0, SPEC_MAX_NODES)
   const idOf = new Map(kept.map((n, i) => [n.key, `n${i}`]))
   const lines = ['flowchart LR']
-  for (const n of kept) lines.push(`  ${idOf.get(n.key)}["${mmd(n.label) || '?'}"]`)
+  // Nút điều kiện vẽ hình thoi, màn hình hình chữ nhật
+  for (const n of kept) {
+    const label = mmd(n.label) || '?'
+    lines.push(!n.screen && isDecision(n.label) ? `  ${idOf.get(n.key)}{"${label}"}` : `  ${idOf.get(n.key)}["${label}"]`)
+  }
+  let textLen = lines.reduce((sum, l) => sum + l.length + 1, 0)
   let truncated = kept.length < ordered.length
   const seen = new Set<string>()
   for (const tr of index.transitions) {
@@ -581,13 +590,14 @@ export function transitionMermaid(index: SpecIndex): FlowDiagram {
     seen.add(k)
     const label = mmd(tr.label, 30)
     const edge = `  ${a} ${tr.bidi ? '<-->' : '-->'}${label ? `|"${label}"|` : ''} ${b}`
-    if (lines.join('\n').length + edge.length > MERMAID_MAX_TEXT) {
+    if (textLen + edge.length > MERMAID_MAX_TEXT) {
       truncated = true
       break
     }
     lines.push(edge)
+    textLen += edge.length + 1
   }
-  const dangling = kept.filter((n) => !n.screen).map((n) => idOf.get(n.key))
+  const dangling = kept.filter((n) => !n.screen && !isDecision(n.label)).map((n) => idOf.get(n.key))
   if (dangling.length > 0) {
     lines.push('  classDef dangling stroke-dasharray:5 4')
     lines.push(`  class ${dangling.join(',')} dangling`)
