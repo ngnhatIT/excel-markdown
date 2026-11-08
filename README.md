@@ -141,12 +141,23 @@ workbook **mới** theo bố cục chuẩn của app, không dựng lại bố c
 - **Số**: `10`, `1.0`, `1,234,567.89`, `12.50%` thành số đúng định dạng; `0001`, số quá 11 chữ số,
   ngày, `#N/A` giữ dạng text.
 
+**Giữ được khi tạo Excel**
+
+- Đậm / nghiêng / gạch ngang / `code` trong ô bảng và value meta (rich text); `**10**` vẫn là số 10.
+- Căn lề cột bảng `:---:` / `---:`.
+- Link: ô / đoạn có một link `http`/`https`/`mailto` thành hyperlink (nhiều link thì giữ URL trong ngoặc);
+  link `#mục` / `file.md` tới sheet trong cùng lần tạo thành link nội bộ tới sheet đó.
+- `- 〔入力規則 C2:C50〕A / B` thành danh sách thả xuống trên đúng cột của bảng phía trên (khi chỉ một cột khớp);
+  `- 〔コメント B5: ô〕…` thành ghi chú (note) của đúng ô đó (khi chỉ một ô khớp). Không chắc chắn thì giữ dòng chữ.
+- Ảnh PNG / JPEG ≤ 10 MB nằm trong thư mục của file `.md` (không ra ngoài bằng `..` / symlink) được nhúng vào sheet.
+
 **Giới hạn**
 
-- Chỉ ghi chữ thuần: không giữ đậm / nghiêng giữa câu, màu, 方眼紙, merge gốc.
+- Đoạn văn, heading, ghi chú ghi chữ thuần (không giữ đậm giữa câu); không giữ màu, 方眼紙, merge gốc.
 - Round-trip `md → xlsx → md` chỉ ổn định với Markdown do app tạo.
 - `---` dùng làm đường kẻ trang trí cũng bị tách sheet: xem tên sheet dưới từng file trước khi tạo.
-- Ô dài quá 32 767 ký tự bị cắt. File `.md` phải là UTF-8 (Shift_JIS bị từ chối, có báo tên file).
+- Ô dài quá 32 767 ký tự bị cắt. File `.md` phải là UTF-8 (Shift_JIS bị từ chối, có báo tên file); file rỗng bị
+  từ chối kèm tên file; file chỉ có heading vẫn thành một sheet.
 
 Chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
 
@@ -317,6 +328,8 @@ Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đ�
    theo từng ký tự). **Chỉ thay đổi** ẩn phần giống nhau (bấm dòng `⋯` để hiện). `F7` / `Shift+F7` hoặc
    ↑ ↓ nhảy giữa các thay đổi; cột trái liệt kê các mục 【…】 / sheet có thay đổi.
 4. **Xuất báo cáo** (`.md`) hoặc **Copy báo cáo**: bảng `場所 | 項目 | 旧 | 新` để dán vào review / 改訂履歴.
+5. **改訂履歴**: tự sinh mỗi mục thay đổi một dòng (vd 「行追加 1件（C09）、行変更 1件（C02: 項目名）」); điền 版数 /
+   改訂者, chọn ngôn ngữ, **Copy cho Excel (TSV)** rồi dán vào ô 版数 đầu tiên của bảng 改訂履歴.
 
 So theo cấu trúc: sheet → mục → dòng bảng khớp theo cột khóa (`ID`, `項目ID`, `物理名`, `項目名`…), nên
 chèn một dòng giữa bảng (kể cả khi cột No đánh số lại) chỉ báo đúng một dòng thêm. Mọi thứ chạy trên máy,
