@@ -18,9 +18,9 @@ export function contextBlock(contextText: string): string {
   return contextText.trim() ? `<context>\n${contextText}\n</context>` : ''
 }
 
-export function systemWithContext(contextText: string): string {
+export function systemWithContext(contextText: string, system = SYSTEM_INSTRUCTION): string {
   const ctx = contextBlock(contextText)
-  return ctx ? `${SYSTEM_INSTRUCTION}\n\n${ctx}` : SYSTEM_INSTRUCTION
+  return ctx ? `${system}\n\n${ctx}` : system
 }
 
 /** Tối đa 12 message gần nhất, bỏ message rỗng và message trả lời đứng đầu (Claude bắt buộc mở đầu bằng user). */

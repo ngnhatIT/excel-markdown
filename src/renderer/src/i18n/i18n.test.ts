@@ -4,6 +4,7 @@ import { vi } from './vi'
 import { en } from './en'
 import { ja } from './ja'
 import { compareEn, compareJa, compareVi } from './compare'
+import { translateEn, translateJa, translateVi } from './translate'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
@@ -13,6 +14,8 @@ describe('i18n', () => {
       [vi, ja],
       [compareVi, compareEn],
       [compareVi, compareJa],
+      [translateVi, translateEn],
+      [translateVi, translateJa],
     ]
     for (const [base, d] of pairs) {
       expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())

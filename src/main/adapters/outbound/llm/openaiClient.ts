@@ -9,11 +9,12 @@ export function buildOpenAiRequestBody(
   model: AiModelId,
   question: string,
   contextText: string,
-  history: AiChatTurn[] = []
+  history: AiChatTurn[] = [],
+  system?: string
 ): Record<string, unknown> {
   return {
     model,
-    instructions: systemWithContext(contextText),
+    instructions: systemWithContext(contextText, system),
     input: [
       ...trimHistory(history).map((h) => ({ role: h.role === 'model' ? 'assistant' : 'user', content: h.text })),
       { role: 'user', content: question.trim() },
@@ -46,13 +47,14 @@ export async function callOpenAiApi(opts: {
   history: AiChatTurn[]
   signal?: AbortSignal
   onDelta?: (text: string) => void
+  system?: string
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
   if (!key) throw new Error('Chưa cấu hình OpenAI API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
   const res = await postJsonWithRetry({
     url: `${BASE}/responses`,
     headers: { Authorization: `Bearer ${key}` },
-    body: buildOpenAiRequestBody(opts.model, opts.question, opts.contextText, opts.history),
+    body: buildOpenAiRequestBody(opts.model, opts.question, opts.contextText, opts.history, opts.system),
     label: 'OpenAI',
     apiKey: key,
     signal: opts.signal,

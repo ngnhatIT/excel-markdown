@@ -123,6 +123,9 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('ai:delta', h)
     return () => ipcRenderer.removeListener('ai:delta', h)
   },
+  /** Dịch nhanh đoạn bôi đen bằng nhà cung cấp AI đã cấu hình. Lỗi 'NO_KEY' = chưa có API Key. */
+  aiTranslate: (text: string, target: string): Promise<string> =>
+    unwrap(ipcRenderer.invoke('ai:translate', text, target) as Promise<ApiResult<string>>),
   aiCancel: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

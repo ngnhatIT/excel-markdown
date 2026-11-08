@@ -4,17 +4,18 @@ import { vi } from './vi'
 import { en } from './en'
 import { ja } from './ja'
 import { compareEn, compareJa, compareVi } from './compare'
+import { translateEn, translateJa, translateVi } from './translate'
 
 export type Lang = 'vi' | 'en' | 'ja'
 /** Khóa của từ điển chính (vi.ts); en.ts / ja.ts phải đủ các khóa này. */
 export type Dict = Record<keyof typeof vi, string>
-export type TKey = keyof typeof vi | keyof typeof compareVi
+export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
 type FullDict = Record<TKey, string>
-const VI: FullDict = { ...vi, ...compareVi }
-const DICTS: Record<Lang, FullDict> = { vi: VI, en: { ...en, ...compareEn }, ja: { ...ja, ...compareJa } }
+const VI: FullDict = { ...vi, ...compareVi, ...translateVi }
+const DICTS: Record<Lang, FullDict> = { vi: VI, en: { ...en, ...compareEn, ...translateEn }, ja: { ...ja, ...compareJa, ...translateJa } }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
 export function detectLang(locale = typeof navigator === 'undefined' ? 'vi' : navigator.language): Lang {

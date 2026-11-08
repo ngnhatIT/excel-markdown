@@ -11,10 +11,11 @@ export function buildClaudeParams(
   model: AiModelId,
   question: string,
   contextText: string,
-  history: AiChatTurn[] = []
+  history: AiChatTurn[] = [],
+  instruction = SYSTEM_INSTRUCTION
 ): Anthropic.Beta.Messages.MessageCreateParamsNonStreaming {
   const ctx = contextBlock(contextText)
-  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: SYSTEM_INSTRUCTION }]
+  const system: Anthropic.Beta.BetaTextBlockParam[] = [{ type: 'text', text: instruction }]
   if (ctx) system.push({ type: 'text', text: ctx, cache_control: { type: 'ephemeral' } })
   const messages: Anthropic.Beta.BetaMessageParam[] = trimHistory(history).map((h) => ({
     role: h.role === 'model' ? 'assistant' : 'user',
@@ -53,13 +54,14 @@ export async function callClaudeApi(opts: {
   history: AiChatTurn[]
   signal?: AbortSignal
   onDelta?: (text: string) => void
+  system?: string
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
   if (!key) throw new Error('Chưa cấu hình Claude API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
   const client = new Anthropic({ apiKey: key, timeout: 120_000, maxRetries: 2 })
   let msg: Anthropic.Beta.BetaMessage
   try {
-    const stream = client.beta.messages.stream(buildClaudeParams(opts.model, opts.question, opts.contextText, opts.history), {
+    const stream = client.beta.messages.stream(buildClaudeParams(opts.model, opts.question, opts.contextText, opts.history, opts.system), {
       signal: opts.signal,
     })
     if (opts.onDelta) stream.on('text', opts.onDelta)

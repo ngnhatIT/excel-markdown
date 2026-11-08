@@ -17,6 +17,7 @@ import { askLlm, listModels } from '../../outbound/llm/askLlm'
 import { redactApiKey } from '../../outbound/llm/shared'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { errText } from '../../../domain/errors'
+import { isTranslateLang, MAX_TRANSLATE_CHARS, translatePrompt } from '../../../../shared/translate'
 import { logError, readStore, updateStore } from '../../outbound/store'
 
 export function registerAiIpc(): void {
@@ -61,6 +62,45 @@ export function registerAiIpc(): void {
     aiAbort?.abort()
     aiAbort = null
     return { ok: true, data: null }
+  })
+
+  /* Dịch nhanh đoạn bôi đen: lệnh hủy riêng (không đụng câu hỏi đang chạy trong khung chat), cache theo
+   * nhà cung cấp + model + đích + đoạn chữ để chọn lại cùng đoạn không tốn token. */
+  let translateAbort: AbortController | null = null
+  const translateCache = new Map<string, string>()
+  ipcMain.handle('ai:translate', async (_e, text: unknown, target: unknown) => {
+    let rawKey = ''
+    translateAbort?.abort()
+    const controller = new AbortController()
+    translateAbort = controller
+    try {
+      if (typeof text !== 'string' || text.trim() === '' || !isTranslateLang(target)) {
+        return { ok: false, error: 'Đoạn chọn hoặc ngôn ngữ đích không hợp lệ.' }
+      }
+      if (text.length > MAX_TRANSLATE_CHARS) {
+        return { ok: false, error: `Đoạn chọn quá dài (tối đa ${MAX_TRANSLATE_CHARS} ký tự). Hãy chọn ngắn hơn hoặc dùng khung Trợ lý AI.` }
+      }
+      const store = await readStore()
+      const provider = normalizeProvider(store['aiProvider'])
+      rawKey = decryptApiKey(store[keyField(provider)], safeStorage)
+      if (!rawKey) return { ok: false, error: 'NO_KEY' }
+      const model = normalizeAiModel(provider, store[modelField(provider)])
+      const key = `${provider}|${model}|${target}|${text}`
+      const hit = translateCache.get(key)
+      if (hit !== undefined) return { ok: true, data: hit }
+      const { system, question } = translatePrompt(text.trim(), target)
+      const res = await askLlm(provider, { apiKey: rawKey, model, question, contextText: '', history: [], availableCitations: [], signal: controller.signal, system })
+      const out = res.answer.trim()
+      if (translateCache.size >= 200) translateCache.delete(translateCache.keys().next().value as string)
+      translateCache.set(key, out)
+      return { ok: true, data: out }
+    } catch (err) {
+      const safeMsg = redactApiKey(errText(err), rawKey)
+      if (!controller.signal.aborted) void logError('ai:translate', new Error(safeMsg))
+      return { ok: false, error: safeMsg }
+    } finally {
+      if (translateAbort === controller) translateAbort = null
+    }
   })
 
   ipcMain.handle('ai:ask', async (e, req: AiAskRequest) => {

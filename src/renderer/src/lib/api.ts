@@ -60,6 +60,7 @@ export interface WindowApi {
   aiAsk(req: AiAskRequest): Promise<AiAskResponse>
   aiListModels(provider?: AiProvider): Promise<string[]>
   onAiDelta(cb: (text: string) => void): () => void
+  aiTranslate(text: string, target: string): Promise<string>
   aiCancel(): Promise<void>
 }
 

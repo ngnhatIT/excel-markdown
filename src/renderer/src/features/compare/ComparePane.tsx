@@ -5,6 +5,7 @@ import { useT } from '../../i18n'
 import { baseName, cn, copyText, toast } from '../../lib/utils'
 import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, filesAside, iconBtn, paneTitle } from '../../lib/ui'
 import { IconCopy, IconFile, IconRefresh, IconSplit, IconX } from '../../components/icons'
+import { SelectionTranslate } from '../../components/SelectionTranslate'
 import { changeStarts, compareRows } from './compareView'
 import { isComparable, type CompareState, type Side } from './useCompare'
 
@@ -290,6 +291,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
             )}
           </>
         )}
+        <SelectionTranslate containerRef={listRef} />
       </main>
     </>
   )
