@@ -11,13 +11,17 @@ import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import { listMarkdownFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
-import { workbookMdFiles } from '../../../domain/excel/output'
+import { plannedMdFileNames, safeFileName, workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
+import { friendlyError } from '../../../domain/errors'
+import pkg from '../../../../../package.json'
 
 export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
-          [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title]
+          [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title] [--no-clobber]
      cli md2xlsx <file.md|thư mục...> -o <file.xlsx> [--overwrite]
-     cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)`
+     cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)
+     cli --help | --version
+  Mặc định file .md đã có bị ghi đè; --no-clobber: bỏ qua workbook có file .md / thư mục ảnh đầu ra đã tồn tại.`
 
 /** Quá số file Excel này trong một thư mục thì từ chối (chọn nhầm ổ đĩa không chạy mãi). */
 export const EXCEL_DIR_LIMIT = 2000
@@ -65,6 +69,8 @@ export interface CliArgs {
   files: string[]
   outDir: string
   perWorkbook: boolean
+  /** Bỏ qua workbook có đầu ra đã tồn tại (mặc định ghi đè, giữ tương thích) */
+  noClobber: boolean
   options: ConvertOptions
 }
 
@@ -74,6 +80,7 @@ export function parseArgs(argv: string[]): CliArgs {
   const files: string[] = []
   let outDir = ''
   let perWorkbook = false
+  let noClobber = false
   const value = (i: number, flag: string): string => {
     if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + flag)
     return argv[i + 1]
@@ -83,6 +90,7 @@ export function parseArgs(argv: string[]): CliArgs {
     switch (a) {
       case '-o': case '--out': outDir = value(i++, a); break
       case '--per-workbook': perWorkbook = true; break
+      case '--no-clobber': noClobber = true; break
       case '--range': options.range = value(i++, a); break
       case '--formulas': options.showFormulas = true; break
       case '--front-matter': options.frontMatter = true; break
@@ -103,7 +111,7 @@ export function parseArgs(argv: string[]): CliArgs {
   }
   if (files.length === 0) throw new Error('Chưa có file Excel nào')
   if (!outDir) throw new Error('Thiếu -o <thư mục>')
-  return { files, outDir, perWorkbook, options }
+  return { files, outDir, perWorkbook, noClobber, options }
 }
 
 /** Markdown → Excel: gộp các file .md (thư mục → mọi .md bên trong, sắp theo đường dẫn) thành một .xlsx.
@@ -153,18 +161,64 @@ async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<num
     log(`${res.outPath} (${res.sheets.length} sheet: ${res.sheets.join(', ')})`)
     return 0
   } catch (err) {
-    log('LỖI: ' + (err instanceof Error ? err.message : String(err)))
+    log('LỖI: ' + friendlyError(err))
     return 1
   }
+}
+
+/** Tên file .md + thư mục ảnh (tương đối thư mục xuất) của một workbook. */
+const outputNames = (md: { name: string; images?: { path: string }[] }[]): string[] => [
+  ...new Set(md.flatMap((f) => [f.name, ...(f.images ?? []).map((i) => i.path.split('/')[0])])),
+]
+
+/** Đầu ra (file .md, thư mục ảnh) mà `runCli(args)` sẽ ghi và đã có trên đĩa, đường dẫn tương đối `-o`; tính trước khi
+ * convert như hỏi ghi đè của app (plannedMdFileNames: theo mọi sheet hiển thị, có thể thừa tên sheet rỗng — vô hại).
+ * shortcut: thư mục ảnh tính là `<tên>_images` cho mọi workbook (chưa convert nên chưa biết có ảnh không) và không
+ * khử trùng cùng tên .md; chỉ lệch khi tên trùng hiếm gặp, sửa khi gặp thật. File đọc lỗi bỏ qua (convert sẽ báo lỗi). */
+export async function existingOutputs(args: CliArgs): Promise<string[]> {
+  const root = resolve(args.outDir)
+  const byDir = new Map<string, { base: string; sheets: string[] }[]>()
+  for (const { file, relDir } of await expandExcelInputs(args.files)) {
+    let sheets: string[]
+    try {
+      sheets = listSheetsInWorkbook(readWorkbook(file), args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
+    } catch {
+      continue
+    }
+    if (!byDir.has(relDir)) byDir.set(relDir, [])
+    byDir.get(relDir)?.push({ base: basename(file, extname(file)), sheets })
+  }
+  const out: string[] = []
+  for (const [relDir, specs] of byDir) {
+    const names = [...plannedMdFileNames(specs, args.perWorkbook), ...specs.map((s) => safeFileName(s.base + '_images'))]
+    for (const n of names) if (existsSync(join(root, relDir, n))) out.push(relDir ? `${relDir}/${n}` : n)
+  }
+  return out
 }
 
 /** Convert mọi sheet hiển thị của từng file (thư mục → mọi file Excel bên trong, giữ cấu trúc thư mục con).
  * `md2xlsx` ở đầu là chiều ngược lại. Trả về mã thoát (0 = ok, 1 = có file lỗi). */
 export async function runCli(argv: string[], log: (s: string) => void = console.log): Promise<number> {
+  if (argv[0] === '--help' || argv[0] === '-h') {
+    log(USAGE)
+    return 0
+  }
+  if (argv[0] === '--version' || argv[0] === '-v') {
+    log(pkg.version)
+    return 0
+  }
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
   if (argv[0] === 'textconv') {
     if (argv.length !== 2) throw new Error('Dùng: cli textconv <file.xlsx>')
-    process.stdout.write(workbookTextconv(argv[1]))
+    // stdout là nội dung diff: lỗi chỉ ra stderr, mã thoát khác 0
+    let text: string
+    try {
+      text = workbookTextconv(argv[1])
+    } catch (err) {
+      process.stderr.write('LỖI ' + argv[1] + ': ' + friendlyError(err) + '\n')
+      return 1
+    }
+    process.stdout.write(text)
     return 0
   }
   const args = parseArgs(argv)
@@ -187,11 +241,18 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
       const names = listSheetsInWorkbook(wb, args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
       const sheets = convertSheetsInWorkbook(wb, names, args.options)
       const md = workbookMdFiles(base, basename(file), sheets, args.options, args.perWorkbook, usedByDir.get(outDir) as Set<string>)
+      if (args.noClobber) {
+        const existing = outputNames(md).filter((n) => existsSync(join(outDir, n)))
+        if (existing.length > 0) {
+          log(`BỎ QUA ${file}: đã có ${existing.map((n) => (relDir ? `${relDir}/${n}` : n)).join(', ')}`)
+          continue
+        }
+      }
       mkdirSync(outDir, { recursive: true })
       await writeMdFiles(outDir, md, (name) => log(relDir ? `${relDir}/${name}` : name))
     } catch (err) {
       failed++
-      log('LỖI ' + file + ': ' + (err instanceof Error ? err.message : String(err)))
+      log('LỖI ' + file + ': ' + friendlyError(err))
     }
   }
   return failed > 0 ? 1 : 0

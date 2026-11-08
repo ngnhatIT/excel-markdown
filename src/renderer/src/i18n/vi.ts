@@ -321,7 +321,7 @@ export const vi = {
   'ai.ctxCheap': '{n}k token (tiết kiệm)',
   'ai.ctxFull': '{n}k token (đầy đủ nhất, tốn nhất)',
   'ai.keyNote':
-    'Key mã hóa cục bộ bằng OS SafeStorage, chỉ gửi trực tiếp tới {site}. Key API tính tiền theo token, khác gói đăng ký ChatGPT/Claude. Muốn dùng gói đăng ký: xem mục MCP trong README.',
+    'Key được mã hóa và lưu cục bộ (OS SafeStorage), chỉ gửi trực tiếp tới máy chủ API của nhà cung cấp (api.anthropic.com / generativelanguage.googleapis.com / api.openai.com). Lấy key tại {site}. Key API tính tiền theo token, khác gói đăng ký ChatGPT/Claude. Muốn dùng gói đăng ký: xem mục MCP trong README.',
   'ai.keyNoteModels': 'Lưu key xong, danh sách model mới nhất sẽ tự tải về.',
   'ai.scope': 'Phạm vi ngữ cảnh',
   'ai.scope.folderTitle': 'Tìm kiếm ngữ cảnh trên toàn bộ các file Markdown đang mở',

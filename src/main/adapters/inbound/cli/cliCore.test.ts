@@ -1,9 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterAll, describe, expect, it } from 'vitest'
+import { afterAll, describe, expect, it, vi } from 'vitest'
 import * as XLSX from 'xlsx'
-import { expandExcelInputs, parseArgs, runCli, workbookTextconv } from './cliCore'
+import { expandExcelInputs, parseArgs, runCli, USAGE, workbookTextconv } from './cliCore'
+import pkg from '../../../../../package.json'
 
 const fixture = join(__dirname, '../../../../../test/fixtures/excel-authored.xlsx')
 const tmp = mkdtempSync(join(tmpdir(), 'x2m-cli-'))
@@ -42,6 +43,37 @@ describe('runCli', () => {
     const logs: string[] = []
     expect(await runCli([join(tmp, 'khong-co.xlsx'), '-o', join(tmp, 'e')], (s) => logs.push(s))).toBe(1)
     expect(logs[0]).toContain('LỖI')
+    expect(logs[0]).toContain('Không tìm thấy file')
+  })
+  it('lỗi từng file dịch tiếng Việt (file text đổi đuôi .xlsx)', async () => {
+    const bad = join(tmp, 'text.xlsx')
+    writeFileSync(bad, 'this is not excel')
+    const logs: string[] = []
+    expect(await runCli([bad, '-o', join(tmp, 'e2')], (s) => logs.push(s))).toBe(1)
+    expect(logs).toEqual([`LỖI ${bad}: File không phải Excel hợp lệ hoặc đã bị hỏng (có thể chỉ bị đổi đuôi hoặc tải về chưa xong). Hãy mở thử bằng Excel rồi lưu lại.`])
+  })
+  it('--help / -h in USAGE, --version / -v in phiên bản, mã thoát 0', async () => {
+    for (const f of ['--help', '-h']) {
+      const logs: string[] = []
+      expect(await runCli([f], (s) => logs.push(s))).toBe(0)
+      expect(logs).toEqual([USAGE])
+    }
+    for (const f of ['--version', '-v']) {
+      const logs: string[] = []
+      expect(await runCli([f], (s) => logs.push(s))).toBe(0)
+      expect(logs).toEqual([pkg.version])
+    }
+  })
+  it('--no-clobber: bỏ qua workbook đã có đầu ra (BỎ QUA), mặc định vẫn ghi đè', async () => {
+    const out = join(tmp, 'nc')
+    expect(await runCli([fixture, '-o', out, '--per-workbook'], () => {})).toBe(0)
+    writeFileSync(join(out, 'excel-authored.md'), 'sửa tay')
+    const logs: string[] = []
+    expect(await runCli([fixture, '-o', out, '--per-workbook', '--no-clobber'], (s) => logs.push(s))).toBe(0)
+    expect(logs).toEqual([`BỎ QUA ${fixture}: đã có excel-authored.md`])
+    expect(readFileSync(join(out, 'excel-authored.md'), 'utf-8')).toBe('sửa tay')
+    expect(await runCli([fixture, '-o', out, '--per-workbook'], () => {})).toBe(0)
+    expect(readFileSync(join(out, 'excel-authored.md'), 'utf-8')).not.toBe('sửa tay')
   })
 })
 
@@ -114,6 +146,21 @@ describe('textconv (git diff driver)', () => {
     expect(text).toMatch(/\]\(image1\.png#sha1=[0-9a-f]{12}\)/)
     expect(text).not.toContain('x2m-asset:')
     expect(text).not.toContain('Xa1b2c')
+  })
+
+  it('file không phải Excel: mã thoát 1, lỗi chỉ ra stderr, stdout trống', async () => {
+    const md = join(tmp, 'README.md')
+    writeFileSync(md, '# Không phải Excel\n')
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      expect(await runCli(['textconv', md], () => {})).toBe(1)
+      expect(out).not.toHaveBeenCalled()
+      expect(String(err.mock.calls[0][0])).toContain('File không phải Excel hợp lệ')
+    } finally {
+      out.mockRestore()
+      err.mockRestore()
+    }
   })
 
   it('link sang sheet khác không lộ token nội bộ', () => {

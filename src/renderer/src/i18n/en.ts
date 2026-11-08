@@ -321,7 +321,7 @@ export const en: Dict = {
   'ai.ctxCheap': '{n}k tokens (economical)',
   'ai.ctxFull': '{n}k tokens (most complete, most expensive)',
   'ai.keyNote':
-    'The key is encrypted locally with OS SafeStorage and sent only to {site}. API keys are billed per token, separately from ChatGPT/Claude subscriptions. To use a subscription instead, see the MCP section in the README.',
+    'The key is stored encrypted on this computer (OS SafeStorage) and sent only to the provider\'s API host (api.anthropic.com / generativelanguage.googleapis.com / api.openai.com). Get a key at {site}. API keys are billed per token, separately from ChatGPT/Claude subscriptions. To use a subscription instead, see the MCP section in the README.',
   'ai.keyNoteModels': 'After you save the key, the latest model list is loaded automatically.',
   'ai.scope': 'Context scope',
   'ai.scope.folderTitle': 'Search for context across all open Markdown files',
