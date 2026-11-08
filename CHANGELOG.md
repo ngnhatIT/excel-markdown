@@ -4,7 +4,7 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
-## Chưa phát hành
+## 2.3.0 — 2026-11-09
 Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
 chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).
 - Tính năng: chế độ **So sánh 新旧** hai bản thiết kế (Excel hoặc Markdown): so theo sheet → mục → dòng bảng

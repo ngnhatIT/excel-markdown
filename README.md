@@ -30,9 +30,17 @@ lần đầu theo ngôn ngữ hệ điều hành).
 
 ## Cài đặt
 
-- **Windows**: chạy file cài đặt `ExcelToMarkdown Setup x.y.z.exe` (lấy từ thư mục `release/` sau khi
-  đóng gói, xem [Đóng gói](#đóng-gói-exe-trên-windows)). Lần đầu Windows có thể cảnh báo vì app
-  chưa ký số: chọn **More info → Run anyway**.
+- **Windows**: tải `ExcelToMarkdown-Setup-x.y.z.exe` ở trang
+  [Releases](https://github.com/ngnhatIT/excel-markdown/releases) (kèm `SHA256SUMS.txt` để đối chiếu:
+  `certutil -hashfile ExcelToMarkdown-Setup-x.y.z.exe SHA256`) rồi chạy. Trình cài đặt hiện tiếng Việt /
+  English / 日本語 theo ngôn ngữ Windows, mặc định cài cho riêng tài khoản vào
+  `%LOCALAPPDATA%\Programs\ExcelToMarkdown` (không cần quyền admin, đổi được thư mục). Lần đầu Windows có
+  thể cảnh báo vì app chưa ký số: chọn **More info → Run anyway**.
+  - Cài xong, chuột phải file `.xlsx` / `.xlsm` / `.xls` / `.md` → **Open with → ExcelToMarkdown**. App
+    **không** giành quyền mở mặc định: nhấp đúp file Excel vẫn mở Excel như cũ.
+  - Kèm lệnh `x2m` (CLI) và `x2m-mcp` (MCP server) trong `resources\bin` của thư mục cài, chạy bằng chính
+    app, không cần Node. Xem [Convert bằng dòng lệnh](#convert-bằng-dòng-lệnh) và [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp).
+  - App không tự kiểm tra hay tải bản mới (không gọi mạng ngầm): xem bản mới ở trang Releases.
 - **Chạy từ mã nguồn** (Windows / macOS / Linux, cần Node 20+):
 
 ```bash
@@ -92,7 +100,15 @@ File không phải 基本設計 vẫn convert bình thường: lớp chung (bả
 
 ### Convert bằng dòng lệnh
 
-Cùng engine với app, tiện cho script hoặc CI (cần `npm run build` trước):
+Cùng engine với app, tiện cho script hoặc CI. Máy đã cài app: dùng `x2m.cmd` (không cần Node).
+Thêm thư mục `resources\bin` vào PATH của tài khoản một lần (PowerShell), mở terminal mới là gõ được `x2m`:
+
+```powershell
+[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ";$env:LOCALAPPDATA\Programs\ExcelToMarkdown\resources\bin", 'User')
+x2m a.xlsx b.xlsx -o out --front-matter --chunk 50
+```
+
+Từ mã nguồn (cần `npm run build` trước), thay `x2m` bằng `node out/main/cli.js` trong mọi lệnh dưới đây:
 
 ```bash
 node out/main/cli.js a.xlsx b.xlsx -o out --front-matter --chunk 50
@@ -108,7 +124,7 @@ Chiều ngược lại: `node out/main/cli.js md2xlsx docs/ -o out/Book.xlsx [--
 **Xem thay đổi file Excel bằng `git diff`** (textconv: git so sánh Markdown thay vì file nhị phân):
 
 ```bash
-git config diff.x2m.textconv "node /đường/dẫn/out/main/cli.js textconv"
+git config diff.x2m.textconv "x2m.cmd textconv"   # từ mã nguồn: "node /đường/dẫn/out/main/cli.js textconv"
 git config diff.x2m.cachetextconv true
 echo '*.xlsx diff=x2m' >> .gitattributes
 ```
@@ -262,48 +278,37 @@ file, nên làm được nhiều việc hơn khung chat trong app.
 
 ### Đăng ký (một lần)
 
-Build trước để có file `out/main/mcp.js`:
+**Máy đã cài app** (không cần Node): MCP server là `x2m-mcp.cmd` trong thư mục cài. Cài mặc định thì
+đường dẫn là `%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd` (đổi thư mục lúc cài thì
+thay cho đúng). File `.cmd` phải chạy qua `cmd /c`. Gõ trong Command Prompt (PowerShell: thay
+`%LOCALAPPDATA%` bằng `$env:LOCALAPPDATA`):
 
-```bash
-npm install
-npm run build
+```bat
+claude mcp add excel-markdown -- cmd /c "%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd"
+codex mcp add excel-markdown -- cmd /c "%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd"
 ```
 
-Claude Code:
-
-```bash
-claude mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
-```
-
-Codex CLI:
-
-```bash
-codex mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
-```
-
-Claude Desktop / Cursor: thêm vào file cấu hình MCP:
-
-```json
-{
-  "mcpServers": {
-    "excel-markdown": { "command": "node", "args": ["/đường/dẫn/excel-markdown/out/main/mcp.js"] }
-  }
-}
-```
-
-Máy chỉ cài bản `.exe` (không có Node): dùng chính app thay Node:
+Claude Desktop / Cursor: thêm vào file cấu hình MCP (thay `<tên>` bằng tên tài khoản Windows):
 
 ```json
 {
   "mcpServers": {
     "excel-markdown": {
-      "command": "C:\\...\\ExcelToMarkdown.exe",
-      "args": ["C:\\...\\resources\\app.asar\\out\\main\\mcp.js"],
-      "env": { "ELECTRON_RUN_AS_NODE": "1" }
+      "command": "cmd",
+      "args": ["/c", "C:\\Users\\<tên>\\AppData\\Local\\Programs\\ExcelToMarkdown\\resources\\bin\\x2m-mcp.cmd"]
     }
   }
 }
 ```
+
+**Từ mã nguồn** (macOS / Linux / Windows có Node): `npm install && npm run build` để có `out/main/mcp.js`, rồi
+
+```bash
+claude mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
+codex mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
+```
+
+(cấu hình JSON: `"command": "node", "args": ["/đường/dẫn/excel-markdown/out/main/mcp.js"]`).
 
 ### Công cụ agent dùng được
 
@@ -430,7 +435,7 @@ npm run test         # vitest, gồm golden test với file mẫu
 npm run test:update  # cập nhật golden khi đổi engine có chủ ý (nhớ review diff)
 npm run e2e          # build + chạy app Electron thật, kiểm các luồng UI chính (cần màn hình)
 npm run build        # build vào out/ (gồm cả cli.js và mcp.js)
-npm run dist         # đóng gói Windows (chạy trên Windows)
+npm run dist         # build + đóng gói installer Windows vào release/
 ```
 
 ### Cấu trúc
@@ -472,7 +477,24 @@ npm install
 npm run dist
 ```
 
-File cài đặt nằm ở `release/`. Icon `resources/icon.ico` đã build sẵn nhiều cỡ (16-256 px).
+`npm run dist` build rồi đóng gói; file cài đặt là `release/ExcelToMarkdown-Setup-x.y.z.exe`. Cấu hình ở
+`package.json > build`; các file đi kèm nằm trong `resources/`:
+
+- `icon.ico`: icon nhiều cỡ (16-256 px).
+- `bin/x2m.cmd`, `bin/x2m-mcp.cmd`: chép vào `resources\bin` của bản cài, chạy `cli.js` / `mcp.js` trong
+  `app.asar` bằng chính `ExcelToMarkdown.exe` với `ELECTRON_RUN_AS_NODE=1` (đừng tắt fuse `RunAsNode`).
+- `installer.nsh`: thêm app vào **Open with** cho `.xlsx/.xlsm/.xls/.md/.markdown` (chỉ `OpenWithProgids`,
+  không đổi app mặc định; gỡ app thì xóa sạch). Cố ý không dùng `build.fileAssociations`: electron-builder
+  ghi ProgID của app làm mặc định cho đuôi file, tức giành quyền mở của Excel.
+
+Kiểm nhanh bản đóng gói không cần installer: `npx electron-builder --dir --win --x64` rồi
+`npx asar list release/win-unpacked/resources/app.asar` (phải có `out/main/index.js`, `worker.js`, `cli.js`, `mcp.js`).
+
+**Phát hành**: tăng `version` trong `package.json`, đổi tiêu đề mục "Chưa phát hành" của `CHANGELOG.md` thành
+`## x.y.z — YYYY-MM-DD`, commit, rồi `git tag vx.y.z && git push origin vx.y.z`. Workflow
+`.github/workflows/release.yml` chạy typecheck / test / build trên Windows, dựng installer, tạo GitHub Release
+kèm `SHA256SUMS.txt` và lấy ghi chú từ mục tương ứng trong CHANGELOG. Tag phải khớp `version`, nếu không
+workflow dừng. Ký số (Azure Trusted Signing) đã có chỗ để sẵn (comment) trong workflow.
 
 ### Kiểm file Excel bằng Excel thật
 

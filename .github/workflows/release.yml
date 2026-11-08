@@ -1,0 +1,50 @@
+name: Release
+
+# Đẩy tag dạng v2.3.0 (khớp "version" trong package.json) -> dựng installer Windows và tạo GitHub Release.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    # Ký số (tùy chọn) bằng Azure Trusted Signing: tạo secrets rồi bỏ comment, đồng thời thêm vào
+    # package.json > build.win:
+    #   "azureSignOptions": { "publisherName": "...", "endpoint": "https://<region>.codesigning.azure.net",
+    #                         "codeSigningAccountName": "...", "certificateProfileName": "..." }
+    # env:
+    #   AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    #   AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+    #   AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Tag phải khớp version trong package.json
+        shell: bash
+        run: test "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")"
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run build
+      - run: npx electron-builder --win nsis --x64 --publish never
+      - name: SHA256 + ghi chú phát hành (mục tương ứng trong CHANGELOG.md)
+        shell: bash
+        run: |
+          cd release
+          sha256sum ExcelToMarkdown-Setup-*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          awk -v h="## ${GITHUB_REF_NAME#v} " 'index($0, h) == 1 { f = 1; next } f && /^## / { exit } f' ../CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "Xem CHANGELOG.md" > notes.md
+      - name: Tạo GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/ExcelToMarkdown-Setup-*.exe release/SHA256SUMS.txt \
+            --title "ExcelToMarkdown ${GITHUB_REF_NAME#v}" --notes-file release/notes.md --verify-tag
