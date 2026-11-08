@@ -1,7 +1,7 @@
 /* Client gọi Gemini API ở tiến trình main, kèm các hàm bảo mật API Key (redactApiKey, maskApiKey)
  * và trích xuất thẻ trích dẫn [[relPath | sectionTitle]].
  */
-import type { AiAskResponse, AiChatTurn, AiModelId, RagCitation } from '../../../../types'
+import { DEFAULT_AI_MODEL, type AiAskResponse, type AiChatTurn, type AiModelId, type RagCitation } from '../../../../types'
 
 const MAX_HISTORY_MESSAGES = 12 // 6 lượt hỏi - đáp gần nhất
 
@@ -174,9 +174,8 @@ export async function callGeminiApi(opts: {
   const maxAttempts = 3
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-      activeModel
-    )}:generateContent?key=${encodeURIComponent(key)}`
+    // Key đi trong header (như listGeminiModels), không nằm trên URL nên không lọt vào log proxy/thông báo lỗi
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(activeModel)}:generateContent`
 
     const timeoutMs = 120_000
     const ctrl = new AbortController()
@@ -199,7 +198,7 @@ export async function callGeminiApi(opts: {
     try {
       res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         body: JSON.stringify(body),
         signal: ctrl.signal,
       })
@@ -232,8 +231,8 @@ export async function callGeminiApi(opts: {
 
     if (!res.ok) {
       // Tự động chuyển về model flash ổn định nếu model đã chọn bị khai tử hoặc trả 404
-      if (res.status === 404 && activeModel !== 'gemini-2.5-flash') {
-        activeModel = 'gemini-2.5-flash'
+      if (res.status === 404 && activeModel !== DEFAULT_AI_MODEL) {
+        activeModel = DEFAULT_AI_MODEL
         continue
       }
       // Lỗi tạm thời (rate limit 429 hoặc quá tải 500/502/503/504): thử lại có ngắt quãng

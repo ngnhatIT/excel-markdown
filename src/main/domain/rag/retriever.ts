@@ -5,13 +5,7 @@
  */
 import { estimateTokens, type RagDocument, type RagSection } from './chunker'
 import { expandViJaQueryTerms } from './glossary'
-
-export interface RagCitation {
-  filePath: string
-  relPath: string
-  sheetName: string
-  sectionTitle: string
-}
+import type { RagCitation } from '../../../types'
 
 export interface RagContextResult {
   mode: 'full-active' | 'full-folder' | 'parent-rag'
@@ -73,39 +67,57 @@ function buildWeightedQueryTerms(query: string): WeightedTerm[] {
   return Array.from(map.entries()).map(([term, weight]) => ({ term, weight }))
 }
 
+/** Văn bản cần chấm điểm. `key` là RagDocument/RagSection gốc: kết quả tách từ được nhớ theo nó. */
+interface ScoreItem {
+  key: object
+  body: string
+  header: string
+}
+
+interface TermStats {
+  tf: Map<string, number>
+  len: number
+  headerLower: string
+  bodyLower: string
+}
+
+/** Tách từ một văn bản tốn thời gian (CJK 2-gram) và chạy trên main process. RagDocument được cache theo mtime
+ * ở main nên các câu hỏi sau dùng lại cùng object: chỉ tách từ một lần cho mỗi phiên bản file. */
+const statsCache = new WeakMap<object, TermStats>()
+
+function termStats(item: ScoreItem): TermStats {
+  const hit = statsCache.get(item.key)
+  if (hit) return hit
+  const tokens = tokenizeMultiLang(item.body + ' ' + item.header)
+  const tf = new Map<string, number>()
+  for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1)
+  const st = {
+    tf,
+    len: Math.max(1, tokens.length),
+    headerLower: item.header.toLowerCase(),
+    bodyLower: item.body.toLowerCase(),
+  }
+  statsCache.set(item.key, st)
+  return st
+}
+
 /** Chấm điểm BM25 cho một danh sách các văn bản, có cộng điểm thưởng khi khớp mã định danh chính xác. */
-function scoreItemsBm25(
-  texts: { body: string; header: string }[],
-  queryTerms: WeightedTerm[],
-  rawQuery: string
-): number[] {
+function scoreItemsBm25(texts: ScoreItem[], queryTerms: WeightedTerm[], rawQuery: string): number[] {
   if (texts.length === 0 || queryTerms.length === 0) return texts.map(() => 0)
   const k1 = 1.5
   const b = 0.75
 
-  const docTokenMaps: Map<string, number>[] = []
-  const docLengths: number[] = []
+  const stats = texts.map(termStats)
+  const docLengths = stats.map((s) => s.len)
   const df = new Map<string, number>()
-
-  for (const item of texts) {
-    const tokens = tokenizeMultiLang(item.body + ' ' + item.header)
-    docLengths.push(Math.max(1, tokens.length))
-    const tf = new Map<string, number>()
-    for (const t of tokens) tf.set(t, (tf.get(t) ?? 0) + 1)
-    docTokenMaps.push(tf)
-    for (const t of tf.keys()) df.set(t, (df.get(t) ?? 0) + 1)
-  }
+  for (const { tf } of stats) for (const t of tf.keys()) df.set(t, (df.get(t) ?? 0) + 1)
 
   const avgDl = docLengths.reduce((a, c) => a + c, 0) / texts.length
   const idCodes = (rawQuery.match(/[A-Za-z]{2,6}[-_]?\d{1,5}|[A-Za-z]+_[A-Za-z0-9_]+/g) ?? []).map((x) =>
     x.toLowerCase()
   )
 
-  return texts.map((item, idx) => {
-    const tfMap = docTokenMaps[idx]
-    const dl = docLengths[idx]
-    const headerLower = item.header.toLowerCase()
-    const bodyLower = item.body.toLowerCase()
+  return stats.map(({ tf: tfMap, len: dl, headerLower, bodyLower }) => {
     let score = 0
 
     for (const { term, weight } of queryTerms) {
@@ -128,6 +140,11 @@ function scoreItemsBm25(
     return score
   })
 }
+
+const sectionItem = (s: RagSection): ScoreItem => ({ key: s, body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })
+
+/** Phần ngân sách token tối đa cho sơ đồ thư mục (phần còn lại để nạp nội dung thật). */
+const CATALOG_SHARE = 0.2
 
 function formatFullDocBlock(doc: RagDocument): string {
   const firstSection = doc.sections[0]?.sectionTitle ?? 'Tổng quan'
@@ -161,7 +178,7 @@ export function buildRagContext(
       let usedTokens = estimateTokens(outlineBlock)
       const queryTerms = buildWeightedQueryTerms(query)
       const secScores = scoreItemsBm25(
-        target.sections.map((s) => ({ body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })),
+        target.sections.map(sectionItem),
         queryTerms,
         query
       )
@@ -240,19 +257,10 @@ export function buildRagContext(
   }
 
   // 3. Thư mục lớn (> maxTokens): Parent-Document RAG kết hợp Sơ đồ thư mục
-  const catalogLines = [
-    '=== SƠ ĐỒ TỔNG QUAN THƯ MỤC ===',
-    ...nonEmptyDocs.map(
-      (d) => `- ${d.metaHeader}${d.outline.length > 0 ? ' · Mục: ' + d.outline.join(', ') : ''}`
-    ),
-  ]
-  const catalogBlock = catalogLines.join('\n')
-  let usedTokens = estimateTokens(catalogBlock)
   const budget = Math.max(500, maxTokens)
-
   const queryTerms = buildWeightedQueryTerms(query)
   const docScores = scoreItemsBm25(
-    nonEmptyDocs.map((d) => ({ body: d.fullContent, header: d.metaHeader + ' ' + d.outline.join(' ') })),
+    nonEmptyDocs.map((d) => ({ key: d, body: d.fullContent, header: d.metaHeader + ' ' + d.outline.join(' ') })),
     queryTerms,
     query
   )
@@ -260,6 +268,21 @@ export function buildRagContext(
   const rankedDocs = nonEmptyDocs
     .map((doc, idx) => ({ doc, score: docScores[idx] }))
     .sort((a, b) => b.score - a.score)
+
+  // Sơ đồ thư mục theo thứ tự khớp, tối đa CATALOG_SHARE ngân sách: thư mục lớn không để sơ đồ chiếm hết chỗ của nội dung
+  const catalogLines = ['=== SƠ ĐỒ TỔNG QUAN THƯ MỤC ===']
+  let catalogTokens = estimateTokens(catalogLines[0])
+  let listed = 0
+  for (const { doc: d } of rankedDocs) {
+    const line = `- ${d.metaHeader}${d.outline.length > 0 ? ' · Mục: ' + d.outline.join(', ') : ''}`
+    if (catalogTokens + estimateTokens(line) > budget * CATALOG_SHARE) break
+    catalogLines.push(line)
+    catalogTokens += estimateTokens(line)
+    listed++
+  }
+  if (listed < rankedDocs.length) catalogLines.push(`- … và ${rankedDocs.length - listed} file khác (ít liên quan hơn)`)
+  const catalogBlock = catalogLines.join('\n')
+  let usedTokens = estimateTokens(catalogBlock)
 
   const blocks: string[] = [catalogBlock]
   const citations: RagCitation[] = []
@@ -291,7 +314,7 @@ export function buildRagContext(
 
   if (remainingSections.length > 0 && usedTokens < budget) {
     const secScores = scoreItemsBm25(
-      remainingSections.map((s) => ({ body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })),
+      remainingSections.map(sectionItem),
       queryTerms,
       query
     )

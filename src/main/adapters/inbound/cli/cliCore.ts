@@ -2,8 +2,9 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../types'
-import { convertWorkbook, listSheets } from '../../outbound/xlsxFiles'
-import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName } from '../../../domain/excel/output'
+import { readWorkbook } from '../../outbound/xlsxFiles'
+import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
+import { workbookMdFiles } from '../../../domain/excel/output'
 
 export const USAGE = `Dùng: cli <file.xlsx...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
           [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title]`
@@ -62,26 +63,13 @@ export function runCli(argv: string[], log: (s: string) => void = console.log): 
   for (const file of args.files) {
     const base = basename(file, extname(file))
     try {
-      const names = listSheets(file, args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
-      const sheets = convertWorkbook(file, names, args.options)
-      const src = basename(file)
-      const write = (name: string, text: string): void => {
-        const out = dedupeFileName(safeFileName(name) + '.md', used)
-        writeFileSync(join(args.outDir, out), text, 'utf-8')
-        log(out)
-      }
-      if (args.perWorkbook) {
-        if (sheets.length > 0) {
-          const escape = args.options.escapeMarkdown !== false
-          write(base, joinWorkbookMarkdown(base, sheets, escape, args.options.frontMatter ? src : undefined))
-        }
-      } else {
-        for (const s of sheets) {
-          const fm = args.options.frontMatter
-            ? frontMatter({ source: src, sheet: s.sheet, title: s.title, meta: s.meta })
-            : ''
-          write(base + '__' + s.sheet, fm + s.markdown + '\n')
-        }
+      // Đọc file một lần cho cả liệt kê sheet lẫn convert
+      const wb = readWorkbook(file)
+      const names = listSheetsInWorkbook(wb, args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
+      const sheets = convertSheetsInWorkbook(wb, names, args.options)
+      for (const f of workbookMdFiles(base, basename(file), sheets, args.options, args.perWorkbook, used)) {
+        writeFileSync(join(args.outDir, f.name), f.text, 'utf-8')
+        log(f.name)
       }
     } catch (err) {
       failed++

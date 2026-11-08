@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
-import type { AiAskResponse, AiChatTurn, AiConfigInfo, RagCitation } from '../../../types'
+import { DEFAULT_AI_MODEL, type AiAskResponse, type AiChatTurn, type AiConfigInfo, type RagCitation } from '../../../types'
 import { errMsg } from '../api'
 import { PASTE_PATH } from '../hooks/useMdViewer'
 import { sanitizeHtml } from '../sanitize'
@@ -8,6 +8,16 @@ import { cn, copyText, toast, uid } from '../utils'
 import { btnGhost, btnPrimary, btnSm, cx } from '../ui'
 import { SidePanel } from './SidePanel'
 import { IconCopy } from './icons'
+
+/** Câu trả lời đã render. memo: gõ vào ô hỏi không parse lại Markdown của mọi câu trả lời cũ. */
+const AnswerHtml = memo(function AnswerHtml({ text }: { text: string }) {
+  return (
+    <div
+      className="md-body x2m-ai-md"
+      dangerouslySetInnerHTML={{ __html: sanitizeHtml(marked.parse(text, { breaks: false }) as string) }}
+    />
+  )
+})
 
 interface ChatEntry {
   id: string
@@ -68,10 +78,10 @@ export function AiChatPanel({
   const [config, setConfig] = useState<AiConfigInfo>({
     hasKey: false,
     maskedKey: '',
-    model: 'gemini-2.5-flash',
+    model: DEFAULT_AI_MODEL,
   })
   const [showKeyBox, setShowKeyBox] = useState(false)
-  const [models, setModels] = useState<string[]>(['gemini-2.5-flash', 'gemini-2.5-pro'])
+  const [models, setModels] = useState<string[]>([DEFAULT_AI_MODEL, 'gemini-2.5-pro'])
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [scope, setScope] = useState<'folder' | 'active'>('folder')
   const [entries, setEntries] = useState<ChatEntry[]>([])
@@ -352,12 +362,7 @@ export function AiChatPanel({
                   </div>
                 ) : (
                   <div className="x2m-ai-bubble-model self-start rounded-2xl rounded-tl-xs border border-line bg-raised/70 p-3 text-xs text-ink max-w-[95%] shadow-xs">
-                    <div
-                      className="md-body x2m-ai-md"
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizeHtml(marked.parse(entry.text, { breaks: false }) as string),
-                      }}
-                    />
+                    <AnswerHtml text={entry.text} />
                     {entry.citations && entry.citations.length > 0 && (
                       <div className="x2m-ai-citations mt-2 flex flex-wrap gap-1.5">
                         {entry.citations.map((c, idx) => (

@@ -644,7 +644,7 @@ export default function App(): React.ReactElement {
 
   const handleJumpToCitation = useCallback(
     async (c: RagCitation) => {
-      if (c.filePath === '__paste__' || c.filePath === PASTE_PATH) {
+      if (c.filePath === PASTE_PATH) {
         if (viewerPath !== PASTE_PATH) viewer.showPaste()
       } else if (c.filePath !== viewerPath) {
         await viewerSelect(c.filePath)

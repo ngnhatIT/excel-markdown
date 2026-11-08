@@ -94,7 +94,7 @@ export function useFiles(skipDelSheets: boolean, persist: (key: string, value: u
       patch((f) => f.id === file.id, { loading: true, error: undefined })
       try {
         const sheets = await window.api.listSheets(file.path, skipDelSheets)
-        patch((f) => f.id === file.id, { loading: false, sheets: withChecks(sheets) })
+        patch((f) => f.id === file.id, { loading: false, sheets: withChecks(sheets, savedChecksRef.current[file.path]) })
       } catch (err) {
         patch((f) => f.id === file.id, { loading: false, error: errMsg(err) })
       }
@@ -110,7 +110,7 @@ export function useFiles(skipDelSheets: boolean, persist: (key: string, value: u
       for (const f of current) {
         try {
           const sheets = await window.api.listSheets(f.path, skipDel)
-          patch((x) => x.id === f.id, { loading: false, sheets: withChecks(sheets) })
+          patch((x) => x.id === f.id, { loading: false, sheets: withChecks(sheets, savedChecksRef.current[f.path]) })
         } catch {
           patch((x) => x.id === f.id, { loading: false })
         }

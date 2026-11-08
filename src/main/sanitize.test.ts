@@ -19,6 +19,20 @@ describe('sanitizeHtml', () => {
     expect(sanitizeHtml('<a href="javascript:alert(1)">x</a>')).toBe('<a>x</a>')
   })
 
+  it('chặn javascript: viết bằng entity hoặc chèn ký tự điều khiển', () => {
+    for (const href of ['javascript&#58;alert(1)', '&#106;avascript:alert(1)', 'javascript&#x3A;alert(1)', 'java&#9;script:alert(1)', 'javascript&#58alert(1)']) {
+      expect(sanitizeHtml(`<a href="${href}">x</a>`)).toBe('<a>x</a>')
+    }
+  })
+
+  it('entity không giải mã được thì escape lại, trình duyệt không đọc ra scheme', () => {
+    expect(sanitizeHtml('<a href="javascript&colon;alert(1)">x</a>')).toBe('<a href="javascript&amp;colon;alert(1)">x</a>')
+  })
+
+  it('giữ nguyên & trong query của link', () => {
+    expect(sanitizeHtml('<a href="https://x.com/?a=1&amp;b=2">x</a>')).toBe('<a href="https://x.com/?a=1&amp;b=2">x</a>')
+  })
+
   it('giữ href http', () => {
     expect(sanitizeHtml('<a href="https://example.com">x</a>')).toBe(
       '<a href="https://example.com">x</a>'

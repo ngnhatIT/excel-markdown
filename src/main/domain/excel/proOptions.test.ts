@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../types'
 import { extractSheetMeta, parseRange, sheetToMarkdown } from './converter'
-import { frontMatter, joinWorkbookMarkdown } from './output'
+import { frontMatter, joinWorkbookMarkdown, workbookMdFiles } from './output'
 
 const OPTS: ConvertOptions = { ...DEFAULT_OPTIONS, includeSheetTitle: false }
 const md = (ws: XLSX.WorkSheet, o: Partial<ConvertOptions> = {}): string =>
@@ -171,5 +171,29 @@ describe('bố cục nâng cao: header 2 tầng, merge ngang/dọc, ghi chú cu�
     expect(lines[0].length).toBe(lines[1].length)
     expect(lines[1].length).toBe(lines[2].length)
     expect(lines[2].length).toBe(lines[3].length)
+  })
+})
+
+describe('workbookMdFiles (dùng chung app + CLI)', () => {
+  const opts = { escapeMarkdown: true, frontMatter: false }
+  const sheets = [
+    { sheet: 'A', markdown: '## A' },
+    { sheet: 'B', markdown: '' },
+  ]
+
+  it('per-sheet: mỗi sheet một file base__sheet.md, khử trùng tên giữa các workbook', () => {
+    const used = new Set<string>()
+    expect(workbookMdFiles('Book', 'Book.xlsx', sheets, opts, false, used).map((f) => f.name)).toEqual(['Book__A.md', 'Book__B.md'])
+    expect(workbookMdFiles('Book', 'sub/Book.xlsx', sheets.slice(0, 1), opts, false, used)[0].name).toBe('Book__A (2).md')
+  })
+
+  it('per-workbook: một file; mọi sheet rỗng thì không ghi gì', () => {
+    expect(workbookMdFiles('Book', 'Book.xlsx', sheets, opts, true, new Set()).map((f) => f.name)).toEqual(['Book.md'])
+    expect(workbookMdFiles('Book', 'Book.xlsx', [{ sheet: 'B', markdown: ' ' }], opts, true, new Set())).toEqual([])
+  })
+
+  it('front-matter ghi tên file nguồn', () => {
+    const [f] = workbookMdFiles('Book', 'Book.xlsx', sheets.slice(0, 1), { ...opts, frontMatter: true }, false, new Set())
+    expect(f.text).toMatch(/^---\nsource: "Book.xlsx"\nsheet: "A"/)
   })
 })

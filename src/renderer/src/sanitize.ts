@@ -26,16 +26,28 @@ function attr(raw: string, name: string): string | null {
   return m ? m[1].replace(/^['"]|['"]$/g, '') : null
 }
 
+const fromCode = (n: number): string => (n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : '�')
+
 const decodeEntities = (s: string): string =>
-  s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+  s
+    .replace(/&#x([0-9a-f]+);?/gi, (_, h: string) => fromCode(parseInt(h, 16)))
+    .replace(/&#(\d+);?/g, (_, d: string) => fromCode(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
 
 const escapeAttr = (s: string): string => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
 
-/** Chỉ giữ href http/https/mailto hoặc relative; chặn javascript:/data:. */
+/** Chỉ giữ href http/https/mailto hoặc relative; chặn javascript:/data:.
+ * Kiểm scheme trên bản đã giải mã entity (`javascript&#58;` = `javascript:` với trình duyệt) và đã bỏ
+ * ký tự điều khiển/khoảng trắng (`java\tscript:`). Trả bản đã giải mã; nơi gọi escape lại khi ghi ra,
+ * nên entity không giải mã được (vd `&colon;`) chỉ còn là chữ thường. */
 function cleanHref(raw: string): string | null {
-  const v = raw.trim().replace(/^['"]|['"]$/g, '')
-  if (/^(https?:|mailto:)/i.test(v)) return v
-  if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return null
+  const v = decodeEntities(raw.trim().replace(/^['"]|['"]$/g, '')).trim()
+  const probe = v.replace(/[\u0000- \u007f]/g, '')
+  if (/^(https?:|mailto:)/i.test(probe)) return v
+  if (/^[a-z][a-z0-9+.-]*:/i.test(probe)) return null
   return v
 }
 
@@ -79,7 +91,7 @@ export function sanitizeHtml(html: string, opts: SanitizeOptions = {}): string {
     if (tag === 'a') {
       const hm = /href\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i.exec(raw)
       const href = hm ? cleanHref(hm[1]) : null
-      out += href ? `<a href="${href.replace(/"/g, '&quot;')}">` : '<a>'
+      out += href ? `<a href="${escapeAttr(href)}">` : '<a>'
     } else if (tag === 'code' && /^language-[\w-]+$/.test(attr(raw, 'class') ?? '')) {
       // Giữ nhãn ngôn ngữ của khối code (vd language-mermaid để vẽ sơ đồ)
       out += `<code class="${attr(raw, 'class')}">`
