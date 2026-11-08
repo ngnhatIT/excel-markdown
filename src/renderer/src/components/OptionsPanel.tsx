@@ -73,7 +73,7 @@ export function OptionsPanel({
         </button>
       }
     >
-      <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-0.5">
+      <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-3">
         <div className={`x2m-opt-group ${optGroup}`}>
           <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">Cấu hình nhanh (Preset)</div>
           <div className={`x2m-presets ${segGroup}`} role="group" aria-label="Cấu hình nhanh">

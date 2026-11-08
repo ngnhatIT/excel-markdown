@@ -9,7 +9,7 @@ const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-
 export const btn = cx(
   'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-line bg-raised px-3 py-1.5',
   'text-[13px] font-medium text-ink shadow-[inset_0_1px_0_var(--glass-highlight)]',
-  'transition-[background-color,color,transform,filter,box-shadow] duration-200 ease-out',
+  'transition-[background-color,color,transform,filter,box-shadow] duration-300 ease-spring',
   'enabled:hover:bg-hover enabled:active:scale-[0.97] disabled:opacity-50',
   focusRing
 )
@@ -38,4 +38,5 @@ export const input = cx(
 )
 
 export const card = 'rounded-card border border-line bg-soft'
-export const paneTitle = 'flex items-center justify-between gap-1.5 px-3 pb-1.5 pt-2.5 text-xs font-bold tracking-[0.01em] text-dim'
+export const paneTitle =
+  'flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-faint [&_button]:normal-case [&_button]:tracking-normal'

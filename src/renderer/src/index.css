@@ -1,4 +1,4 @@
-﻿@import 'tailwindcss';
+@import 'tailwindcss';
 
 /* Tailwind v4 quét class trong TSX tự động. Token màu bên dưới trỏ tới biến CSS
  * (đổi theo data-theme) nên dùng được dạng bg-soft, text-dim, border-line... */
@@ -25,8 +25,11 @@
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --color-code: var(--code-bg);
+  --color-editor: var(--editor-bg);
   --shadow-pop: var(--shadow);
   --radius-card: var(--radius);
+  /* Đường cong có "khối lượng": tăng tốc nhanh, dừng mềm (dùng class ease-spring) */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
   --font-sans: 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: ui-monospace, 'Cascadia Code', Consolas, 'Courier New', monospace;
 }
@@ -74,6 +77,10 @@
   --code-bg: rgba(4, 7, 12, 0.62);
   --shadow: 0 14px 40px -10px rgba(2, 8, 20, 0.65);
   --radius: 12px;
+  /* Khung ngoài của workbench (viền kép: khay nhôm + tấm kính) */
+  --shell-bg: rgba(255, 255, 255, 0.035);
+  --shell-ring: rgba(255, 255, 255, 0.08);
+  --editor-bg: rgba(4, 7, 12, 0.32);
 }
 
 [data-theme='light'] {
@@ -113,6 +120,9 @@
   --danger-soft: rgba(209, 56, 56, 0.1);
   --code-bg: rgba(243, 246, 250, 0.82);
   --shadow: 0 12px 32px -10px rgba(30, 55, 95, 0.25);
+  --shell-bg: rgba(255, 255, 255, 0.4);
+  --shell-ring: rgba(30, 55, 95, 0.08);
+  --editor-bg: rgba(255, 255, 255, 0.5);
 }
 
 /* Khung kính: làm mờ + tăng bão hòa nền phía sau. Viền sáng/tối theo một hướng ánh sáng
@@ -145,6 +155,18 @@
   box-shadow: var(--pill-shadow);
 }
 
+/* Workbench kiểu IDE: một khay ngoài (shell) ôm một tấm kính duy nhất (core); bên trong
+ * các vùng chia bằng hairline thay vì nhiều thẻ nổi rời nhau. Bán kính lồng đồng tâm. */
+.x2m-shell {
+  border-radius: 22px;
+  padding: 5px;
+  background: var(--shell-bg);
+  box-shadow: 0 0 0 1px var(--shell-ring), 0 30px 80px -40px rgba(2, 8, 20, 0.6);
+}
+.x2m-core {
+  border-radius: 17px;
+}
+
 /* Các khung lớn hiện lần lượt khi mở app (một lần, chỉ dùng transform/opacity) */
 @keyframes glass-rise {
   from {
@@ -154,7 +176,7 @@
 }
 .x2m-app > *,
 .x2m-body > * {
-  animation: glass-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: glass-rise 0.8s var(--ease-spring) both;
 }
 .x2m-body > :nth-child(2) {
   animation-delay: 60ms;
