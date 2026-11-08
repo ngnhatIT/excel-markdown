@@ -271,9 +271,10 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
                               {c && (
                                 <button
                                   className={cn(
-                                    'x2m-crud-cell min-w-9 rounded px-1.5 py-0.5 font-mono font-semibold tracking-wider outline-none hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent',
-                                    c.ops === '?' ? 'text-faint' : 'text-accent-ink',
-                                    on && 'bg-accent-soft'
+                                    // Chữ C/R/U/D đủ lớn + nền nhạt để quét nhanh cả ma trận
+                                    'x2m-crud-cell min-w-10 rounded-md px-2 py-1 text-[13px] font-semibold tracking-[0.12em] outline-none hover:brightness-110 focus-visible:outline-2 focus-visible:outline-accent',
+                                    c.ops === '?' ? 'text-faint' : 'bg-accent-soft text-accent-ink',
+                                    on && 'ring-2 ring-accent'
                                   )}
                                   aria-pressed={on}
                                   aria-label={t('sm.crud.cell', { screen: s.id, table: tb, ops: c.ops })}

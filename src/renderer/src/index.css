@@ -193,6 +193,7 @@
 .x2m-tr-popup,
 .x2m-ddl-pop,
 .x2m-er-dialog,
+.x2m-testdesign,
 .x2m-palette {
   background:
     linear-gradient(160deg, var(--sheen), transparent 32%),
