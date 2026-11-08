@@ -78,6 +78,28 @@ describe('callGeminiApi stability & resilience', () => {
     ).rejects.toThrow('Chưa cấu hình Gemini API Key')
   })
 
+  it('gửi API key qua header x-goog-api-key, không đặt trên URL', async () => {
+    const originalFetch = globalThis.fetch
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: 'ok' }] } }] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+    )
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    try {
+      const key = 'AIzaSyFakeKey123456789'
+      await callGeminiApi({ apiKey: key, model: 'gemini-2.5-flash', question: 'q', contextText: '', history: [], availableCitations: [] })
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
+      expect(url).not.toContain(key)
+      expect(url).not.toContain('key=')
+      expect((init.headers as Record<string, string>)['x-goog-api-key']).toBe(key)
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
   it('thử lại và thành công nếu lần đầu gặp lỗi 429 quota burst', async () => {
     let callCount = 0
     const originalFetch = globalThis.fetch

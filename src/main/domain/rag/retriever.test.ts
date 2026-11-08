@@ -78,4 +78,23 @@ describe('buildRagContext (Quality-First)', () => {
     expect(res.contextText).toContain('顧客コード')
     expect(res.citations[0].relPath).toBe('SC001.md')
   })
+
+  it('thư mục lớn: sơ đồ thư mục không quá 20% ngân sách, file khớp nhất đứng đầu sơ đồ và được nạp', () => {
+    const many = Array.from({ length: 300 }, (_, i) =>
+      parseMarkdownForRag(
+        `/dir/F${i}.md`,
+        `F${i}.md`,
+        `## F${i}\n${Array.from({ length: 10 }, (_, s) => `### 【見出し${s}】\n本文 ${i}-${s}`).join('\n')}`
+      )
+    )
+    const res = buildRagContext([...many, doc1], 'SC001 顧客コード', { scope: 'folder', maxContextTokens: 4000 })
+    expect(res.mode).toBe('parent-rag')
+    const catalog = res.contextText.split('\n\n')[0]
+    expect(Math.ceil(catalog.length / 3)).toBeLessThanOrEqual(4000 * 0.2 + 30)
+    expect(catalog).toMatch(/… và \d+ file khác/)
+    expect(catalog.split('\n')[1]).toContain('SC001')
+    expect(res.contextText).toContain('顧客コード')
+    // Hỏi lại trên cùng object tài liệu cho cùng kết quả (dùng kết quả tách từ đã nhớ)
+    expect(buildRagContext([...many, doc1], 'SC001 顧客コード', { scope: 'folder', maxContextTokens: 4000 }).contextText).toBe(res.contextText)
+  })
 })

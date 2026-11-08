@@ -45,6 +45,15 @@ export function isMarkdownPath(p: unknown): boolean {
   return typeof p === 'string' && isAbsolute(p) && /\.(md|markdown)$/i.test(p)
 }
 
+/** Đuôi file Excel app nhận (dialog chọn file, argv, kéo thả). */
+export const EXCEL_EXT_RE = /\.(xlsx|xlsm|xls|xltx|xltm)$/i
+
+/** Như isMarkdownPath cho IPC `excel:*`: SheetJS đọc được cả file text, nên không chặn đuôi thì
+ * renderer bị chiếm quyền đọc được file bất kỳ qua preview. */
+export function isExcelPath(p: unknown): boolean {
+  return typeof p === 'string' && isAbsolute(p) && EXCEL_EXT_RE.test(p)
+}
+
 /** `p` nằm hẳn bên trong thư mục `root` (không phải chính `root`, không thoát ra bằng `..`). */
 export function isInsideDir(root: string, p: string): boolean {
   if (!isAbsolute(root) || !isAbsolute(p)) return false

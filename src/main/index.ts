@@ -1,11 +1,12 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, safeStorage, shell, type MessageBoxOptions } from 'electron'
-import type { AiAskRequest, AiAskResponse, AiConfigInfo, AiModelId } from '../types'
+import { DEFAULT_AI_MODEL, type AiAskRequest, type AiAskResponse, type AiConfigInfo, type AiModelId } from '../types'
 import { parseMarkdownForRag, type RagDocument } from './domain/rag/chunker'
 import { callGeminiApi, listGeminiModels, maskApiKey, redactApiKey } from './adapters/outbound/gemini/geminiClient'
 import { buildRagContext } from './domain/rag/retriever'
-import { join, dirname, basename, extname, isAbsolute } from 'node:path'
+import { collectRagDocuments, RAG_MAX_FILES, RAG_MAX_LOOSE } from './domain/rag/collect'
+import { join, dirname, basename, extname, isAbsolute, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { access, appendFile, constants, readFile, rm, stat, writeFile, mkdir } from 'node:fs/promises'
+import { access, appendFile, constants, readFile, rename, rm, stat, writeFile, mkdir } from 'node:fs/promises'
 import type {
   ConvertOptions,
   ConvertFileSpec,
@@ -15,11 +16,13 @@ import type {
   MdInspectResult,
   OutputMode,
 } from '../types'
-import { dedupeFileName, frontMatter, joinWorkbookMarkdown, safeFileName, type SheetResult } from './domain/excel/output'
+import { dedupeFileName, mdFileName, safeFileName, workbookMdFiles, type SheetResult } from './domain/excel/output'
 import { CancelledError, ConverterWorker } from './adapters/outbound/converterWorker'
 import { friendlyError } from './domain/errors'
 import {
+  EXCEL_EXT_RE,
   imageMime,
+  isExcelPath,
   isInsideDir,
   isMarkdownPath,
   isOpenableDirectory,
@@ -50,9 +53,26 @@ async function readStore(): Promise<Record<string, unknown>> {
   }
 }
 
+/** Ghi file tạm rồi đổi tên: tắt máy/crash giữa chừng không để lại store.json hỏng
+ * (hỏng thì readStore trả {} và lần ghi sau xóa mất mọi cài đặt lẫn API key). */
 async function writeStore(data: Record<string, unknown>): Promise<void> {
   await mkdir(dirname(storePath()), { recursive: true })
-  await writeFile(storePath(), JSON.stringify(data, null, 2), 'utf-8')
+  const tmp = storePath() + '.tmp'
+  await writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8')
+  await rename(tmp, storePath())
+}
+
+// Chuỗi hóa mọi lần đọc-sửa-ghi store để hai lần ghi gần nhau không làm mất thay đổi của nhau.
+let storeWriteChain: Promise<void> = Promise.resolve()
+
+function updateStore(mutate: (store: Record<string, unknown>) => void): Promise<void> {
+  const task = storeWriteChain.then(async () => {
+    const store = await readStore()
+    mutate(store)
+    await writeStore(store)
+  })
+  storeWriteChain = task.catch(() => undefined)
+  return task
 }
 
 const LOG_MAX_BYTES = 512 * 1024
@@ -114,9 +134,9 @@ function createWindow(saved?: WindowBounds): void {
   const saveBounds = (): void => {
     if (!mainWindow || mainWindow.isMaximized()) return
     const b = mainWindow.getBounds()
-    void readStore()
-      .then((store) => writeStore({ ...store, windowBounds: b }))
-      .catch(() => undefined)
+    void updateStore((store) => {
+      store['windowBounds'] = b
+    }).catch(() => undefined)
   }
   mainWindow.on('close', saveBounds)
 
@@ -148,7 +168,15 @@ const workerEntry = join(__dirname, 'worker.js')
 const previewWorker = new ConverterWorker(workerEntry, ['--cache=3'], 'x2m-preview')
 const convertWorker = new ConverterWorker(workerEntry, ['--cache=1'], 'x2m-convert')
 let convertRunning = false
+const NOT_EXCEL = 'Chỉ đọc được file Excel (.xlsx/.xlsm/.xls) theo đường dẫn tuyệt đối.'
 let convertCancelRequested = false
+
+/** Hộp thoại `Ghi đè` / `Hủy` (mặc định Hủy); true = ghi đè. */
+async function confirmOverwrite(message: string): Promise<boolean> {
+  const box: MessageBoxOptions = { type: 'question', buttons: ['Ghi đè', 'Hủy'], defaultId: 1, cancelId: 1, message }
+  const { response } = await (mainWindow ? dialog.showMessageBox(mainWindow, box) : dialog.showMessageBox(box))
+  return response === 0
+}
 
 ipcMain.handle('store:get', async (_e, key: string) => {
   if (key === 'aiApiKeyEnc') return { ok: true, data: null }
@@ -160,19 +188,12 @@ ipcMain.handle('store:get', async (_e, key: string) => {
   }
 })
 
-// Chuỗi hóa các lần ghi store để tránh race read-modify-write.
-let storeWriteChain: Promise<void> = Promise.resolve()
-
 ipcMain.handle('store:set', async (_e, key: string, value: unknown) => {
   if (key === 'aiApiKeyEnc') return { ok: false, error: 'Forbidden store key' }
-  const task = storeWriteChain.then(async () => {
-    const store = await readStore()
-    store[key] = value
-    await writeStore(store)
-  })
-  storeWriteChain = task.catch(() => undefined)
   try {
-    await task
+    await updateStore((store) => {
+      store[key] = value
+    })
     return { ok: true, data: null }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
@@ -261,6 +282,7 @@ ipcMain.handle('app:getVersion', async () => {
 })
 
 ipcMain.handle('excel:listSheets', async (_e, filePath: string, skipDelSheets: boolean) => {
+  if (!isExcelPath(filePath)) return { ok: false, error: NOT_EXCEL }
   try {
     const sheets = await previewWorker.request({ type: 'listSheets', path: filePath, skipDelSheets })
     return { ok: true, data: sheets }
@@ -273,6 +295,7 @@ ipcMain.handle('excel:listSheets', async (_e, filePath: string, skipDelSheets: b
 ipcMain.handle(
   'excel:preview',
   async (_e, filePath: string, sheetName: string, options: ConvertOptions) => {
+    if (!isExcelPath(filePath)) return { ok: false, error: NOT_EXCEL }
     try {
       const md = await previewWorker.request<string>({ type: 'preview', path: filePath, sheet: sheetName, options })
       return { ok: true, data: md }
@@ -294,6 +317,14 @@ ipcMain.handle(
       outputMode: OutputMode
     }
   ) => {
+    if (
+      !Array.isArray(payload?.files) ||
+      !payload.files.every((f) => isExcelPath(f?.path) && Array.isArray(f.sheets)) ||
+      typeof payload.outDir !== 'string' ||
+      !isAbsolute(payload.outDir)
+    ) {
+      return { ok: false, error: NOT_EXCEL }
+    }
     if (convertRunning) return { ok: false, error: 'Đang convert, vui lòng chờ hoặc bấm Hủy.' }
     convertRunning = true
     convertCancelRequested = false
@@ -304,6 +335,43 @@ ipcMain.handle(
         await access(payload.outDir, constants.W_OK)
       } catch {
         return { ok: false, error: 'Không ghi được vào thư mục: ' + payload.outDir }
+      }
+      // File .md đích đã có (có thể người dùng đã sửa tay): hỏi một lần trước khi ghi đè, như Markdown → Excel.
+      // Tính theo mọi sheet đã chọn nên sheet rỗng (sẽ bị bỏ qua) vẫn có thể làm hỏi thừa — hỏi thừa vô hại.
+      const planned = new Set<string>()
+      for (const spec of payload.files) {
+        const base = basename(spec.path, extname(spec.path))
+        if (payload.outputMode === 'per-workbook') dedupeFileName(mdFileName(base), planned)
+        else for (const s of spec.sheets) dedupeFileName(mdFileName(base, s), planned)
+      }
+      const existing = (
+        await Promise.all(
+          [...planned].map((f) =>
+            access(join(payload.outDir, f)).then(
+              () => f,
+              () => null
+            )
+          )
+        )
+      ).filter((f): f is string => f !== null)
+      if (
+        existing.length > 0 &&
+        !(await confirmOverwrite(
+          existing.length === 1
+            ? `File ${existing[0]} đã tồn tại. Ghi đè?`
+            : `${existing.length} file .md đã có trong thư mục xuất (vd ${existing[0]}). Ghi đè?`
+        ))
+      ) {
+        return {
+          ok: true,
+          data: payload.files.map((spec) => ({
+            fileName: basename(spec.path, extname(spec.path)),
+            ok: false,
+            cancelled: true,
+            filesWritten: [],
+            error: 'Đã hủy',
+          })),
+        }
       }
       const usedNames = new Set<string>()
       const total = payload.files.length
@@ -331,6 +399,9 @@ ipcMain.handle(
           })
           continue
         }
+        // Ghi lỗi giữa chừng (vd file .md đang bị khóa): báo đúng các file đã ghi và lỗi là lỗi ghi
+        const written: string[] = []
+        let writing = false
         try {
           const sheets = await convertWorker.request<SheetResult[]>({
             type: 'convert',
@@ -338,24 +409,11 @@ ipcMain.handle(
             sheets: spec.sheets,
             options: payload.options,
           })
-          const written: string[] = []
-          if (payload.outputMode === 'per-workbook') {
-            const src = payload.options.frontMatter ? basename(spec.path) : undefined
-            const md = joinWorkbookMarkdown(base, sheets, payload.options.escapeMarkdown !== false, src)
-            if (sheets.some((s) => s.markdown.trim() !== '')) {
-              const fileName = dedupeFileName(safeFileName(base) + '.md', usedNames)
-              await writeFile(join(payload.outDir, fileName), md, 'utf-8')
-              written.push(fileName)
-            }
-          } else {
-            for (const s of sheets) {
-              const fileName = dedupeFileName(safeFileName(base + '__' + s.sheet) + '.md', usedNames)
-              const fm = payload.options.frontMatter
-                ? frontMatter({ source: basename(spec.path), sheet: s.sheet, title: s.title, meta: s.meta })
-                : ''
-              await writeFile(join(payload.outDir, fileName), fm + s.markdown + '\n', 'utf-8')
-              written.push(fileName)
-            }
+          writing = true
+          const files = workbookMdFiles(base, basename(spec.path), sheets, payload.options, payload.outputMode === 'per-workbook', usedNames)
+          for (const f of files) {
+            await writeFile(join(payload.outDir, f.name), f.text, 'utf-8')
+            written.push(f.name)
           }
           results.push({ fileName: base, ok: true, filesWritten: written })
           reportProgress()
@@ -368,8 +426,12 @@ ipcMain.handle(
           results.push({
             fileName: base,
             ok: false,
-            filesWritten: [],
-            error: friendlyError(err),
+            filesWritten: written,
+            error: writing
+              ? /EBUSY|EPERM|EACCES/.test(String(err))
+                ? 'Không ghi được file .md: file đang bị chương trình khác khóa hoặc không có quyền ghi.'
+                : 'Không ghi được file .md: ' + (err instanceof Error ? err.message : String(err))
+              : friendlyError(err),
           })
           reportProgress()
         }
@@ -441,21 +503,9 @@ ipcMain.handle(
         () => true,
         () => false
       )
-      if (exists) {
-        const box: MessageBoxOptions = {
-          type: 'question',
-          buttons: ['Ghi đè', 'Hủy'],
-          defaultId: 1,
-          cancelId: 1,
-          message: `File ${basename(outPath)} đã tồn tại. Ghi đè?`,
-        }
-        const { response } = await (mainWindow
-          ? dialog.showMessageBox(mainWindow, box)
-          : dialog.showMessageBox(box))
-        if (response !== 0) {
-          const declined: MdConvertResult = { status: 'declined' }
-          return { ok: true, data: declined }
-        }
+      if (exists && !(await confirmOverwrite(`File ${basename(outPath)} đã tồn tại. Ghi đè?`))) {
+        const declined: MdConvertResult = { status: 'declined' }
+        return { ok: true, data: declined }
       }
       // Hủy bấm trước khi worker khởi động (lúc tạo thư mục / chờ hộp thoại): cancel() chưa có gì để kill
       if (convertCancelRequested) {
@@ -493,7 +543,8 @@ ipcMain.handle(
  * Scheme ảnh chỉ phục vụ file ảnh nằm trong các thư mục này. */
 const viewerRoots = new Set<string>()
 
-const RAG_CACHE_MAX = 500
+/** Đủ chứa mọi file của một câu hỏi, để hỏi lại không phải đọc/parse lại từ đầu. */
+const RAG_CACHE_MAX = RAG_MAX_FILES + RAG_MAX_LOOSE
 const ragDocCache = new Map<string, RagDocument>()
 let aiAbort: AbortController | null = null
 
@@ -526,7 +577,7 @@ function decryptApiKey(stored: unknown): string {
 }
 
 function normalizeAiModel(m: unknown): AiModelId {
-  return typeof m === 'string' && /^gemini-[\w.-]{1,60}$/.test(m) ? m : 'gemini-2.5-flash'
+  return typeof m === 'string' && /^gemini-[\w.-]{1,60}$/.test(m) ? m : DEFAULT_AI_MODEL
 }
 
 ipcMain.handle('ai:listModels', async () => {
@@ -547,6 +598,9 @@ async function loadRagDocumentCached(absPath: string, relPath: string): Promise<
     const mtime = st.mtimeMs
     const cached = ragDocCache.get(absPath)
     if (cached && cached.mtime === mtime && cached.relPath === relPath) {
+      // LRU: đưa lên cuối để file đang dùng không bị đẩy ra trước file cũ
+      ragDocCache.delete(absPath)
+      ragDocCache.set(absPath, cached)
       return cached
     }
     const text = await readMarkdownFile(absPath)
@@ -579,19 +633,15 @@ ipcMain.handle('ai:getConfig', async () => {
 })
 
 ipcMain.handle('ai:setConfig', async (_e, payload: { apiKey?: string; model?: AiModelId }) => {
-  const task = storeWriteChain.then(async () => {
-    const store = await readStore()
-    if (typeof payload?.apiKey === 'string') {
-      store['aiApiKeyEnc'] = encryptApiKey(payload.apiKey)
-    }
-    if (payload?.model) {
-      store['aiModel'] = normalizeAiModel(payload.model)
-    }
-    await writeStore(store)
-  })
-  storeWriteChain = task.catch(() => undefined)
   try {
-    await task
+    await updateStore((store) => {
+      if (typeof payload?.apiKey === 'string') {
+        store['aiApiKeyEnc'] = encryptApiKey(payload.apiKey)
+      }
+      if (payload?.model) {
+        store['aiModel'] = normalizeAiModel(payload.model)
+      }
+    })
     const store = await readStore()
     const key = decryptApiKey(store['aiApiKeyEnc'])
     const model = normalizeAiModel(store['aiModel'])
@@ -627,51 +677,7 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     rawKey = decryptApiKey(store['aiApiKeyEnc'])
     const model = normalizeAiModel(req.model ?? store['aiModel'])
 
-    const isPasteActive = req.activeFilePath === 'clipboard:paste' || req.activeFilePath === '__paste__'
-    const pasteText =
-      typeof req.pastedMarkdown === 'string' && req.pastedMarkdown.trim() !== ''
-        ? req.pastedMarkdown
-        : isPasteActive && typeof req.activeMarkdown === 'string'
-          ? req.activeMarkdown
-          : ''
-
-    const docs: RagDocument[] = []
-    if (req.scope === 'active') {
-      if (isPasteActive && pasteText.trim() !== '') {
-        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', pasteText, Date.now()))
-      } else if (req.activeFilePath && isMarkdownPath(req.activeFilePath)) {
-        const rel =
-          req.rootDir && req.activeFilePath.startsWith(req.rootDir)
-            ? req.activeFilePath.slice(req.rootDir.length).replace(/^[\\/]+/, '').replace(/\\/g, '/')
-            : basename(req.activeFilePath)
-        const d = await loadRagDocumentCached(req.activeFilePath, rel)
-        if (d) docs.push(d)
-      } else if (typeof req.activeMarkdown === 'string' && req.activeMarkdown.trim() !== '') {
-        docs.push(parseMarkdownForRag('clipboard:paste', 'Tài liệu đang xem', req.activeMarkdown, Date.now()))
-      }
-    } else {
-      const rootDir = typeof req.rootDir === 'string' && isAbsolute(req.rootDir) ? req.rootDir : null
-      const relFiles = Array.isArray(req.relFiles) ? req.relFiles.slice(0, RAG_CACHE_MAX) : []
-      if (rootDir && relFiles.length > 0) {
-        const loaded = await Promise.all(
-          relFiles.map((rel) => {
-            const abs = join(rootDir, ...rel.split('/'))
-            return isInsideDir(rootDir, abs) ? loadRagDocumentCached(abs, rel) : Promise.resolve(null)
-          })
-        )
-        for (const d of loaded) if (d) docs.push(d)
-      }
-      const loose = Array.isArray(req.looseFiles) ? req.looseFiles.slice(0, 100) : []
-      if (loose.length > 0) {
-        const loadedLoose = await Promise.all(
-          loose.map((abs) => loadRagDocumentCached(abs, basename(abs)))
-        )
-        for (const d of loadedLoose) if (d) docs.push(d)
-      }
-      if (pasteText.trim() !== '') {
-        docs.push(parseMarkdownForRag('clipboard:paste', 'Dán từ clipboard', pasteText, Date.now()))
-      }
-    }
+    const { docs, skippedFiles } = await collectRagDocuments(req, loadRagDocumentCached)
 
     if (docs.length === 0) {
       return { ok: false, error: 'Chưa có file Markdown nào để tra cứu. Hãy mở thư mục hoặc chọn file Markdown trước.' }
@@ -679,7 +685,7 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
 
     const ragCtx = buildRagContext(docs, question, {
       scope: req.scope,
-      activeFilePath: isPasteActive ? 'clipboard:paste' : (req.activeFilePath ?? undefined),
+      activeFilePath: req.activeFilePath ?? undefined,
     })
 
     const apiRes = await callGeminiApi({
@@ -693,7 +699,11 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     })
 
     const out: AiAskResponse = {
-      answer: apiRes.answer,
+      answer:
+        skippedFiles > 0
+          ? apiRes.answer +
+            `\n\n*(Lưu ý: mỗi câu hỏi chỉ đọc tối đa ${RAG_MAX_FILES} file của thư mục và ${RAG_MAX_LOOSE} file mở lẻ; ${skippedFiles} file vượt giới hạn chưa được đọc. Hãy mở thư mục con hoặc chọn "Chỉ file đang xem" để hỏi về các file đó.)*`
+          : apiRes.answer,
       citations: apiRes.citations,
       mode: ragCtx.mode,
       docCount: ragCtx.docCount,
@@ -766,14 +776,10 @@ function registerImageProtocol(): void {
 
 /* ---------------------------------- App ----------------------------------- */
 
-const EXCEL_EXTS = ['.xlsx', '.xlsm', '.xls', '.xltx', '.xltm']
-
 /** Lọc đường dẫn file Excel từ argv (mở file bằng app / kéo thả vào exe). */
-function extractExcelPaths(argv: string[]): string[] {
-  return argv.filter((a) => {
-    const lower = a.toLowerCase()
-    return EXCEL_EXTS.some((ext) => lower.endsWith(ext))
-  })
+function extractExcelPaths(argv: string[], cwd = process.cwd()): string[] {
+  // IPC excel:* chỉ nhận đường dẫn tuyệt đối; `app.exe a.xlsx` gõ trong terminal là đường dẫn tương đối
+  return argv.filter((a) => EXCEL_EXT_RE.test(a)).map((a) => resolve(cwd, a))
 }
 
 function forwardFilesToWindow(paths: string[]): void {
@@ -787,8 +793,8 @@ const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) {
   app.quit()
 } else {
-  app.on('second-instance', (_e, argv) => {
-    forwardFilesToWindow(extractExcelPaths(argv))
+  app.on('second-instance', (_e, argv, workingDirectory) => {
+    forwardFilesToWindow(extractExcelPaths(argv, workingDirectory))
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore()
       mainWindow.focus()

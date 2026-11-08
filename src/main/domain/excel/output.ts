@@ -1,6 +1,7 @@
 /* Phần output không phụ thuộc SheetJS: escape Markdown, ghép file per-workbook, tên file.
  * Main process chỉ import file này (không nạp SheetJS); parse Excel chạy trong worker.
  */
+import type { ConvertOptions } from '../../../types'
 
 export interface SheetResult {
   sheet: string
@@ -63,6 +64,11 @@ export function safeFileName(name: string, maxLen = 80): string {
   return cleaned.slice(0, maxLen) || 'sheet'
 }
 
+/** Tên file .md (chưa khử trùng) Excel → Markdown ghi cho một sheet; không có `sheet` = file gộp cả workbook. */
+export function mdFileName(base: string, sheet?: string): string {
+  return safeFileName(sheet === undefined ? base : base + '__' + sheet) + '.md'
+}
+
 /** Trả về tên file chưa dùng: nếu `wanted` đã có trong `used` thì thêm hậu tố
  * ` (2)`, ` (3)`... Tên được chọn sẽ được thêm vào `used`. */
 export function dedupeFileName(wanted: string, used: Set<string>): string {
@@ -78,4 +84,34 @@ export function dedupeFileName(wanted: string, used: Set<string>): string {
   const name = stem + ' (' + n + ')' + ext
   used.add(name)
   return name
+}
+
+export interface MdOutputFile {
+  /** Tên file .md đã khử trùng */
+  name: string
+  text: string
+}
+
+/** Các file .md Excel → Markdown ghi cho một workbook; app (IPC excel:convert) và CLI dùng chung.
+ * `used`: tên đã dùng trong lần convert này (được cập nhật). Gộp workbook mà mọi sheet rỗng thì không ghi gì. */
+export function workbookMdFiles(
+  base: string,
+  sourceName: string,
+  sheets: SheetResult[],
+  options: Pick<ConvertOptions, 'escapeMarkdown' | 'frontMatter'>,
+  perWorkbook: boolean,
+  used: Set<string>
+): MdOutputFile[] {
+  if (perWorkbook) {
+    if (!sheets.some((s) => s.markdown.trim() !== '')) return []
+    const text = joinWorkbookMarkdown(base, sheets, options.escapeMarkdown !== false, options.frontMatter ? sourceName : undefined)
+    return [{ name: dedupeFileName(mdFileName(base), used), text }]
+  }
+  return sheets.map((s) => ({
+    name: dedupeFileName(mdFileName(base, s.sheet), used),
+    text:
+      (options.frontMatter ? frontMatter({ source: sourceName, sheet: s.sheet, title: s.title, meta: s.meta }) : '') +
+      s.markdown +
+      '\n',
+  }))
 }

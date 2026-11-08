@@ -207,6 +207,11 @@ try {
     await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
   }
 
+  // Danh sách còn kihon-sekkei.xlsx đã convert ở trên: dọn thư mục xuất để app không hỏi ghi đè (hộp thoại hệ thống, CDP không bấm được)
+  const clearOut = () => {
+    for (const f of readdirSync(outDir)) rmSync(join(outDir, f))
+  }
+  clearOut()
   await pressCtrlEnter()
   check('nút Hủy hiện khi đang convert', (await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Hủy')`, 3000)) >= 0)
   // Đo độ trễ IPC tới main trong lúc worker đang parse file lớn
@@ -225,7 +230,8 @@ try {
   check('Hủy: file lớn chưa xong không được ghi', bigMd().length < 3, bigMd())
   check('nút convert dùng lại được sau Hủy', (await waitFor(`!(${convertBtn}).disabled`, 5000)) >= 0)
 
-  // Convert lại: worker convert tự khởi động lại sau khi bị kill
+  // Convert lại: worker convert tự khởi động lại sau khi bị kill (file đã ghi trước lúc Hủy cũng làm app hỏi ghi đè)
+  clearOut()
   await pressCtrlEnter()
   await waitFor(`(${convertBtn}).textContent.includes('Đang convert')`, 3000)
   check('convert lại sau Hủy chạy xong', (await waitFor(`!(${convertBtn}).textContent.includes('Đang convert')`, 90000)) >= 0)
