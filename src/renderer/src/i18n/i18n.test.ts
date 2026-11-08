@@ -6,6 +6,7 @@ import { ja } from './ja'
 import { compareEn, compareJa, compareVi } from './compare'
 import { translateEn, translateJa, translateVi } from './translate'
 import { errorsEn, errorsJa, errorsVi } from './errors'
+import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
@@ -19,6 +20,8 @@ describe('i18n', () => {
       [translateVi, translateJa],
       [errorsVi, errorsEn],
       [errorsVi, errorsJa],
+      [tableDefVi, tableDefEn],
+      [tableDefVi, tableDefJa],
     ]
     for (const [base, d] of pairs) {
       expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())

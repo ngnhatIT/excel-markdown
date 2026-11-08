@@ -170,3 +170,53 @@ describe('textconv (git diff driver)', () => {
     expect(text).not.toContain('x2m-sheet:')
   })
 })
+
+describe('ddl (テーブル定義書 → DDL / JSON / ER)', () => {
+  const tableMd = join(__dirname, '../../../../../test/fixtures/table-def.md')
+  const kihon = join(__dirname, '../../../../../test/fixtures/kihon-sekkei.xlsx')
+  const capture = async (argv: string[]): Promise<{ code: number; out: string; err: string }> => {
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      const code = await runCli(argv, () => {})
+      return { code, out: out.mock.calls.map((c) => String(c[0])).join(''), err: err.mock.calls.map((c) => String(c[0])).join('') }
+    } finally {
+      out.mockRestore()
+      err.mockRestore()
+    }
+  }
+
+  it('file .md -> DDL postgres ra stdout; Excel convert trong bộ nhớ; thư mục .md', async () => {
+    const pg = await capture(['ddl', tableMd, '--dialect', 'postgres'])
+    expect(pg.code).toBe(0)
+    expect(pg.out).toContain('CREATE TABLE M_CUSTOMER (')
+    expect(pg.out).toContain("COMMENT ON TABLE T_ORDER IS '受注明細';")
+    const xlsx = await capture(['ddl', kihon])
+    expect(xlsx.out).toContain('-- 顧客マスタ / kihon-sekkei.xlsx\nCREATE TABLE TBL_CUSTOMER (')
+    const dir = join(tmp, 'ddl-dir')
+    mkdirSync(join(dir, 'sub'), { recursive: true })
+    copyFileSync(tableMd, join(dir, 'sub', 'a.md'))
+    const json = JSON.parse((await capture(['ddl', dir, '--format', 'json'])).out) as { source: string; tableName: string }[]
+    expect(json.map((d) => `${d.source}:${d.tableName}`)).toEqual(['sub/a.md:M_CUSTOMER', 'sub/a.md:T_ORDER'])
+  })
+
+  it('--format mermaid -o: ghi file, log đường dẫn', async () => {
+    const outFile = join(tmp, 'er.mmd')
+    const logs: string[] = []
+    expect(await runCli(['ddl', tableMd, '--format', 'mermaid', '-o', outFile], (s) => logs.push(s))).toBe(0)
+    expect(readFileSync(outFile, 'utf-8')).toContain('T_ORDER }o--|| M_CUSTOMER : "customer_id"')
+    expect(logs[0]).toContain('(2 bảng)')
+  })
+
+  it('không có bảng định nghĩa / file lạ -> mã 1, lỗi ra stderr; cờ sai -> ném', async () => {
+    const empty = join(tmp, 'empty.md')
+    writeFileSync(empty, '# x\n')
+    const r = await capture(['ddl', empty])
+    expect(r).toMatchObject({ code: 1, out: '' })
+    expect(r.err).toContain('Không tìm thấy')
+    expect((await capture(['ddl', join(tmp, 'a.txt')])).err).toContain('Chỉ nhận file .md')
+    await expect(runCli(['ddl', tableMd, '--dialect', 'db2'])).rejects.toThrow('--dialect')
+    await expect(runCli(['ddl', tableMd, '--format', 'xml'])).rejects.toThrow('--format')
+    await expect(runCli(['ddl'])).rejects.toThrow('Chưa có file')
+  })
+})
