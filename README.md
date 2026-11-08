@@ -326,7 +326,7 @@ kỹ hơn với tài liệu dài hoặc việc phân tích (đối chiếu chéo
 ## Dành cho lập trình viên
 
 Xây dựng bằng **Electron + TypeScript + React 18**, build bằng electron-vite. Chi tiết kiến trúc:
-[ARCHITECTURE.md](ARCHITECTURE.md). Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md).
+[docs/architecture.md](docs/architecture.md). Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md).
 
 ```bash
 npm install
@@ -343,31 +343,28 @@ npm run dist         # đóng gói Windows (chạy trên Windows)
 
 ```
 src/
-  main/
-    index.ts                 # Electron main + IPC
-    cli.ts, mcp.ts, worker.ts  # điểm vào: CLI, MCP server, utilityProcess đọc/ghi Excel
-    domain/
-      excel/                 # engine Excel -> Markdown (converter, drawings, output)
-      md2xlsx/               # engine Markdown -> Excel (parse, inline, cellValue, names, layout, write)
-      rag/                   # chia mục, tìm kiếm BM25 + từ điển Việt-Nhật, gom tài liệu cho AI
-      guards.ts, errors.ts
-    adapters/
-      inbound/cli, mcp, worker   # CLI, MCP server (JSON-RPC stdio), xử lý trong worker
-      outbound/
-        gemini/, llm/        # client Gemini, Claude (SDK chính thức), OpenAI + phần dùng chung
-        converterWorker.ts, mdFolder.ts, xlsxFiles.ts, xlsxWriter.ts
-    application/ports/       # giao thức main <-> worker
+  shared/                    # dùng chung main + renderer: types.ts, tên workbook, cây file, trang HTML xuất
   preload/index.ts           # bridge an toàn cho renderer (window.api)
-  shared/                    # dùng chung main + renderer: tên workbook, cây file, trang HTML xuất
-  types.ts                   # type dùng chung
+  main/
+    index.ts, window.ts      # vòng đời app, cửa sổ
+    cli.ts, mcp.ts, worker.ts  # điểm vào: CLI, MCP server, utilityProcess đọc/ghi Excel
+    domain/                  # logic thuần: excel/, md2xlsx/, rag/, guards.ts, errors.ts
+    application/ports/       # giao thức main <-> worker
+    adapters/
+      inbound/ipc/           # IPC theo tính năng: system, convert, viewer, ai
+      inbound/cli, mcp, worker
+      outbound/              # store, llm/ (Gemini, Claude, OpenAI), worker client, đọc/ghi file
   renderer/src/
-    App.tsx                  # state chính + ghép component
-    components/              # Header, FileList, PreviewPane, OptionsPanel, AiChatPanel, MdTreeList...
-    hooks/                   # useFiles, useMdFiles, useMdViewer, usePreview, useShortcuts
+    App.tsx                  # layout + chuyển chế độ
+    features/                # excel2md/, md2excel/, viewer/, ai/
+    components/, hooks/, lib/
 test/fixtures, test/golden   # file Excel mẫu (dữ liệu hư cấu) + output đã duyệt
 test/golden-md2xlsx          # output Markdown -> Excel đã duyệt
 scripts/                     # sinh file mẫu, e2e.mjs, xlsx-snapshot.ps1
+docs/                        # architecture.md, specs/plans, history/
 ```
+
+Chi tiết từng tầng và quy tắc phụ thuộc: [docs/architecture.md](docs/architecture.md).
 
 Sinh lại file mẫu: `node scripts/make-fixtures.mjs`, rồi (cần Excel)
 `powershell -ExecutionPolicy Bypass -File scripts/make-excel-fixture.ps1`.

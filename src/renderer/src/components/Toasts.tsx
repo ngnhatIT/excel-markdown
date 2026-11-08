@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { cn, onToast, uid } from '../utils'
+import { cn, onToast, uid } from '../lib/utils'
 
 /** Hiện tối đa 3 toast gần nhất (gọi `toast()` từ utils ở bất kỳ đâu). */
 export function Toasts(): React.ReactElement {

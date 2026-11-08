@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { WorkbookCache, createWorkbookCache } from './workbookCache'
 import { convertSheetInWorkbook } from '../../../domain/excel/converter'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { DEFAULT_OPTIONS } from '../../../../types'
+import { DEFAULT_OPTIONS } from '../../../../shared/types'
 
 function fakeDeps() {
   const files: Record<string, { mtimeMs: number; size: number }> = {}

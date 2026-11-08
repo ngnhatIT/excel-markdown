@@ -1,4 +1,6 @@
-# Golden output so khớp từng byte: luôn LF, kể cả trên Windows (core.autocrlf=true).
+# Mọi file text luôn LF, kể cả trên Windows (core.autocrlf=true): golden test so khớp từng byte, và fixture .md /
+# template string nhiều dòng trong test không được đổi thành CRLF khi checkout trên Windows (CI windows-latest).
+* text=auto eol=lf
 test/golden/** text eol=lf
 test/golden-md2xlsx/** text eol=lf
 *.xlsx binary

@@ -1,7 +1,7 @@
 /* Phần output không phụ thuộc SheetJS: escape Markdown, ghép file per-workbook, tên file.
  * Main process chỉ import file này (không nạp SheetJS); parse Excel chạy trong worker.
  */
-import type { ConvertOptions } from '../../../types'
+import type { ConvertOptions } from '../../../shared/types'
 
 export interface SheetResult {
   sheet: string
@@ -126,6 +126,21 @@ export interface MdOutputFile {
   images?: { path: string; data: Uint8Array }[]
 }
 
+/** Quy tắc duy nhất đặt tên file .md của một workbook: gộp thì một tên, không thì mỗi sheet một tên (cùng thứ tự).
+ * `used` được cập nhật để tên không trùng trong cả lần convert. */
+function mdNamesFor(base: string, sheets: string[], perWorkbook: boolean, used: Set<string>): string[] {
+  return perWorkbook
+    ? [dedupeFileName(mdFileName(base), used)]
+    : sheets.map((sheet) => dedupeFileName(mdFileName(base, sheet), used))
+}
+
+/** Tên các file .md mà `workbookMdFiles` sẽ ghi cho các file/sheet đã chọn, tính trước khi convert để hỏi ghi đè.
+ * Tính theo mọi sheet đã chọn nên có thể thừa tên của sheet rỗng (sẽ bị bỏ qua): hỏi thừa vô hại. */
+export function plannedMdFileNames(specs: { base: string; sheets: string[] }[], perWorkbook: boolean): string[] {
+  const used = new Set<string>()
+  return specs.flatMap((s) => mdNamesFor(s.base, s.sheets, perWorkbook, used))
+}
+
 /** Các file .md Excel → Markdown ghi cho một workbook; app (IPC excel:convert) và CLI dùng chung.
  * `used`: tên đã dùng trong lần convert này (được cập nhật). Gộp workbook mà mọi sheet rỗng thì không ghi gì. */
 export function workbookMdFiles(
@@ -149,12 +164,14 @@ export function workbookMdFiles(
   if (perWorkbook) {
     if (!sheets.some((s) => s.markdown.trim() !== '')) return []
     const text = joinWorkbookMarkdown(base, sheets, options.escapeMarkdown !== false, options.frontMatter ? sourceName : undefined)
-    return [withImages({ name: dedupeFileName(mdFileName(base), used), text }, sheets)]
+    const [name] = mdNamesFor(base, [], true, used)
+    return [withImages({ name, text }, sheets)]
   }
-  return sheets.map((s) =>
+  const names = mdNamesFor(base, sheets.map((s) => s.sheet), false, used)
+  return sheets.map((s, i) =>
     withImages(
       {
-        name: dedupeFileName(mdFileName(base, s.sheet), used),
+        name: names[i],
         text:
           (options.frontMatter ? frontMatter({ source: sourceName, sheet: s.sheet, title: s.title, meta: s.meta }) : '') +
           s.markdown +

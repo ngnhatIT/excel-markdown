@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { callGeminiApi } from '../gemini/geminiClient'
+import { callGeminiApi } from './geminiClient'
 import { buildClaudeParams } from './claudeClient'
 import { buildOpenAiRequestBody, callOpenAiApi, filterOpenAiModels } from './openaiClient'
 import { readSse, redactApiKey, trimHistory } from './shared'
@@ -165,11 +165,10 @@ describe('Gemini stream', () => {
       question: 'q',
       contextText: '',
       history: [],
-      availableCitations: [],
       onDelta: (t) => deltas.push(t),
     })
     expect(deltas).toEqual(['Một ', 'hai'])
-    expect(res.answer).toBe('Một hai')
+    expect(res.text).toBe('Một hai')
     expect(res.usage?.cachedTokens).toBe(4)
   })
 })

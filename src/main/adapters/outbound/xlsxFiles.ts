@@ -1,7 +1,7 @@
 /* Adapter đọc file Excel từ đĩa bằng SheetJS. Logic chuyển đổi thuần nằm ở domain/excel/converter.ts. */
 import * as fs from 'node:fs'
 import * as XLSX from 'xlsx'
-import type { ConvertOptions } from '../../../types'
+import type { ConvertOptions } from '../../../shared/types'
 import {
   convertSheetInWorkbook,
   convertSheetsInWorkbook,

@@ -1,7 +1,7 @@
-import type { ConvertOptions, OutputMode, VerticalMergeMode } from '../../../types'
-import { cn } from '../utils'
-import { SidePanel } from './SidePanel'
-import { btnGhost, btnSm, cx, input } from '../ui'
+import type { ConvertOptions, OutputMode, VerticalMergeMode } from '../../../../shared/types'
+import { cn } from '../../lib/utils'
+import { SidePanel } from '../../components/SidePanel'
+import { btnGhost, btnSm, cx, input } from '../../lib/ui'
 
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const segGroup = 'grid grid-cols-3 gap-1 rounded-xl border border-line-subtle bg-canvas p-[3px]'

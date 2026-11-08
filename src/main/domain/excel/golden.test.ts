@@ -9,7 +9,7 @@ import { basename, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { joinWorkbookMarkdown } from './converter'
 import { convertWorkbook, listSheets } from '../../adapters/outbound/xlsxFiles'
-import { DEFAULT_OPTIONS } from '../../../types'
+import { DEFAULT_OPTIONS } from '../../../shared/types'
 
 const FIXTURES = fileURLToPath(new URL('../../../../test/fixtures/', import.meta.url))
 const files = readdirSync(FIXTURES).filter((f) => /\.(xlsx|xlsm|xls)$/i.test(f))

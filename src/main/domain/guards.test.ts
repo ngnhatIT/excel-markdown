@@ -9,6 +9,7 @@ import {
   isMarkdownPath,
   isOpenableDirectory,
   isSafeExternalUrl,
+  isTitleBarOnScreen,
   shouldAllowNavigation,
 } from './guards'
 
@@ -132,5 +133,25 @@ describe('imageMime', () => {
 
   it('không phải ảnh -> null', () => {
     for (const p of ['a.md', 'a.exe', 'a.png.lnk', 'noext', '.png.txt']) expect(imageMime(p)).toBeNull()
+  })
+})
+
+describe('isTitleBarOnScreen', () => {
+  const main = { x: 0, y: 0, width: 1920, height: 1040 }
+  const win = { width: 1280, height: 820 }
+  it('cửa sổ trên màn hình chính', () => {
+    expect(isTitleBarOnScreen({ x: 100, y: 100, ...win }, [main])).toBe(true)
+  })
+  it('vị trí trên màn hình phụ đã rút -> không dùng', () => {
+    expect(isTitleBarOnScreen({ x: 2200, y: 100, ...win }, [main])).toBe(false)
+  })
+  it('thanh tiêu đề ở trên mép màn hình -> không dùng', () => {
+    expect(isTitleBarOnScreen({ x: 100, y: -500, ...win }, [main])).toBe(false)
+  })
+  it('chỉ lòi một mẩu nhỏ -> không dùng', () => {
+    expect(isTitleBarOnScreen({ x: 1850, y: 100, ...win }, [main])).toBe(false)
+  })
+  it('màn hình phụ bên trái (tọa độ âm) vẫn dùng được', () => {
+    expect(isTitleBarOnScreen({ x: -1500, y: 50, ...win }, [main, { x: -1920, y: 0, width: 1920, height: 1040 }])).toBe(true)
   })
 })

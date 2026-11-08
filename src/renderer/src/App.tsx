@@ -6,28 +6,29 @@ import {
   type ConvertOptions,
   type ConvertResultItem,
   type OutputMode,
-} from '../../types'
-import { defaultWorkbookName } from '../../shared/workbookName'
+} from '../../shared/types'
 import { imageUrl, resolveRelative } from '../../shared/mdView'
-import { errMsg, type ConvertProgress } from './api'
-import { baseName, copyText, toast } from './utils'
-import { iconBtn } from './ui'
-import { AiChatPanel } from './components/AiChatPanel'
-import { FileList } from './components/FileList'
+import { errMsg } from './lib/api'
+import { baseName, copyText, toast } from './lib/utils'
+import { iconBtn } from './lib/ui'
+import { AiChatPanel } from './features/ai/AiChatPanel'
+import { FileList } from './features/excel2md/FileList'
 import { Footer } from './components/Footer'
 import { Header } from './components/Header'
-import { MdFileList } from './components/MdFileList'
-import { MdOptionsPanel } from './components/MdOptionsPanel'
-import { MdTreeList } from './components/MdTreeList'
-import { OptionsPanel } from './components/OptionsPanel'
+import { MdFileList } from './features/md2excel/MdFileList'
+import { MdOptionsPanel } from './features/md2excel/MdOptionsPanel'
+import { MdTreeList } from './features/viewer/MdTreeList'
+import { OptionsPanel } from './features/excel2md/OptionsPanel'
 import { PreviewPane } from './components/PreviewPane'
 import { ResultsPanel } from './components/ResultsPanel'
 import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
-import { EXCEL_EXT, useFiles } from './hooks/useFiles'
-import { MD_EXT, useMdFiles } from './hooks/useMdFiles'
-import { PASTE_PATH, useMdViewer } from './hooks/useMdViewer'
-import { usePreview } from './hooks/usePreview'
+import { useExcelConvert } from './features/excel2md/useExcelConvert'
+import { EXCEL_EXT, useFiles } from './features/excel2md/useFiles'
+import { useMdConvert } from './features/md2excel/useMdConvert'
+import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
+import { PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
+import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 
 /** Gợi ý khi thả nhầm loại file so với chế độ đang chọn (không tự chuyển chế độ). */
@@ -57,19 +58,17 @@ export default function App(): React.ReactElement {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [selFileId, setSelFileId] = useState<string | null>(null)
   const [selSheet, setSelSheet] = useState<string | null>(null)
+  /** Dùng chung cho cả 2 chế độ convert: main từ chối lần convert thứ hai khi đang chạy */
   const [converting, setConverting] = useState(false)
-  const [progress, setProgress] = useState<ConvertProgress | null>(null)
-  const [lastConvertAt, setLastConvertAt] = useState('')
   const [results, setResults] = useState<ConvertResultItem[] | null>(null)
+  const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
+  const [lastConvertAt, setLastConvertAt] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [appVersion, setAppVersion] = useState('')
   const [sheetFilter, setSheetFilter] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [zoom, setZoom] = useState(1)
   const [appMode, setAppMode] = useState<AppMode>('excel2md')
-  /** Tên file Excel người dùng gõ; null = chưa sửa (dùng tên mặc định theo danh sách file) */
-  const [mdName, setMdName] = useState<string | null>(null)
-  const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
   /** Cột Tùy chọn bên phải và cột File bên trái (thu gọn & độ rộng kéo giãn) */
   const [sideCollapsed, setSideCollapsed] = useState(false)
   const [leftCollapsed, setLeftCollapsed] = useState(false)
@@ -202,8 +201,6 @@ export default function App(): React.ReactElement {
     },
     [leftWidth, rightWidth]
   )
-
-  useEffect(() => window.api.onProgress((pr) => setProgress(pr)), [])
 
   const addPathsRef = useRef(addPaths)
   addPathsRef.current = addPaths
@@ -466,60 +463,29 @@ export default function App(): React.ReactElement {
     }
   }, [outDir, applyOutDir])
 
-  const doConvert = useCallback(async () => {
-    // đang chạy (kể cả lần tạo Excel ở chế độ kia): không gửi lần mới, tránh xóa cờ converting khi main từ chối
-    if (converting) return
-    if (files.length === 0) {
-      toast('Chưa có file Excel nào', 'err')
-      return
-    }
-    const specs = files
-      .map((f) => ({ path: f.path, sheets: f.sheets.filter((s) => s.checked).map((s) => s.name) }))
-      .filter((s) => s.sheets.length > 0)
-    if (specs.length === 0) {
-      toast('Chưa chọn sheet nào để convert', 'err')
-      return
-    }
-    const dir = await ensureOutDir()
-    if (!dir) return
-    setConverting(true)
-    setResults(null)
-    setProgress(null)
-    try {
-      const res = await window.api.convert({ files: specs, outDir: dir, options, outputMode })
-      setResults(res)
-      const okCount = res.filter((r) => r.ok).length
-      const cancelledCount = res.filter((r) => r.cancelled).length
-      const mdCount = res.reduce((n, r) => n + r.filesWritten.length, 0)
-      if (cancelledCount > 0) {
-        toast(`Đã hủy: ${okCount} file Excel đã convert xong, ${cancelledCount} file bị hủy`, 'err')
-      } else if (okCount === res.length) {
-        toast(
-          mdCount === 0
-            ? 'Không tạo file nào (các sheet đều rỗng hoặc bị bỏ qua)'
-            : `Xong: ${mdCount} file Markdown từ ${res.length} file Excel`
-        )
-        setLastConvertAt(timeLabel())
-      } else {
-        toast(`${okCount}/${res.length} file thành công, xem chi tiết bên dưới`, 'err')
-      }
-    } catch (err) {
-      toast(errMsg(err), 'err')
-    } finally {
-      setConverting(false)
-      window.setTimeout(() => setProgress(null), 1500)
-    }
-  }, [converting, files, options, outputMode, ensureOutDir])
+  const markConverted = useCallback(() => setLastConvertAt(timeLabel()), [])
+
+  const { progress, setProgress, doConvert, cancelConvert } = useExcelConvert({
+    files,
+    options,
+    outputMode,
+    ensureOutDir,
+    converting,
+    setConverting,
+    setResults,
+    onDone: markConverted,
+  })
 
   /* ------------------------- Markdown → Excel ------------------------------ */
-  const mdDefaultName = useMemo(() => defaultWorkbookName(mdFiles), [mdFiles])
-  const mdSheetCount = useMemo(() => mdFiles.reduce((n, f) => n + f.sheets.length, 0), [mdFiles])
-  const mdCanConvert = mdSheetCount > 0 && mdFiles.every((f) => !f.loading && !f.error)
-
-  // danh sách rỗng -> lần thêm file sau lại dùng tên mặc định mới
-  useEffect(() => {
-    if (mdFiles.length === 0) setMdName(null)
-  }, [mdFiles.length])
+  const { mdName, setMdName, mdDefaultName, mdSheetCount, mdCanConvert, doMdConvert } = useMdConvert({
+    mdFiles,
+    ensureOutDir,
+    converting,
+    setConverting,
+    setProgress,
+    setMdResult,
+    onDone: markConverted,
+  })
 
   const selectMd = useCallback(
     (id: string) => {
@@ -537,54 +503,6 @@ export default function App(): React.ReactElement {
     },
     [mdFiles, mdSelId, selectMd]
   )
-
-  const doMdConvert = useCallback(async () => {
-    if (converting) return
-    if (mdFiles.length === 0) {
-      toast('Chưa có file Markdown nào', 'err')
-      return
-    }
-    if (mdFiles.some((f) => f.loading)) {
-      toast('Đang đọc file Markdown, vui lòng chờ', 'err')
-      return
-    }
-    const bad = mdFiles.filter((f) => f.error)
-    if (bad.length > 0) {
-      // một file lỗi thì không tạo file Excel (thiếu sheet còn tệ hơn không có)
-      toast(`Không tạo file Excel: file lỗi ${bad.map((f) => f.name).join(', ')}`, 'err')
-      return
-    }
-    if (mdSheetCount === 0) {
-      toast('Không có sheet nào để tạo (các file Markdown đều rỗng)', 'err')
-      return
-    }
-    const dir = await ensureOutDir()
-    if (!dir) return
-    setConverting(true)
-    setMdResult(null)
-    setProgress(null)
-    try {
-      const res = await window.api.convertMarkdown({
-        files: mdFiles.map((f) => f.path),
-        outDir: dir,
-        // ô tên để trống = dùng tên mặc định
-        fileName: (mdName ?? '').trim() || mdDefaultName,
-      })
-      if (res.status === 'done') {
-        const name = baseName(res.outPath)
-        toast(`Đã tạo ${name} (${res.sheets.length} sheet)`)
-        setMdResult({ fileName: name, ok: true, filesWritten: res.sheets })
-        setLastConvertAt(timeLabel())
-      } else if (res.status === 'cancelled') {
-        toast('Đã hủy tạo file Excel', 'err')
-      }
-      // declined: người dùng chọn không ghi đè -> không làm gì
-    } catch (err) {
-      toast(errMsg(err), 'err')
-    } finally {
-      setConverting(false)
-    }
-  }, [converting, mdFiles, mdSheetCount, mdName, mdDefaultName, ensureOutDir])
 
   const isMd = appMode === 'md2excel'
   const isView = appMode === 'mdview'
@@ -656,10 +574,6 @@ export default function App(): React.ReactElement {
     },
     [viewerPath, viewer.showPaste, viewerSelect]
   )
-
-  const cancelConvert = useCallback(() => {
-    window.api.cancelConvert().catch((err) => toast(errMsg(err), 'err'))
-  }, [])
 
   useShortcuts({
     onEscape: () => {

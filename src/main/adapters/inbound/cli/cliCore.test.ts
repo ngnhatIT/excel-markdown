@@ -25,21 +25,21 @@ describe('parseArgs', () => {
 })
 
 describe('runCli', () => {
-  it('per-sheet: ghi .md có front-matter', () => {
+  it('per-sheet: ghi .md có front-matter', async () => {
     const out = join(tmp, 'ps')
-    expect(runCli([fixture, '-o', out, '--front-matter'], () => {})).toBe(0)
+    expect(await runCli([fixture, '-o', out, '--front-matter'], () => {})).toBe(0)
     const files = readdirSync(out)
     expect(files.length).toBeGreaterThan(0)
     expect(readFileSync(join(out, files[0]), 'utf-8')).toMatch(/^---\nsource: "excel-authored.xlsx"\nsheet: /)
   })
-  it('per-workbook: một file', () => {
+  it('per-workbook: một file', async () => {
     const out = join(tmp, 'pw')
-    expect(runCli([fixture, '-o', out, '--per-workbook'], () => {})).toBe(0)
+    expect(await runCli([fixture, '-o', out, '--per-workbook'], () => {})).toBe(0)
     expect(readdirSync(out)).toEqual(['excel-authored.md'])
   })
-  it('file hỏng -> mã thoát 1, không ném', () => {
+  it('file hỏng -> mã thoát 1, không ném', async () => {
     const logs: string[] = []
-    expect(runCli([join(tmp, 'khong-co.xlsx'), '-o', join(tmp, 'e')], (s) => logs.push(s))).toBe(1)
+    expect(await runCli([join(tmp, 'khong-co.xlsx'), '-o', join(tmp, 'e')], (s) => logs.push(s))).toBe(1)
     expect(logs[0]).toContain('LỖI')
   })
 })

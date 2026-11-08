@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { sanitizeHtml } from '../renderer/src/sanitize'
+import { sanitizeHtml } from './sanitize'
 
 describe('sanitizeHtml', () => {
   it('giữ thẻ marked + br', () => {

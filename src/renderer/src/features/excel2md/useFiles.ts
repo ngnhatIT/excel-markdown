@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
-import type { FileItem, SheetInfo } from '../../../types'
-import type { SheetListItem } from '../api'
-import { errMsg } from '../api'
-import { baseName, toast, uid } from '../utils'
+import type { FileItem, SheetInfo } from '../../../../shared/types'
+import type { SheetListItem } from '../../lib/api'
+import { errMsg } from '../../lib/api'
+import { baseName, toast, uid } from '../../lib/utils'
 
 export const EXCEL_EXT = /\.(xlsx|xlsm|xls|xltx|xltm)$/i
 /** Số file tối đa được nhớ lựa chọn sheet. */

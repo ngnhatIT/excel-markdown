@@ -1,6 +1,6 @@
 /* Client OpenAI (gồm cả model Codex) qua Responses API, stream SSE.
  * Khối <context> nằm trong `instructions` nên OpenAI tự cache tiền tố khi hỏi tiếp trên cùng tài liệu. */
-import type { AiChatTurn, AiModelId, AiUsage } from '../../../../types'
+import type { AiChatTurn, AiModelId, AiUsage } from '../../../../shared/types'
 import { errorMessageOf, postJsonWithRetry, readSse, redactApiKey, systemWithContext, trimHistory } from './shared'
 
 const BASE = 'https://api.openai.com/v1'

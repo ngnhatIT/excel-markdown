@@ -1,6 +1,6 @@
-import type { ConvertProgress } from '../api'
-import { cn } from '../utils'
-import { btn, btnGhost, btnSm, cx } from '../ui'
+import type { ConvertProgress } from '../lib/api'
+import { cn } from '../lib/utils'
+import { btn, btnGhost, btnSm, cx } from '../lib/ui'
 import { IconCheck, IconFolder, IconOpen } from './icons'
 
 interface Props {

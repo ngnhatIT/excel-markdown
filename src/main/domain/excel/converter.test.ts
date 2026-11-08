@@ -6,7 +6,7 @@ import * as path from 'node:path'
 import * as fs from 'node:fs'
 import { sheetToMarkdown, safeFileName, dedupeFileName, joinWorkbookMarkdown } from './converter'
 import { listSheets, convertSheet, convertWorkbook } from '../../adapters/outbound/xlsxFiles'
-import type { ConvertOptions } from '../../../types'
+import type { ConvertOptions } from '../../../shared/types'
 
 const OPTS: ConvertOptions = {
   skipDelSheets: true,

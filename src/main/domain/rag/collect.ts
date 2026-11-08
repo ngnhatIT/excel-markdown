@@ -2,7 +2,7 @@
  * Mọi đường dẫn từ renderer được kiểm: chỉ file .md tuyệt đối, file theo thư mục phải nằm trong thư mục đó.
  */
 import { basename, isAbsolute, join, relative } from 'node:path'
-import type { AiAskRequest } from '../../../types'
+import type { AiAskRequest } from '../../../shared/types'
 import { isInsideDir, isMarkdownPath } from '../guards'
 import { parseMarkdownForRag, type RagDocument } from './chunker'
 

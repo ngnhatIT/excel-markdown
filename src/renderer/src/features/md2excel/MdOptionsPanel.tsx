@@ -1,4 +1,4 @@
-﻿import { SidePanel } from './SidePanel'
+﻿import { SidePanel } from '../../components/SidePanel'
 
 interface Props {
   /** Giá trị ô tên file (không đuôi .xlsx) */

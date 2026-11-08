@@ -3,7 +3,7 @@
 // mọi yêu cầu Excel → Markdown không phải trả giá nạp exceljs.
 import { readFile } from 'node:fs/promises'
 import { basename, isAbsolute } from 'node:path'
-import type { MdInspectResult } from '../../../../types'
+import type { MdInspectResult } from '../../../../shared/types'
 import { friendlyError } from '../../../domain/errors'
 import { isMarkdownPath } from '../../../domain/guards'
 import type { WorkerRequest, WorkerResponse } from '../../../application/ports/workerProtocol'

@@ -1,7 +1,7 @@
 /* Client Claude (Anthropic API) qua SDK chính thức, stream câu trả lời.
  * Khối <context> nằm ở system kèm cache_control: hỏi tiếp trên cùng tài liệu thì phần này đọc từ cache (rẻ ~10 lần). */
 import Anthropic from '@anthropic-ai/sdk'
-import type { AiChatTurn, AiModelId, AiUsage } from '../../../../types'
+import type { AiChatTurn, AiModelId, AiUsage } from '../../../../shared/types'
 import { contextBlock, redactApiKey, SYSTEM_INSTRUCTION, trimHistory, USER_ABORT_MSG } from './shared'
 
 /** Model nhận `fallbacks: "default"`: khi bộ lọc an toàn từ chối nhầm, API tự chạy lại trên model phù hợp. */

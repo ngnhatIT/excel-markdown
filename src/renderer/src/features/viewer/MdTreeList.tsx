@@ -1,8 +1,8 @@
-﻿import { formatRelativeTime, type MdSort, type MdTreeNode } from '../../../shared/mdView'
-import { joinRoot, PASTE_PATH } from '../hooks/useMdViewer'
-import { baseName, cn } from '../utils'
-import { btnPrimary, btnSm, cx, iconBtn, input } from '../ui'
-import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from './icons'
+﻿import { formatRelativeTime, type MdSort, type MdTreeNode } from '../../../../shared/mdView'
+import { joinRoot, PASTE_PATH } from './useMdViewer'
+import { baseName, cn } from '../../lib/utils'
+import { btnPrimary, btnSm, cx, iconBtn, input } from '../../lib/ui'
+import { IconChevronDown, IconCopy, IconFile, IconFolder, IconRefresh, IconX } from '../../components/icons'
 
 interface Props {
   root: string | null

@@ -1,1 +1,1 @@
-{"extends":"./tsconfig.json","include":["src/renderer/**/*","src/types.ts","src/shared/**/*"]}
+{"extends":"./tsconfig.json","include":["src/renderer/**/*","src/shared/**/*"]}
