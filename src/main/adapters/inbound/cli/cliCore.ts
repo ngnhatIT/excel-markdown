@@ -1,17 +1,17 @@
 /* CLI headless: cùng engine với app.
  * `node out/main/cli.js a.xlsx thuMuc/ -o outDir [tuỳ chọn]`  (Excel → Markdown)
  * `node out/main/cli.js md2xlsx a.md thuMuc/ -o Book.xlsx [--overwrite]`  (Markdown → Excel) */
-import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../shared/types'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
+import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import { listMarkdownFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
-import { ASSET_TOKEN, linkSheets, workbookMdFiles } from '../../../domain/excel/output'
+import { workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
 
 export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
@@ -130,22 +130,7 @@ export async function buildExcel(inputs: string[], outPath: string, overwrite: b
 /** Markdown của cả workbook để so sánh bằng git (`git diff` qua textconv): mọi sheet kể cả sheet ẩn và `DEL_`,
  * không tiêu đề tên file (git đưa file tạm tên ngẫu nhiên), ảnh thành tên + sha1 nội dung để đổi ảnh cũng hiện trong diff. */
 export function workbookTextconv(file: string): string {
-  const wb = readWorkbook(file)
-  const opts: ConvertOptions = { ...DEFAULT_OPTIONS, skipDelSheets: false }
-  const names = listSheetsInWorkbook(wb, false).map((s) => s.name)
-  return (
-    convertSheetsInWorkbook(wb, names, opts)
-      .map((s) =>
-        // Link sang sheet khác: giữ tên sheet đích để đổi đích cũng hiện trong diff
-        linkSheets(s.markdown.trim(), (sheet) => '#' + encodeURIComponent(sheet)).replace(new RegExp(ASSET_TOKEN + '([^)\\s]+)', 'g'), (_m, enc: string) => {
-          const name = decodeURIComponent(enc)
-          const data = s.images?.[name]
-          return data ? `${enc}#sha1=${createHash('sha1').update(data).digest('hex').slice(0, 12)}` : enc
-        })
-      )
-      .filter((m) => m !== '')
-      .join('\n\n---\n\n') + '\n'
-  )
+  return workbookMarkdownForDiff(file)
 }
 
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
