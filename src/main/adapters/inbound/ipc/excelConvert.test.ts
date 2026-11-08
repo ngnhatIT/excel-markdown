@@ -5,7 +5,7 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { DEFAULT_OPTIONS } from '../../../../shared/types'
 import { CancelledError } from '../../../application/ports/workerProtocol'
 import type { SheetResult } from '../../../domain/excel/output'
-import { runExcelConvert, type ExcelConvertDeps } from './excelConvert'
+import { capPreview, runExcelConvert, type ExcelConvertDeps } from './excelConvert'
 
 const tmp = mkdtempSync(join(tmpdir(), 'x2m-conv-'))
 afterAll(() => rmSync(tmp, { recursive: true, force: true }))
@@ -88,5 +88,22 @@ describe('runExcelConvert', () => {
     const res = await runExcelConvert(payload(out, [{ path: excel('e.xlsx'), sheets: ['S1'] }, { path: excel('f.xlsx'), sheets: ['S1'] }]), d)
     expect(res.ok && res.data.map((r) => r.ok)).toEqual([false, true])
     expect(res.ok && res.data[0].error).toContain('Không tìm thấy file')
+  })
+})
+
+describe('capPreview', () => {
+  const note = (shown: number, total: number): string => `cắt ${shown}/${total}`
+
+  it('ngắn hơn giới hạn: giữ nguyên', () => {
+    expect(capPreview('abc', 10, note)).toBe('abc')
+  })
+
+  it('dài hơn: cắt ở đầu dòng gần nhất, thêm ghi chú blockquote', () => {
+    const md = 'dòng 1\ndòng 2\ndòng 3\n'
+    expect(capPreview(md, 10, note)).toBe('dòng 1\n\n> cắt 6/21\n')
+  })
+
+  it('dòng đầu quá dài (không có xuống dòng phù hợp): cắt đúng giới hạn', () => {
+    expect(capPreview('x'.repeat(30), 10, note)).toBe('x'.repeat(10) + '\n\n> cắt 10/30\n')
   })
 })

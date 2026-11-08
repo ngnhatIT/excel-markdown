@@ -10,8 +10,9 @@ import { createWorkbookCache } from './adapters/inbound/worker/workbookCache'
 import { handleRequest } from './adapters/inbound/worker/workerHandler'
 import type { WorkerRequest } from './application/ports/workerProtocol'
 
-const cacheArg = process.argv.find((a) => a.startsWith('--cache='))
-const cache = createWorkbookCache(Number(cacheArg?.slice('--cache='.length)) || 3, readWorkbook)
+const argNum = (name: string): number => Number(process.argv.find((a) => a.startsWith(name))?.slice(name.length))
+// --cache=N workbook, --cache-mb=M MB tổng file nguồn (không có = không giới hạn dung lượng)
+const cache = createWorkbookCache(argNum('--cache=') || 3, readWorkbook, (argNum('--cache-mb=') || Infinity) * 1024 * 1024)
 
 process.parentPort.on('message', async (e) => {
   const req = e.data as WorkerRequest

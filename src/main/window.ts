@@ -1,4 +1,4 @@
-/* Cửa sổ chính: tạo, nhớ vị trí/kích thước, chặn điều hướng và mở link ngoài. */
+/* Cửa sổ chính: tạo, nhớ vị trí/kích thước/phóng to, chặn điều hướng và mở link ngoài. */
 import { BrowserWindow, screen, shell } from 'electron'
 import { updateStore } from './adapters/outbound/store'
 import { isSafeExternalUrl, isTitleBarOnScreen, shouldAllowNavigation } from './domain/guards'
@@ -8,6 +8,7 @@ export interface WindowBounds {
   y?: number
   width?: number
   height?: number
+  maximized?: boolean
 }
 
 const DEFAULT = { width: 1280, height: 820 }
@@ -38,9 +39,12 @@ export function createWindow(preloadPath: string, rendererHtml: string, saved?: 
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
+      // preload chỉ dùng contextBridge / ipcRenderer / webUtils (có trong sandbox)
+      sandbox: true,
     },
   })
   mainWindow = win
+  if (saved?.maximized) win.maximize()
 
   if (process.env['ELECTRON_RENDERER_URL']) {
     void win.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -49,8 +53,9 @@ export function createWindow(preloadPath: string, rendererHtml: string, saved?: 
   }
 
   win.on('close', () => {
-    if (win.isMaximized()) return
-    const b = win.getBounds()
+    // Đang phóng to: lưu kích thước thường (để bỏ phóng to lần sau về đúng chỗ) + cờ phóng to
+    const maximized = win.isMaximized()
+    const b: WindowBounds = { ...(maximized ? win.getNormalBounds() : win.getBounds()), maximized }
     void updateStore((store) => {
       store['windowBounds'] = b
     }).catch(() => undefined)

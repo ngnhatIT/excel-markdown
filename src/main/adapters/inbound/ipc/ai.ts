@@ -19,6 +19,25 @@ import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { errText } from '../../../domain/errors'
 import { isTranslateLang, MAX_TRANSLATE_CHARS, translatePrompt } from '../../../../shared/translate'
 import { logError, readStore, updateStore } from '../../outbound/store'
+import { mt } from '../../../i18nMain'
+
+const MAX_QUESTION_CHARS = 20_000
+const MAX_HISTORY_TURNS = 50
+const MAX_TURN_CHARS = 50_000
+
+/** Kiểm câu hỏi + lịch sử từ renderer (không tin cậy); trả mã lỗi hoặc null nếu hợp lệ. */
+export function aiAskError(req: unknown): string | null {
+  const r = req as Partial<AiAskRequest> | null
+  if (!r || typeof r !== 'object' || typeof r.question !== 'string' || r.question.length > MAX_QUESTION_CHARS) return 'E_BAD_REQUEST'
+  if (r.question.trim() === '') return 'E_AI_EMPTY_QUESTION'
+  const h: unknown = r.history
+  if (h === undefined) return null
+  const turnOk = (t: unknown): boolean => {
+    const x = t as { role?: unknown; text?: unknown } | null
+    return !!x && (x.role === 'user' || x.role === 'model') && typeof x.text === 'string' && x.text.length <= MAX_TURN_CHARS
+  }
+  return Array.isArray(h) && h.length <= MAX_HISTORY_TURNS && h.every(turnOk) ? null : 'E_BAD_REQUEST'
+}
 
 export function registerAiIpc(): void {
   let aiAbort: AbortController | null = null
@@ -103,13 +122,15 @@ export function registerAiIpc(): void {
   })
 
   ipcMain.handle('ai:ask', async (e, req: AiAskRequest) => {
+    // Kiểm đầu vào trước: yêu cầu sai không được hủy câu hỏi đang chạy
+    const bad = aiAskError(req)
+    if (bad) return { ok: false, error: bad }
     let rawKey = ''
     aiAbort?.abort()
     const controller = new AbortController()
     aiAbort = controller
     try {
-      const question = (req?.question ?? '').trim()
-      if (!question) return { ok: false, error: 'Câu hỏi không được để trống.' }
+      const question = req.question.trim()
 
       const store = await readStore()
       const provider = normalizeProvider(req.provider ?? store['aiProvider'])
@@ -118,7 +139,7 @@ export function registerAiIpc(): void {
 
       const { docs, skippedFiles } = await collectRagDocuments(req, loadRagDocumentCached)
       if (docs.length === 0) {
-        return { ok: false, error: 'Chưa có file Markdown nào để tra cứu. Hãy mở thư mục hoặc chọn file Markdown trước.' }
+        return { ok: false, error: 'E_AI_NO_DOCS' }
       }
 
       const ragCtx = buildRagContext(docs, question, {
@@ -132,7 +153,7 @@ export function registerAiIpc(): void {
         model,
         question,
         contextText: ragCtx.contextText,
-        history: Array.isArray(req.history) ? req.history : [],
+        history: req.history ?? [],
         availableCitations: ragCtx.citations,
         signal: controller.signal,
         // Đẩy từng đoạn câu trả lời về renderer để hiện dần trong lúc model còn đang viết
@@ -142,9 +163,7 @@ export function registerAiIpc(): void {
       })
 
       const note =
-        skippedFiles > 0
-          ? `\n\n*(Lưu ý: mỗi câu hỏi chỉ đọc tối đa ${RAG_MAX_FILES} file của thư mục và ${RAG_MAX_LOOSE} file mở lẻ; ${skippedFiles} file vượt giới hạn chưa được đọc. Hãy mở thư mục con hoặc chọn "Chỉ file đang xem" để hỏi về các file đó.)*`
-          : ''
+        skippedFiles > 0 ? '\n\n' + mt('ai.skippedNote', { max: RAG_MAX_FILES, loose: RAG_MAX_LOOSE, n: skippedFiles }) : ''
       const out: AiAskResponse = {
         answer: apiRes.answer + note,
         citations: apiRes.citations,

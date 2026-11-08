@@ -45,7 +45,7 @@ describe('ConverterWorker watchdog', () => {
     vi.useFakeTimers()
     const w = new ConverterWorker('w.js', [], 't', 120_000)
     const a = w.request({ type: 'listSheets', path: '/a.xlsx', skipDelSheets: true })
-    const rejected = expect(a).rejects.toThrow('120 giây')
+    const rejected = expect(a).rejects.toThrow('E_WORKER_TIMEOUT|120')
     await vi.advanceTimersByTimeAsync(120_001)
     await rejected
     expect(procs[0].killed).toBe(true)

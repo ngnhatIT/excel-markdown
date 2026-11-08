@@ -1,7 +1,7 @@
 /* IPC so sánh 新旧: đọc một file (Excel hoặc Markdown) thành Markdown để renderer diff (shared/specDiff.ts).
  * Excel đọc trong worker riêng (khởi động lười): so sánh file lớn không chặn preview / convert. */
 import { ipcMain } from 'electron'
-import { friendlyError } from '../../../domain/errors'
+import { errorCode } from '../../../domain/errors'
 import { isExcelPath, isMarkdownPath } from '../../../domain/guards'
 import { ConverterWorker } from '../../outbound/converterWorker'
 import { readMarkdownFile } from '../../outbound/mdFolder'
@@ -23,7 +23,7 @@ export function registerCompareIpc(workerEntry: string): void {
       return { ok: false, error: NOT_SUPPORTED }
     } catch (err) {
       void logError('compare:read', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 }

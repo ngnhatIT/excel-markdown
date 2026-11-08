@@ -67,6 +67,27 @@ describe('WorkbookCache', () => {
     expect(f.loads()).toBe(4) // b phải parse lại
   })
 
+  it('ngân sách dung lượng: tổng file nguồn vượt maxBytes thì bỏ file cũ, file vừa dùng luôn giữ', () => {
+    const f = fakeDeps()
+    f.files['a.xlsx'] = { mtimeMs: 1, size: 60 }
+    f.files['b.xlsx'] = { mtimeMs: 1, size: 60 }
+    f.files['big.xlsx'] = { mtimeMs: 1, size: 500 }
+    const c = new WorkbookCache(3, f.deps, 100)
+    c.get('a.xlsx')
+    c.get('b.xlsx') // 120 > 100 -> bỏ a
+    expect(c.size).toBe(1)
+    c.get('b.xlsx')
+    expect(f.loads()).toBe(2)
+    c.get('big.xlsx') // một mình vượt ngân sách: vẫn giữ, bỏ b
+    expect(c.size).toBe(1)
+    c.get('big.xlsx')
+    expect(f.loads()).toBe(3)
+    f.files['big.xlsx'] = { mtimeMs: 2, size: 10 } // đổi file: trừ dung lượng cũ, cộng mới
+    c.get('big.xlsx')
+    c.get('a.xlsx')
+    expect(c.size).toBe(2)
+  })
+
   it('file không tồn tại -> ném lỗi ENOENT (friendlyError xử lý)', () => {
     const c = new WorkbookCache(2, fakeDeps().deps)
     expect(() => c.get('missing.xlsx')).toThrow(/ENOENT/)

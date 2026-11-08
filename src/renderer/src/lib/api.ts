@@ -40,6 +40,7 @@ export interface WindowApi {
   openPath(target: string): Promise<void>
   getVersion(): Promise<string>
   getPathForFile(file: File): string
+  logRenderer(msg: string): void
   onOpenFiles(cb: (paths: string[]) => void): () => void
   onProgress(cb: (p: ConvertProgress) => void): () => void
   listSheets(filePath: string, skipDelSheets: boolean): Promise<SheetListItem[]>
@@ -73,8 +74,7 @@ declare global {
   }
 }
 
-/** Message lỗi để hiện cho người dùng. */
-/** Chữ lỗi để hiện: main trả mã `E_…` cho lỗi mới (dịch theo ngôn ngữ giao diện), còn lại giữ nguyên chữ. */
+/** Chữ lỗi để hiện: main trả mã `E_…` (có thể kèm tham số `E_…|x`) dịch theo ngôn ngữ giao diện, còn lại giữ nguyên chữ. */
 export const errMsg = (err: unknown): string => {
   const msg = err instanceof Error ? err.message : String(err)
   return errCodeText(msg) ?? msg

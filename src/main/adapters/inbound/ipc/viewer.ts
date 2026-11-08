@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type { MdFolderListing } from '../../../../shared/types'
 import { IMG_SCHEME, imagePathFromUrl } from '../../../../shared/mdView'
-import { friendlyError } from '../../../domain/errors'
+import { errorCode } from '../../../domain/errors'
 import { imageMime, isInsideDir, isMarkdownPath, isOpenableDirectory } from '../../../domain/guards'
 import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, searchMarkdownFolder } from '../../outbound/mdFolder'
 import { buildSpecIndex, type SpecIndex } from '../../../../shared/specIndex'
@@ -26,7 +26,7 @@ export function registerViewerIpc(): void {
 
   ipcMain.handle('mdv:list', async (_e, root: unknown) => {
     if (!(await isOpenableDirectory(root))) {
-      return { ok: false, error: 'Không mở được: thư mục không tồn tại hoặc không hợp lệ.' }
+      return { ok: false, error: 'E_DIR_NOT_FOUND' }
     }
     try {
       const { files, mtimes, truncated } = await listMarkdownFiles(root as string)
@@ -35,19 +35,19 @@ export function registerViewerIpc(): void {
       return { ok: true, data: listing }
     } catch (err) {
       void logError('mdv:list', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
   ipcMain.handle('mdv:read', async (_e, path: unknown) => {
-    if (!isMarkdownPath(path)) return { ok: false, error: 'Chỉ đọc được file Markdown (.md).' }
+    if (!isMarkdownPath(path)) return { ok: false, error: 'E_NOT_MD' }
     try {
       const text = await readMarkdownFile(path as string)
       viewerRoots.add(dirname(path as string))
       return { ok: true, data: text }
     } catch (err) {
       void logError('mdv:read', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
@@ -63,7 +63,7 @@ export function registerViewerIpc(): void {
       return { ok: true, data: await searchMarkdownFolder(root, query, undefined, undefined, () => gen !== searchGen) }
     } catch (err) {
       void logError('mdv:search', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
@@ -90,7 +90,7 @@ export function registerViewerIpc(): void {
       return { ok: true, data: index }
     } catch (err) {
       void logError('mdv:specIndex', err)
-      return { ok: false, error: friendlyError(err) }
+      return { ok: false, error: errorCode(err) }
     }
   })
 
