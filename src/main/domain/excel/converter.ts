@@ -442,10 +442,11 @@ interface SheetNote {
   row: number
   col: number
   md: string
-  image: boolean
+  /** Khối riêng (ảnh, biểu đồ) thay vì một dòng trong list */
+  block: boolean
 }
 
-/** Nội dung nằm ngoài giá trị ô: ảnh, shape, mũi tên (lớp vẽ) và comment của ô.
+/** Nội dung nằm ngoài giá trị ô: ảnh, biểu đồ, shape, mũi tên (lớp vẽ) và comment của ô.
  * Mỗi note neo theo ô trên-trái để chèn vào Markdown đúng chỗ của nó trong sheet. */
 function sheetNotes(
   ws: WorkSheet,
@@ -453,13 +454,13 @@ function sheetNotes(
   origin: { r: number; c: number },
   clip: XLSX.Range | null,
   esc: boolean,
-  multiline: 'br' | 'space'
+  opts: ConvertOptions
 ): SheetNote[] {
-  const txt = (s: string): string => escCell(esc ? escapeMarkdownInline(s) : s, multiline)
+  const txt = (s: string): string => escCell(esc ? escapeMarkdownInline(s) : s, opts.multiline)
   const notes: SheetNote[] = []
-  const add = (r: number, c: number, md: string, image = false): void => {
+  const add = (r: number, c: number, md: string, block = false): void => {
     if (clip && (r < clip.s.r || r > clip.e.r || c < clip.s.c || c > clip.e.c)) return
-    notes.push({ row: r - origin.r, col: c, md, image })
+    notes.push({ row: r - origin.r, col: c, md, block })
   }
   for (const d of drawings) {
     for (const im of d.images) {
@@ -467,6 +468,16 @@ function sheetNotes(
       add(d.row, d.col, `![${alt} (${d.ref})](${ASSET_TOKEN}${encodeURIComponent(im.name)})`, true)
     }
     for (const t of d.texts) add(d.row, d.col, `- 〔図形 ${d.ref}〕${txt(t)}`)
+    for (const ch of d.charts) {
+      const head = `**〔グラフ ${d.ref}〕${txt(ch.type)}${ch.title ? '「' + txt(ch.title) + '」' : ''}**`
+      const n = Math.max(ch.categories.length, ...ch.series.map((x) => x.values.length))
+      const rows = Array.from({ length: n }, (_, i) => [
+        txt(ch.categories[i] ?? String(i + 1)),
+        ...ch.series.map((x) => txt(x.values[i] ?? '')),
+      ])
+      const table = renderTable(['項目', ...ch.series.map((x) => txt(x.name))], rows, opts)
+      add(d.row, d.col, table ? head + '\n\n' + table : head, true)
+    }
     const a = d.arrow
     if (a) add(d.row, d.col, `- 〔矢印〕${txt(a.from)} ${a.both ? '↔' : '→'} ${txt(a.to)}${a.label ? '（' + txt(a.label) + '）' : ''}`)
   }
@@ -503,14 +514,14 @@ export function sheetToMarkdown(
   const startBlock = (): void => {
     if (out.length > 0 && out[out.length - 1] !== '') out.push('')
   }
-  const notes = sheetNotes(ws, drawings, origin, clip, esc, opts.multiline)
+  const notes = sheetNotes(ws, drawings, origin, clip, esc, opts)
   let noteIdx = 0
-  /** Ghi các note neo ở dòng grid < limit: ảnh thành đoạn riêng, còn lại gom thành list. */
+  /** Ghi các note neo ở dòng grid < limit: ảnh/biểu đồ thành khối riêng, còn lại gom thành list. */
   const flushNotes = (limit: number): void => {
     let inList = false
     while (noteIdx < notes.length && notes[noteIdx].row < limit) {
       const n = notes[noteIdx++]
-      if (n.image) {
+      if (n.block) {
         startBlock()
         out.push(n.md, '')
         inList = false

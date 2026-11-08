@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx'
 import { readWorkbook } from '../../adapters/outbound/xlsxFiles'
 import { DEFAULT_OPTIONS } from '../../../shared/types'
 import { convertSheetInWorkbook, convertSheetsInWorkbook, listSheetsInWorkbook } from './converter'
-import { sheetDrawings } from './drawings'
+import { parseChart, sheetDrawings } from './drawings'
 import { workbookMdFiles } from './output'
 
 const FIXTURE = fileURLToPath(new URL('../../../../test/fixtures/ui-drawings.xlsx', import.meta.url))
@@ -55,7 +55,7 @@ describe('lớp vẽ: file mẫu ui-drawings.xlsx (scripts/make-ui-fixture.mjs)'
 })
 
 /** Workbook giả chỉ có các part lớp vẽ cần thiết. */
-function fakeWb(drawingBody: string): XLSX.WorkBook {
+function fakeWb(drawingBody: string, extra: Record<string, string> = {}): XLSX.WorkBook {
   const f = (s: string): { content: Buffer } => ({ content: Buffer.from(s) })
   const rel = (id: string, type: string, target: string): string =>
     `<Relationships><Relationship Id="${id}" Type="http://x/${type}" Target="${target}"/></Relationships>`
@@ -67,6 +67,7 @@ function fakeWb(drawingBody: string): XLSX.WorkBook {
       'xl/_rels/workbook.xml.rels': f(rel('rId1', 'worksheet', 'worksheets/sheet1.xml')),
       'xl/worksheets/_rels/sheet1.xml.rels': f(rel('rId1', 'drawing', '../drawings/drawing1.xml')),
       'xl/drawings/drawing1.xml': f(`<xdr:wsDr>${drawingBody}</xdr:wsDr>`),
+      ...Object.fromEntries(Object.entries(extra).map(([k, v]) => [k, f(v)])),
     },
   } as unknown as XLSX.WorkBook
 }
@@ -87,6 +88,23 @@ describe('sheetDrawings', () => {
       'S'
     )
     expect(d.items.find((i) => i.arrow)?.arrow).toEqual({ from: 'C', to: 'A & B', both: false, label: undefined })
+  })
+
+  it('biểu đồ: graphicFrame -> chart part qua rels, thành tiêu đề + bảng số liệu trong Markdown', () => {
+    const frame =
+      '<xdr:graphicFrame><xdr:nvGraphicFramePr><xdr:cNvPr id="4" name="Chart 1"/></xdr:nvGraphicFramePr>' +
+      '<a:graphic><a:graphicData><c:chart xmlns:c="x" r:id="rId7"/></a:graphicData></a:graphic></xdr:graphicFrame>'
+    const wb = fakeWb(anchor(1, 2, 8, 18, frame), {
+      'xl/drawings/_rels/drawing1.xml.rels':
+        '<Relationships><Relationship Id="rId7" Type="http://x/chart" Target="../charts/chart1.xml"/></Relationships>',
+      'xl/charts/chart1.xml': BAR_LINE,
+    })
+    const d = sheetDrawings(wb, 'S')
+    expect(d.items).toHaveLength(1)
+    expect(d.items[0].ref).toBe('B3:H18')
+    const md = convertSheetInWorkbook(wb, 'S', DEFAULT_OPTIONS)
+    expect(md).toContain('**〔グラフ B3:H18〕縦棒グラフ・折れ線グラフ「月別売上 & 件数」**\n\n| 項目 | 売上 | 件数 |\n|---|---|---|\n| 1月 | 120 | 5 |')
+    expect(md).toContain('| 3月 | 150.5 | 8 |')
   })
 
   it('workbook không có lớp vẽ (vd .xls) -> rỗng', () => {
@@ -148,5 +166,42 @@ describe('lớp vẽ nâng cao: ui-drawings-advanced.xlsx (scripts/make-ui-fixtu
     expect(m).toContain('![Picture 1 (A7:L31)]')
     expect(m).not.toContain('〔図形 M') // callout cột M trở đi nằm ngoài vùng
     expect(m).not.toContain('エラーダイアログ')
+  })
+})
+
+const BAR_LINE =
+  '<c:chartSpace><c:chart><c:title><c:tx><c:rich><a:p><a:r><a:t>月別売上 &amp; </a:t></a:r><a:r><a:t>件数</a:t></a:r></a:p></c:rich></c:tx></c:title>' +
+  '<c:plotArea><c:barChart><c:barDir val="col"/><c:ser><c:idx val="0"/>' +
+  '<c:tx><c:strRef><c:f>S!$B$1</c:f><c:strCache><c:ptCount val="1"/><c:pt idx="0"><c:v>売上</c:v></c:pt></c:strCache></c:strRef></c:tx>' +
+  '<c:cat><c:strRef><c:strCache><c:ptCount val="3"/><c:pt idx="0"><c:v>1月</c:v></c:pt><c:pt idx="1"><c:v>2月</c:v></c:pt><c:pt idx="2"><c:v>3月</c:v></c:pt></c:strCache></c:strRef></c:cat>' +
+  '<c:val><c:numRef><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="3"/><c:pt idx="0"><c:v>120</c:v></c:pt><c:pt idx="1"><c:v>98</c:v></c:pt><c:pt idx="2"><c:v>150.5</c:v></c:pt></c:numCache></c:numRef></c:val>' +
+  '</c:ser></c:barChart><c:lineChart><c:ser><c:tx><c:v>件数</c:v></c:tx>' +
+  '<c:val><c:numRef><c:numCache><c:pt idx="0"><c:v>5</c:v></c:pt><c:pt idx="2"><c:v>8</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser></c:lineChart>' +
+  '<c:valAx><c:title><c:tx><c:rich><a:p><a:r><a:t>軸</a:t></a:r></a:p></c:rich></c:tx></c:title></c:valAx></c:plotArea></c:chart></c:chartSpace>'
+
+describe('parseChart', () => {
+  it('combo cột + đường, điểm thiếu để trống, tiêu đề trục không lẫn vào tiêu đề biểu đồ', () => {
+    expect(parseChart(BAR_LINE)).toEqual({
+      type: '縦棒グラフ・折れ線グラフ',
+      title: '月別売上 & 件数',
+      categories: ['1月', '2月', '3月'],
+      series: [
+        { name: '売上', values: ['120', '98', '150.5'] },
+        { name: '件数', values: ['5', '', '8'] },
+      ],
+    })
+  })
+
+  it('thanh ngang, không tiêu đề (autoTitleDeleted), series không tên, idx khổng lồ bị bỏ', () => {
+    const xml =
+      '<c:chartSpace><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:barChart><c:barDir val="bar"/><c:ser>' +
+      '<c:val><c:numRef><c:numCache><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="99999999"><c:v>2</c:v></c:pt></c:numCache></c:numRef></c:val>' +
+      '</c:ser></c:barChart></c:plotArea></c:chart></c:chartSpace>'
+    expect(parseChart(xml)).toEqual({ type: '横棒グラフ', categories: [], series: [{ name: '系列1', values: ['1'] }] })
+  })
+
+  it('không có series (hoặc loại không hỗ trợ) -> null', () => {
+    expect(parseChart('<c:chartSpace><c:chart><c:plotArea><c:barChart/></c:plotArea></c:chart></c:chartSpace>')).toBeNull()
+    expect(parseChart('<garbage')).toBeNull()
   })
 })

@@ -30,7 +30,7 @@ src/
     window.ts                    # BrowserWindow: nhớ vị trí (bỏ nếu màn hình đã rút), chặn điều hướng
     cli.ts, mcp.ts, worker.ts    # điểm vào khác: CLI, MCP server (stdio), utilityProcess
     domain/                      # logic thuần, test không cần Electron
-      excel/                     # Excel -> Markdown: converter, drawings, output (tên file, escape)
+      excel/                     # Excel -> Markdown: converter, drawings (ảnh/shape/biểu đồ), output (tên file, escape)
       md2xlsx/                   # Markdown -> Excel: parse, inline, cellValue, names, layout, write
       rag/                       # chia mục, BM25 + từ điển Việt-Nhật, gom tài liệu cho AI
       guards.ts, errors.ts       # kiểm đường dẫn/URL/vị trí cửa sổ; dịch lỗi sang tiếng Việt

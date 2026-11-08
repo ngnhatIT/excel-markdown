@@ -74,7 +74,8 @@ Nút **Mặc định** ở đầu cột đưa mọi tùy chọn về ban đầu.
 - **Công thức**: lấy giá trị Excel đã tính (kể cả tham chiếu liên sheet).
 - **Lớp vẽ** (chỉ `.xlsx`): ảnh ghi ra thư mục `<tên>_images/` và chèn đúng chỗ; chữ trong shape / text
   box thành `- 〔図形 B10〕...`; mũi tên nối hai shape thành `- 〔矢印〕A → B`; comment ô thành
-  `- 〔コメント B56〕...`. Chưa đọc biểu đồ / SmartArt.
+  `- 〔コメント B56〕...`; biểu đồ thành `**〔グラフ B3:H18〕縦棒グラフ「tiêu đề」**` + bảng số liệu
+  (danh mục × series, lấy giá trị Excel đã lưu trong file). Chưa đọc SmartArt / biểu đồ kiểu mới (waterfall, treemap...).
 
 File không phải 基本設計 vẫn convert bình thường: lớp chung (bảng, đoạn văn) luôn chạy, lớp riêng
 (banner, meta tiếng Nhật) chỉ bật khi gặp đúng mẫu.

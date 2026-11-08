@@ -5,7 +5,11 @@
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
 ## Chưa phát hành
-Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/comment, Markdown → Excel không đổi.
+Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/biểu đồ/comment, Markdown → Excel không đổi.
+- Tính năng: Excel → Markdown đọc **biểu đồ** (.xlsx): cột/thanh/đường/tròn/vùng/phân tán/radar..., cả biểu đồ
+  kết hợp, thành `**〔グラフ B3:H18〕縦棒グラフ・折れ線グラフ「tiêu đề」**` + bảng số liệu (giá trị cache trong file,
+  tối đa 1 000 danh mục). AI/RAG/MCP đọc được số liệu biểu đồ.
+- Bảo mật: `uuid` của exceljs nâng lên 11.1.1 (`overrides`), `npm audit --omit=dev` sạch.
 - Bảo mật: renderer không còn đọc/ghi được API Key Claude / OpenAI qua `store:get` / `store:set`
   (trước chỉ chặn khóa của Gemini).
 - Sửa: cửa sổ không còn mở ra ngoài màn hình khi màn hình phụ lần trước đã rút (bỏ vị trí đã lưu).

@@ -1,7 +1,8 @@
 /* Lớp vẽ của sheet .xlsx: ảnh, shape/text box, mũi tên (xl/drawings/drawingN.xml).
  * SheetJS bản community không đọc phần này; ta đọc thẳng các part XML mà
  * `readFile(..., { bookFiles: true })` giữ lại trong `wb.files`.
- * shortcut: chưa đọc biểu đồ/SmartArt (graphicFrame) và lớp vẽ của file .xls (BIFF) — thêm khi có tài liệu thật cần.
+ * Biểu đồ (c:chart) đọc từ giá trị cache trong xl/charts/chartN.xml: loại, tiêu đề, bảng số liệu.
+ * shortcut: chưa đọc SmartArt, biểu đồ kiểu mới (chartex: waterfall, treemap...) và lớp vẽ của file .xls (BIFF) — thêm khi có tài liệu thật cần.
  */
 import { posix } from 'node:path'
 import * as XLSX from 'xlsx'
@@ -18,6 +19,17 @@ export interface DrawingItem {
   images: { name: string; alt: string }[]
   /** Mũi tên/đường nối đã suy ra hai đầu */
   arrow?: { from: string; to: string; both: boolean; label?: string }
+  /** Biểu đồ: số liệu lấy từ cache Excel đã lưu trong file */
+  charts: ChartData[]
+}
+
+export interface ChartData {
+  /** Loại biểu đồ tiếng Nhật, vd `縦棒グラフ`, nhiều loại (combo) nối bằng `・` */
+  type: string
+  title?: string
+  /** Nhãn trục danh mục (hoặc giá trị X của biểu đồ phân tán) */
+  categories: string[]
+  series: { name: string; values: string[] }[]
 }
 
 export interface SheetDrawings {
@@ -98,6 +110,74 @@ interface Rect {
 const distTo = (rc: Rect, c: number, r: number): number =>
   Math.max(rc.c1 - c, 0, c - rc.c2) + Math.max(rc.r1 - r, 0, r - rc.r2)
 
+const CHART_TYPES: Record<string, string> = {
+  barChart: '棒グラフ',
+  bar3DChart: '棒グラフ',
+  lineChart: '折れ線グラフ',
+  line3DChart: '折れ線グラフ',
+  pieChart: '円グラフ',
+  pie3DChart: '円グラフ',
+  ofPieChart: '円グラフ',
+  doughnutChart: 'ドーナツグラフ',
+  areaChart: '面グラフ',
+  area3DChart: '面グラフ',
+  scatterChart: '散布図',
+  radarChart: 'レーダーチャート',
+  bubbleChart: 'バブルチャート',
+  stockChart: '株価チャート',
+  surfaceChart: '等高線グラフ',
+  surface3DChart: '等高線グラフ',
+}
+// shortcut: file độc có thể khai báo số điểm rất lớn; cắt ở 1 000 danh mục, nâng khi gặp biểu đồ thật lớn hơn
+const MAX_CHART_POINTS = 1000
+
+/** Các điểm `<c:pt idx="i"><c:v>..</c:v></c:pt>` trong một phần tử (cache chuỗi/số) -> mảng theo idx. */
+function chartPoints(xml: string | undefined): string[] {
+  const out: string[] = []
+  if (!xml) return out
+  for (const m of xml.matchAll(new RegExp(`<${NS}pt\\b[^>]*>[\\s\\S]*?<${NS}v>([\\s\\S]*?)</${NS}v>`, 'g'))) {
+    const idx = Number(attr(m[0], 'idx') ?? out.length)
+    if (!Number.isInteger(idx) || idx < 0 || idx >= MAX_CHART_POINTS) continue
+    out[idx] = decodeXml(m[1]).trim()
+  }
+  return Array.from(out, (v) => v ?? '')
+}
+
+const inner = (xml: string, tag: string): string | undefined =>
+  new RegExp(`<${NS}${tag}\\b[^>]*>([\\s\\S]*?)</${NS}${tag}>`).exec(xml)?.[1]
+
+/** Chữ của tiêu đề (rich text `<a:t>` hoặc cache của tham chiếu ô). */
+function chartTitle(xml: string | undefined): string | undefined {
+  if (!xml) return undefined
+  const rich = [...xml.matchAll(new RegExp(`<${NS}t(?:\\s[^>]*)?>([\\s\\S]*?)</${NS}t>`, 'g'))].map((t) => decodeXml(t[1])).join('')
+  const t = (rich || chartPoints(xml).join(' ') || decodeXml(inner(xml, 'v') ?? '')).trim()
+  return t || undefined
+}
+
+/** Đọc một part xl/charts/chartN.xml. Không có series nào -> null. */
+export function parseChart(xml: string): ChartData | null {
+  const plot = inner(xml, 'plotArea') ?? ''
+  const types: string[] = []
+  const series: ChartData['series'] = []
+  let categories: string[] = []
+  for (const g of plot.matchAll(new RegExp(`<${NS}(\\w+Chart)\\b[^>]*>([\\s\\S]*?)</${NS}\\1>`, 'g'))) {
+    let type = CHART_TYPES[g[1]]
+    if (!type) continue
+    if (type === '棒グラフ') type = /<(?:\w+:)?barDir\s+val="bar"/.test(g[2]) ? '横棒グラフ' : '縦棒グラフ'
+    if (!types.includes(type)) types.push(type)
+    for (const ser of g[2].matchAll(tagRe('ser'))) {
+      const x = ser[0]
+      const cat = chartPoints(inner(x, 'cat') ?? inner(x, 'xVal'))
+      if (cat.length > categories.length) categories = cat
+      const name = chartTitle(inner(x, 'tx')) ?? '系列' + (series.length + 1)
+      series.push({ name, values: chartPoints(inner(x, 'val') ?? inner(x, 'yVal')) })
+    }
+  }
+  if (series.length === 0) return null
+  const title = /<(?:\w+:)?autoTitleDeleted\s+val="1"/.test(xml) ? undefined : chartTitle(inner(xml.replace(plot, ''), 'title'))
+  return { type: types.join('・'), ...(title ? { title } : {}), categories, series }
+}
+
 /** Đọc lớp vẽ của một sheet. Không có drawing (hoặc file .xls) -> rỗng. */
 export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawings {
   const empty: SheetDrawings = { items: [], media: {} }
@@ -136,7 +216,7 @@ export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawin
       const rect: Rect = { c1: from.col, r1: from.row, c2, r2 }
       const tl = XLSX.utils.encode_cell({ r: from.row, c: from.col })
       const br = XLSX.utils.encode_cell({ r: r2, c: c2 })
-      const item: DrawingItem = { row: from.row, col: from.col, ref: tl === br ? tl : tl + ':' + br, texts: [], images: [] }
+      const item: DrawingItem = { row: from.row, col: from.col, ref: tl === br ? tl : tl + ':' + br, texts: [], images: [], charts: [] }
 
       for (const p of anchor.matchAll(tagRe('pic'))) {
         const embed = /\sr:embed="([^"]+)"/.exec(p[0])?.[1]
@@ -148,6 +228,12 @@ export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawin
         const nv = new RegExp(`<${NS}cNvPr\\b[^>]*>`).exec(p[0])?.[0] ?? ''
         item.images.push({ name, alt: attr(nv, 'descr') || attr(nv, 'name') || name })
       }
+      for (const c of anchor.matchAll(new RegExp(`<${NS}chart\\b[^>]*\\sr:id="([^"]+)"`, 'g'))) {
+        const path = rels.get(c[1])?.path
+        const chart = path ? readText(files, path) : null
+        const data = chart ? parseChart(chart) : null
+        if (data) item.charts.push(data)
+      }
       for (const s of anchor.matchAll(tagRe('sp'))) {
         const text = shapeText(s[0])
         const id = attr(new RegExp(`<${NS}cNvPr\\b[^>]*>`).exec(s[0])?.[0] ?? '', 'id')
@@ -157,7 +243,7 @@ export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawin
         boxes.push({ rect, text, txBox: /txBox="1"/.test(s[0]), item })
       }
       for (const c of anchor.matchAll(tagRe('cxnSp'))) arrows.push({ rect, xml: c[0], item })
-      if (item.texts.length > 0 || item.images.length > 0 || arrows.some((x) => x.item === item)) items.push(item)
+      if (item.texts.length > 0 || item.images.length > 0 || item.charts.length > 0 || arrows.some((x) => x.item === item)) items.push(item)
     }
 
     // Hai đầu mũi tên: ưu tiên shape được nối (stCxn/endCxn), không thì shape gần đầu mút nhất.
@@ -208,7 +294,7 @@ export function sheetDrawings(wb: XLSX.WorkBook, sheetName: string): SheetDrawin
   }
   return {
     items: items
-      .filter((it) => it.texts.length > 0 || it.images.length > 0 || it.arrow)
+      .filter((it) => it.texts.length > 0 || it.images.length > 0 || it.charts.length > 0 || it.arrow)
       .sort((x, y) => x.row - y.row || x.col - y.col),
     media,
   }
