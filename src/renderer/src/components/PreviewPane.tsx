@@ -8,6 +8,8 @@ import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { SelectionTranslate } from './SelectionTranslate'
 import { DdlPopover, ErDialog } from './TableDefTools'
+import { TestDesignDialog } from './TestDesignTools'
+import { buildTestDesign } from '../../../shared/testDesign'
 import { parseTableDefs, type TableDef } from '../../../shared/tableDef'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
@@ -260,9 +262,14 @@ export function PreviewPane({
   const [erOpen, setErOpen] = useState(false)
   const closeDdl = useCallback(() => setDdl(null), [])
   const closeEr = useCallback(() => setErOpen(false), [])
+  // テスト観点表: nút 観点表 khi tài liệu có bảng 項目定義 thuộc một 画面
+  const testTables = useMemo(() => buildTestDesign(md).tables, [md])
+  const [testOpen, setTestOpen] = useState(false)
+  const closeTest = useCallback(() => setTestOpen(false), [])
   useEffect(() => {
     setDdl(null)
     setErOpen(false)
+    setTestOpen(false)
   }, [title])
 
   const jumpToItem = useCallback((item: OutlineItem) => {
@@ -414,6 +421,11 @@ export function PreviewPane({
               {t('td.er')}
             </button>
           )}
+          {testTables > 0 && !loading && (
+            <button className={cx('x2m-testdesign-btn btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => setTestOpen(true)} title={t('tsd.btnTitle', { n: testTables })}>
+              {t('tsd.btn')}
+            </button>
+          )}
           <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title={t('preview.copyTitle')}>
             <IconCopy size={14} /> {t('common.copy')}
           </button>
@@ -558,6 +570,7 @@ export function PreviewPane({
       <SelectionTranslate containerRef={previewRef} />
       {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
       {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {testOpen && <TestDesignDialog md={md} title={title} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>
   )
 }

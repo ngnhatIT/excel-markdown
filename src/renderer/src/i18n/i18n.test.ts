@@ -8,6 +8,7 @@ import { translateEn, translateJa, translateVi } from './translate'
 import { errorsEn, errorsJa, errorsVi } from './errors'
 import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
 import { specMapEn, specMapJa, specMapVi } from './specMap'
+import { testDesignEn, testDesignJa, testDesignVi } from './testDesign'
 
 describe('i18n', () => {
   it('đủ khóa ở mọi ngôn ngữ, không chuỗi rỗng, cùng tham số {x}', () => {
@@ -25,6 +26,8 @@ describe('i18n', () => {
       [tableDefVi, tableDefJa],
       [specMapVi, specMapEn],
       [specMapVi, specMapJa],
+      [testDesignVi, testDesignEn],
+      [testDesignVi, testDesignJa],
     ]
     for (const [base, d] of pairs) {
       expect(Object.keys(d).sort()).toEqual(Object.keys(base).sort())

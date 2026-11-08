@@ -8,22 +8,23 @@ import { translateEn, translateJa, translateVi } from './translate'
 import { errorsEn, errorsJa, errorsVi } from './errors'
 import { tableDefEn, tableDefJa, tableDefVi } from './tableDef'
 import { specMapEn, specMapJa, specMapVi } from './specMap'
+import { testDesignEn, testDesignJa, testDesignVi } from './testDesign'
 
 export type Lang = 'vi' | 'en' | 'ja'
 /** Khóa của từ điển chính (vi.ts); en.ts / ja.ts phải đủ các khóa này. */
 export type Dict = Record<keyof typeof vi, string>
-export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi | keyof typeof errorsVi | keyof typeof tableDefVi | keyof typeof specMapVi
+export type TKey = keyof typeof vi | keyof typeof compareVi | keyof typeof translateVi | keyof typeof errorsVi | keyof typeof tableDefVi | keyof typeof specMapVi | keyof typeof testDesignVi
 export type TFn = (key: TKey, params?: Record<string, string | number>) => string
 
 export const LANGS: readonly Lang[] = ['vi', 'en', 'ja']
 /** Locale cho Intl / toLocaleString theo ngôn ngữ giao diện. */
 export const LOCALES: Record<Lang, string> = { vi: 'vi-VN', en: 'en-US', ja: 'ja-JP' }
 type FullDict = Record<TKey, string>
-const VI: FullDict = { ...vi, ...compareVi, ...translateVi, ...errorsVi, ...tableDefVi, ...specMapVi }
+const VI: FullDict = { ...vi, ...compareVi, ...translateVi, ...errorsVi, ...tableDefVi, ...specMapVi, ...testDesignVi }
 const DICTS: Record<Lang, FullDict> = {
   vi: VI,
-  en: { ...en, ...compareEn, ...translateEn, ...errorsEn, ...tableDefEn, ...specMapEn },
-  ja: { ...ja, ...compareJa, ...translateJa, ...errorsJa, ...tableDefJa, ...specMapJa },
+  en: { ...en, ...compareEn, ...translateEn, ...errorsEn, ...tableDefEn, ...specMapEn, ...testDesignEn },
+  ja: { ...ja, ...compareJa, ...translateJa, ...errorsJa, ...tableDefJa, ...specMapJa, ...testDesignJa },
 }
 
 /** Ngôn ngữ mặc định theo hệ điều hành (lần đầu chạy, chưa lưu lựa chọn). */
