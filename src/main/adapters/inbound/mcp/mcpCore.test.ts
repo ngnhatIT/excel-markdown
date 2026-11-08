@@ -1,7 +1,8 @@
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, copyFileSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
+import * as XLSX from 'xlsx'
 import { handleMcpMessage, MCP_TOOLS } from './mcpCore'
 
 const fixture = join(__dirname, '../../../../../test/fixtures/kihon-sekkei.xlsx')
@@ -33,9 +34,13 @@ describe('MCP JSON-RPC', () => {
     expect(res.error.code).toBe(-32601)
   })
 
-  it('tools/list liệt kê đủ 4 tool', async () => {
+  it('tools/list liệt kê đủ tool, mọi schema đóng (additionalProperties: false)', async () => {
     const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' })) as { result: { tools: { name: string }[] } }
     expect(res.result.tools.map((t) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name))
+    expect(MCP_TOOLS.map((t) => t.name)).toEqual(
+      expect.arrayContaining(['build_excel', 'list_sheets', 'preview_sheet', 'outline', 'read_doc', 'convert_excel'])
+    )
+    for (const t of MCP_TOOLS) expect(t.inputSchema.additionalProperties).toBe(false)
   })
 })
 
@@ -87,6 +92,72 @@ describe('MCP tools', () => {
     const res = await call('convert_excel', { files: [join(docs, 'SC001.md')], out_dir: join(tmp, 'y') })
     expect(res.result.isError).toBe(true)
     expect(res.result.content[0].text).toContain('file Excel')
+  })
+
+  it('read_doc chia trang theo dòng, báo "dòng X–Y / N" và gợi ý offset tiếp', async () => {
+    const big = join(tmp, 'big.md')
+    writeFileSync(big, Array.from({ length: 2500 }, (_, i) => `line ${i + 1}`).join('\n') + '\n')
+    const p1 = (await call('read_doc', { path: big })).result.content[0].text
+    expect(p1).toMatch(/^line 1\n/)
+    expect(p1).toContain('line 2000\n\n(dòng 1–2000 / 2500 — còn tiếp, gọi read_doc với offset=2001)')
+    const p2 = (await call('read_doc', { path: big, offset: 2499, limit: 10 })).result.content[0].text
+    expect(p2).toBe('line 2499\nline 2500\n\n(dòng 2499–2500 / 2500)')
+    expect((await call('read_doc', { path: big, offset: 9999 })).result.isError).toBe(true)
+    expect((await call('read_doc', { path: big, limit: 0 })).result.isError).toBe(true)
+  })
+
+  it('outline: heading kèm số dòng, bỏ heading trong khối code', async () => {
+    const f = join(tmp, 'outline.md')
+    writeFileSync(f, '# Tựa\n\ntext\n```\n# không phải heading\n```\n## 【項目定義】 ##\n')
+    expect((await call('outline', { path: f })).result.content[0].text).toBe('1: # Tựa\n7: ## 【項目定義】')
+    expect((await call('outline', { path: fixture })).result.isError).toBe(true)
+  })
+
+  it('list_sheets + preview_sheet trên kihon-sekkei.xlsx, không ghi file', async () => {
+    const list = (await call('list_sheets', { path: fixture })).result
+    expect(list.isError).toBeUndefined()
+    const first = list.content[0].text.split('\n')[0].split('\t')
+    expect(first[1]).toMatch(/^\d+ dòng$/)
+    const prev = (await call('preview_sheet', { path: fixture, sheet: first[0] })).result
+    expect(prev.isError).toBeUndefined()
+    expect(prev.content[0].text.length).toBeGreaterThan(0)
+    expect((await call('preview_sheet', { path: fixture, sheet: 'không-có' })).result.isError).toBe(true)
+    expect((await call('list_sheets', { path: join(docs, 'SC001.md') })).result.isError).toBe(true)
+    expect((await call('list_sheets', { path: 'kihon-sekkei.xlsx' })).result.isError).toBe(true)
+  })
+
+  it('build_excel: round trip đọc lại bằng SheetJS, từ chối ghi đè nếu thiếu overwrite', async () => {
+    const out = join(tmp, 'Book.xlsx')
+    const res = await call('build_excel', { files: [join(docs, 'SC001.md'), join(docs, 'sub', 'SC002.md')], out_path: out })
+    expect(res.result.isError).toBeUndefined()
+    expect(XLSX.read(readFileSync(out)).SheetNames.length).toBe(2)
+    const again = await call('build_excel', { dir: docs, out_path: out })
+    expect(again.result.isError).toBe(true)
+    expect(again.result.content[0].text).toContain('đã tồn tại')
+    expect((await call('build_excel', { dir: docs, out_path: out, overwrite: true })).result.isError).toBeUndefined()
+  })
+
+  it('build_excel từ chối file không phải .md, đường dẫn tương đối, dir là file', async () => {
+    const out = join(tmp, 'Bad.xlsx')
+    expect((await call('build_excel', { files: [fixture], out_path: out })).result.isError).toBe(true)
+    expect((await call('build_excel', { files: ['SC001.md'], out_path: out })).result.isError).toBe(true)
+    expect((await call('build_excel', { files: [join(docs, 'SC001.md')], out_path: 'Bad.xlsx' })).result.isError).toBe(true)
+    expect((await call('build_excel', { dir: join(docs, 'SC001.md'), out_path: out })).result.isError).toBe(true)
+    expect(existsSync(out)).toBe(false)
+  })
+
+  it('convert_excel nhận dir: bỏ ~$ và .txt, giữ thư mục con', async () => {
+    const src = join(tmp, 'xin')
+    mkdirSync(join(src, 'sub'), { recursive: true })
+    copyFileSync(fixture, join(src, 'sub', 'k.xlsx'))
+    writeFileSync(join(src, '~$x.xlsx'), 'lock')
+    writeFileSync(join(src, 'a.txt'), 'x')
+    const out = join(tmp, 'xout')
+    const res = await call('convert_excel', { dir: src, out_dir: out, per_workbook: true })
+    expect(res.result.isError).toBeUndefined()
+    expect(readdirSync(out)).toEqual(['sub'])
+    expect(readdirSync(join(out, 'sub'))).toEqual(['k.md'])
+    expect((await call('convert_excel', { dir: fixture, out_dir: out })).result.isError).toBe(true)
   })
 
   it('thiếu tham số -> isError; tool lạ -> lỗi JSON-RPC -32602', async () => {
