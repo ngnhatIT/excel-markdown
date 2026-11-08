@@ -255,11 +255,31 @@ describe('impact / lint (Bản đồ thiết kế + 影響調査)', () => {
     expect(r.log).toContain('screens/SCR010_search.md:22: error: Cột không có trong テーブル定義: TBL_CUSTOMER.CUST_KANA')
     // ô rẽ nhánh 権限あり？ không bị báo là màn hình thiếu
     expect(r.log).not.toContain('権限あり？')
-    expect(r.log).toContain('2 lỗi, 2 cảnh báo')
+    expect(r.log).toContain('screens/SCR002_menu.md:17: warning: Cách viết mơ hồ cần chốt: 「要確認」')
+    expect(r.log).toContain('2 lỗi, 3 cảnh báo')
     const clean = join(tmp, 'spec-clean')
     mkdirSync(clean, { recursive: true })
     writeFileSync(join(clean, 'a.md'), '- **画面ID**: A001\n- **画面遷移**: → A001\n')
     expect((await capture(['lint', clean])).code).toBe(0)
+  })
+
+  it('crud: bảng Markdown (mặc định) / TSV ra stdout; không có màn hình -> mã 1', async () => {
+    const md = await capture(['crud', specDir])
+    expect(md.code).toBe(0)
+    expect(md.out.split('\n').slice(0, 2)).toEqual(['| 画面 | TBL_CUSTOMER | TBL_ORDER |', '|---|---|---|'])
+    expect(md.out).toContain('| SCR011 顧客詳細画面 | RUD | C |')
+    expect(md.out).toContain('| SCR002 メニュー画面 |  | ? |')
+    const tsv = await capture(['crud', specDir, '--format', 'tsv'])
+    expect(tsv.out).toContain('SCR010 顧客検索画面\tR\t\n')
+    const empty = join(tmp, 'crud-empty')
+    mkdirSync(empty, { recursive: true })
+    writeFileSync(join(empty, 'a.md'), '# x\n')
+    const r = await capture(['crud', empty])
+    expect(r.code).toBe(1)
+    expect(r.err).toContain('画面ID')
+    await expect(runCli(['crud'])).rejects.toThrow('Dùng: cli crud')
+    await expect(runCli(['crud', specDir, '--format', 'xml'])).rejects.toThrow('--format')
+    await expect(runCli(['crud', specDir, '-x'])).rejects.toThrow('Tuỳ chọn không hợp lệ')
   })
 
   it('đối số sai -> ném; thư mục không có -> mã 1, lỗi ra stderr', async () => {

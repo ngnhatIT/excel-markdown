@@ -38,7 +38,7 @@ describe('MCP JSON-RPC', () => {
     const res = (await handleMcpMessage({ jsonrpc: '2.0', id: 2, method: 'tools/list' })) as { result: { tools: { name: string }[] } }
     expect(res.result.tools.map((t) => t.name)).toEqual(MCP_TOOLS.map((t) => t.name))
     expect(MCP_TOOLS.map((t) => t.name)).toEqual(
-      expect.arrayContaining(['build_excel', 'list_sheets', 'preview_sheet', 'outline', 'read_doc', 'convert_excel'])
+      expect.arrayContaining(['build_excel', 'list_sheets', 'preview_sheet', 'outline', 'read_doc', 'convert_excel', 'impact', 'crud'])
     )
     for (const t of MCP_TOOLS) expect(t.inputSchema.additionalProperties).toBe(false)
   })
@@ -235,7 +235,15 @@ describe('MCP impact', () => {
     expect(text).toContain('影響調査: SCR011 (màn hình)')
     expect(text).toContain('  ~ SCR010 顧客検索画面 (liên quan qua 画面遷移)')
     expect(text).toContain('flow.md\n')
-    expect(text).toContain('整合性チェック (4):')
+    expect(text).toContain('整合性チェック (5):')
+  })
+
+  it('crud: ma trận Markdown + bằng chứng file:dòng; từ chối thư mục tương đối', async () => {
+    const text = (await call('crud', { root: specDir })).result.content[0].text
+    expect(text).toContain('| SCR011 顧客詳細画面 | RUD | C |')
+    expect(text).toContain('SCR011 × TBL_CUSTOMER: RUD\n  screens/SCR011_detail.md:10 [R] ')
+    expect(text).toContain('  screens/SCR002_menu.md:17 [?] TBL_ORDER の扱いは要確認。')
+    expect((await call('crud', { root: 'specmap' })).result.isError).toBe(true)
   })
 
   it('từ chối thư mục tương đối / không tồn tại / là file, query rỗng hoặc quá dài', async () => {

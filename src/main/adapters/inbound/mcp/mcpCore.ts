@@ -10,7 +10,7 @@ import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { buildExcel, collectTableDefs, formatImpact, formatIssues, loadSpecIndex, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
-import { impactOf } from '../../../../shared/specIndex'
+import { crudMatrix, crudText, impactOf } from '../../../../shared/specIndex'
 import { SQL_DIALECTS, type SqlDialect } from '../../../../shared/tableDef'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
@@ -156,6 +156,19 @@ export const MCP_TOOLS = [
         query: { type: 'string', description: 'Tên bảng, TBL.COL, tên cột, 画面ID hoặc 画面名 (1–200 ký tự)' },
       },
       required: ['root', 'query'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'crud',
+    description:
+      'CRUD図 (ma trận 画面 × テーブル) của thư mục tài liệu Markdown đã convert, chạy cục bộ, không AI: tham chiếu bảng / TBL.COL trong phần của mỗi 画面ID, thao tác C/R/U/D đọc từ động từ trong dòng (登録/表示/更新/削除..., Việt / Anh cũng được); "?" = có tham chiếu nhưng không rõ thao tác. Trả về bảng Markdown + bằng chứng (file:dòng) cho từng ô.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        root: { type: 'string', description: 'Thư mục tuyệt đối chứa file .md (đệ quy)' },
+      },
+      required: ['root'],
       additionalProperties: false,
     },
   },
@@ -335,6 +348,17 @@ async function callTool(name: string, a: Args): Promise<string> {
       const text = formatImpact(query, impactOf(index, query)) + (issues.length > 0 ? `\n整合性チェック (${issues.length}):\n` + issues.join('\n') + '\n' : '')
       if (text.length <= PREVIEW_MAX_CHARS) return text
       return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`impact\` để lấy đủ.)`
+    }
+    case 'crud': {
+      const index = await loadSpecIndex(absDir(a, 'root'))
+      if (index.screens.length === 0) return 'Không tìm thấy màn hình nào (cần meta 画面ID).'
+      const m = crudMatrix(index)
+      const evidence = m.screens.flatMap((s) =>
+        Object.entries(m.cells[s.id] ?? {}).flatMap(([t, c]) => [`${s.id} × ${t}: ${c.ops}`, ...c.evidence.map((e) => `  ${e.rel}:${e.line} [${e.ops}] ${e.snippet}`)])
+      )
+      const text = crudText(m, 'md') + (evidence.length > 0 ? '\nBằng chứng:\n' + evidence.join('\n') + '\n' : '')
+      if (text.length <= PREVIEW_MAX_CHARS) return text
+      return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`crud\` để lấy đủ.)`
     }
     default:
       throw new UnknownToolError('Không có tool: ' + name)

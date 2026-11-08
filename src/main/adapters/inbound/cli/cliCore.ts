@@ -10,7 +10,7 @@ import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
 import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, walkFiles } from '../../outbound/mdFolder'
-import { buildSpecIndex, impactOf, type ImpactResult, type SpecIndex, type SpecIssue } from '../../../../shared/specIndex'
+import { buildSpecIndex, crudMatrix, crudText, impactOf, type ImpactResult, type SpecIndex, type SpecIssue } from '../../../../shared/specIndex'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { workbookMdFiles } from '../../../domain/excel/output'
@@ -25,7 +25,9 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
      cli ddl <file.md|thư mục|file.xlsx...> [--dialect generic|postgres|mysql|oracle|sqlserver]
           [--format sql|json|mermaid] [-o out.sql]   (テーブル定義書 → DDL / JSON / ER; không -o thì in ra stdout)
      cli impact <thư mục> <bảng|TBL.COL|cột|画面ID|画面名>   (影響調査: tài liệu / màn hình bị ảnh hưởng)
-     cli lint <thư mục>   (整合性チェック: 画面ID / bảng trùng, 遷移 treo, TBL.COL không có; lỗi -> mã thoát 1)
+     cli lint <thư mục>   (整合性チェック: 画面ID / bảng trùng, 遷移 treo, TBL.COL không có; lỗi -> mã thoát 1;
+          cảnh báo: cách viết mơ hồ など/TBD/未定..., cột cùng tên khác kiểu / 桁数)
+     cli crud <thư mục> [--format md|tsv]   (CRUD図 画面 × テーブル, in ra stdout)
      cli --help | --version
   Mặc định file .md đã có bị ghi đè; --no-clobber: bỏ qua workbook có file .md / thư mục ảnh đầu ra đã tồn tại.`
 
@@ -225,6 +227,8 @@ const ISSUE_TEXT: Record<SpecIssue['code'], (i: SpecIssue) => string> = {
   'duplicate-table': (i) => `Bảng trùng: ${i.subject} (đã định nghĩa ở ${i.other?.rel}:${i.other?.line})`,
   'unknown-column': (i) => `Cột không có trong テーブル定義: ${i.subject}`,
   'dangling-transition': (i) => `画面遷移 tới màn hình chưa định nghĩa: ${i.subject}`,
+  'ambiguous-term': (i) => `Cách viết mơ hồ cần chốt: 「${i.subject}」`,
+  'column-mismatch': (i) => `Cột cùng tên khác kiểu / 桁数: ${i.subject} ${i.detail ?? ''} (đã định nghĩa ở ${i.other?.rel}:${i.other?.line})`,
 }
 
 /** Một dòng mỗi lỗi: `file:dòng: error|warning: nội dung` (dạng trình biên dịch, CI đọc được). */
@@ -251,6 +255,37 @@ async function runSpec(cmd: 'impact' | 'lint', argv: string[], log: (s: string) 
   const errors = index.issues.filter((i) => i.severity === 'error').length
   log(`${index.docCount} file, ${index.screens.length} màn hình, ${index.tables.length} bảng: ${errors} lỗi, ${index.issues.length - errors} cảnh báo`)
   return errors > 0 ? 1 : 0
+}
+
+export const CRUD_FORMATS = ['md', 'tsv'] as const
+export type CrudFormat = (typeof CRUD_FORMATS)[number]
+
+/** CRUD図 của thư mục: Markdown / TSV ra stdout (không có màn hình nào -> mã 1). */
+async function runCrud(argv: string[]): Promise<number> {
+  let format: CrudFormat = 'md'
+  const rest: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--format') {
+      const v = argv[++i] as CrudFormat
+      if (!CRUD_FORMATS.includes(v)) throw new Error(`--format phải là một trong: ${CRUD_FORMATS.join(', ')}`)
+      format = v
+    } else if (argv[i].startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + argv[i])
+    else rest.push(argv[i])
+  }
+  if (rest.length !== 1) throw new Error('Dùng: cli crud <thư mục> [--format md|tsv]')
+  let index: SpecIndex
+  try {
+    index = await loadSpecIndex(resolve(rest[0]))
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  if (index.screens.length === 0) {
+    process.stderr.write('Không tìm thấy màn hình nào (cần meta 画面ID)\n')
+    return 1
+  }
+  process.stdout.write(crudText(crudMatrix(index), format))
+  return 0
 }
 
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
@@ -297,6 +332,7 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
   if (argv[0] === 'ddl') return runDdl(argv.slice(1), log)
   if (argv[0] === 'impact' || argv[0] === 'lint') return runSpec(argv[0], argv.slice(1), log)
+  if (argv[0] === 'crud') return runCrud(argv.slice(1))
   if (argv[0] === 'textconv') {
     if (argv.length !== 2) throw new Error('Dùng: cli textconv <file.xlsx>')
     // stdout là nội dung diff: lỗi chỉ ra stderr, mã thoát khác 0

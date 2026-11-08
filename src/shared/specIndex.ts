@@ -2,8 +2,9 @@
  * Rút ra 画面 (meta 画面ID / 画面名), 画面遷移 (meta chuỗi `A → B` và dòng `〔矢印〕A → B（nhãn）` từ shape),
  * テーブル定義 (parseTableDefs), chỗ nhắc tới bảng / cột / 画面ID ở nơi khác, và lỗi nhất quán.
  * Dùng chung main (IPC, CLI, MCP) + renderer. Dữ liệu không tin cậy: mọi thứ đều có giới hạn. */
+import { findGlossaryRel, parseGlossary, type GlossaryEntry } from './glossary'
 import { splitTableRow } from './specDiff'
-import { parseTableDefs, toErMermaid, type TableDef } from './tableDef'
+import { parseTableDefs, toErMermaid, type TableColumn, type TableDef } from './tableDef'
 
 /** Giới hạn cho đầu vào không tin cậy */
 export const SPEC_MAX_DOCS = 5000
@@ -15,6 +16,10 @@ const MERMAID_MAX_TEXT = 45_000
 const MAX_LINE = 20_000
 /** Tên vật lý ngắn hơn không tính tham chiếu (giảm nhiễu: `id`, `no`...) */
 const MIN_NAME = 3
+/** Tối đa cảnh báo `ambiguous-term` (tài liệu viết mơ hồ hàng loạt không làm ngập danh sách) */
+const MAX_AMBIGUOUS = 500
+/** Cách viết mơ hồ trong 設計書 cần chốt. `等` loại các từ ghép thường gặp (同等, 平等, 等しい, 等号...). */
+const AMBIGUOUS_RE = /など|適宜|原則|要確認|検討中|未定|(?<![A-Za-z0-9])TB[DC](?![A-Za-z0-9])|(?<![同平均対上高初中劣優何])等(?![しい号級価分式])/
 
 export interface SpecDoc {
   /** Đường dẫn tương đối trong thư mục, phân cách `/` */
@@ -65,15 +70,17 @@ export interface SpecRef extends SpecLoc {
   snippet: string
 }
 
-export type SpecIssueCode = 'dangling-transition' | 'duplicate-screen' | 'duplicate-table' | 'unknown-column'
+export type SpecIssueCode = 'dangling-transition' | 'duplicate-screen' | 'duplicate-table' | 'unknown-column' | 'ambiguous-term' | 'column-mismatch'
 
 export interface SpecIssue extends SpecLoc {
   severity: 'error' | 'warning'
   code: SpecIssueCode
   /** Đối tượng: chữ của nút treo / 画面ID / tên bảng / `TBL.COL` */
   subject: string
-  /** Trùng: nơi định nghĩa đầu tiên */
+  /** Trùng / lệch kiểu: nơi định nghĩa đầu tiên */
   other?: { rel: string; line: number }
+  /** column-mismatch: kiểu(桁数) ở đây và ở `other`, vd `VARCHAR(10)` / `CHAR(8)` */
+  detail?: string
 }
 
 export interface SpecIndex {
@@ -84,6 +91,8 @@ export interface SpecIndex {
   tables: TableDef[]
   refs: SpecRef[]
   issues: SpecIssue[]
+  /** 用語集 của dự án (`用語集.md` / `glossary.md` ở gốc hoặc sâu tối đa 2 cấp), null nếu không có */
+  glossary: { rel: string; entries: GlossaryEntry[] } | null
   truncated: { docs: boolean; refs: boolean }
 }
 
@@ -269,6 +278,28 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
     else tableByName.set(up(t.tableName), t)
   }
 
+  /* Cùng 物理名 (hoặc 論理名) ở hai bảng nhưng khác kiểu / 桁数: một cảnh báo mỗi cột, so với nơi định nghĩa đầu tiên */
+  const colFirst = new Map<string, { t: TableDef; c: TableColumn }>()
+  for (const t of tableByName.values()) {
+    for (const c of t.columns) {
+      const lg = c.logical.trim().normalize('NFKC')
+      for (const k of [`p|${up(c.name)}`, lg.length >= 2 ? `l|${lg}` : '']) {
+        if (!k) continue
+        const first = colFirst.get(k)
+        if (!first) {
+          colFirst.set(k, { t, c })
+          continue
+        }
+        const a = typeSig(first.c)
+        const b = typeSig(c)
+        if (first.t === t || !a || !b || a === b) continue
+        const heading = infos.get(t.source)?.heading[c.line - 1] ?? ''
+        issues.push({ rel: t.source, line: c.line, heading, severity: 'warning', code: 'column-mismatch', subject: `${t.tableName}.${c.name}`, other: { rel: first.t.source, line: first.c.line }, detail: `${b} ≠ ${first.t.tableName}.${first.c.name} ${a}` })
+        break
+      }
+    }
+  }
+
   /* Giải đầu mút: 画面ID -> tên màn hình -> bí danh "tên ID" học từ đầu mút khác -> nút treo */
   const screenByName = new Map<string, SpecScreen>()
   for (const s of screenById.values()) if (s.name && !screenByName.has(normName(s.name))) screenByName.set(normName(s.name), s)
@@ -401,6 +432,24 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
     }
   }
 
+  /* Cách viết mơ hồ (など / 適宜 / TBD / 未定...) trong tài liệu 画面 / テーブル: một cảnh báo mỗi dòng */
+  const specRels = new Set([...screens.map((s) => s.rel), ...tables.map((t) => t.source)])
+  let ambiguous = 0
+  for (const doc of docs) {
+    const info = infos.get(doc.rel)
+    if (!info || !specRels.has(doc.rel)) continue
+    for (let i = 0; i < info.lines.length && ambiguous < MAX_AMBIGUOUS; i++) {
+      if (info.lines[i].length > MAX_LINE) continue
+      const m = AMBIGUOUS_RE.exec(plain(info.lines[i]))
+      if (!m) continue
+      ambiguous++
+      issues.push({ rel: doc.rel, line: i + 1, heading: info.heading[i], severity: 'warning', code: 'ambiguous-term', subject: m[0] })
+    }
+  }
+
+  const gRel = findGlossaryRel(docs.map((d) => d.rel))
+  const gDoc = gRel === undefined ? undefined : docs.find((d) => d.rel === gRel)
+
   return {
     docCount: docs.length,
     screens,
@@ -409,8 +458,16 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
     tables,
     refs,
     issues,
+    glossary: gDoc ? { rel: gDoc.rel, entries: parseGlossary(gDoc.text) } : null,
     truncated: { docs: input.length > docs.length, refs: refsTruncated },
   }
+}
+
+/** Chữ ký kiểu để so: `VARCHAR(10)`; kiểu trống -> '' (không so được). */
+function typeSig(c: TableColumn): string {
+  const t = up(c.type).replace(/\s+/g, '')
+  if (!t) return ''
+  return t.includes('(') || !c.length ? t : `${t}(${up(c.length)}${c.scale ? ',' + c.scale : ''})`
 }
 
 /* -------------------------------- 影響調査 -------------------------------- */
@@ -546,6 +603,88 @@ function ownerScreen(screens: SpecScreen[], line: number): SpecScreen | undefine
 }
 
 const labelOf = (index: SpecIndex, key: string): string => index.nodes.find((n) => n.key === key)?.label ?? key.replace(/^\?/, '')
+
+/* --------------------------------- CRUD図 --------------------------------- */
+
+export type CrudOp = 'C' | 'R' | 'U' | 'D'
+const CRUD_ORDER: CrudOp[] = ['C', 'R', 'U', 'D']
+/** Động từ -> thao tác (Nhật / Việt / Anh). Từ tiếng Anh phải đứng nguyên từ (`add` không khớp `address`). */
+const CRUD_VERBS: Record<CrudOp, RegExp> = {
+  C: /登録|追加|作成|新規|挿入|thêm|tạo|đăng ký|(?<![a-z])(?:insert(?:s|ed|ing)?|creat(?:e|es|ed|ing)|add(?:s|ed|ing)?|register(?:s|ed|ing)?)(?![a-z])/i,
+  R: /表示|検索|参照|取得|照会|一覧|抽出|閲覧|hiển thị|tìm kiếm|tra cứu|lấy|(?<![a-z])(?:select|search|display|view|read|fetch|list)(?:s|es|ed|ing)?(?![a-z])/i,
+  U: /更新|変更|修正|編集|cập nhật|chỉnh sửa|sửa|thay đổi|(?<![a-z])(?:updat(?:e|es|ed|ing)|edit(?:s|ed|ing)?|modif(?:y|ies|ied|ying))(?![a-z])/i,
+  D: /削除|取消|取り消し|xóa|xoá|(?<![a-z])(?:delet(?:e|es|ed|ing)|remov(?:e|es|ed|ing))(?![a-z])/i,
+}
+/** Tối đa bằng chứng giữ cho một ô */
+const CRUD_MAX_EVIDENCE = 50
+
+/** Thao tác CRUD mà `text` nói tới (thứ tự C R U D), [] nếu không có động từ nào. */
+export function crudOpsOf(text: string): CrudOp[] {
+  const t = text.normalize('NFC')
+  return CRUD_ORDER.filter((op) => CRUD_VERBS[op].test(t))
+}
+
+export interface CrudEvidence extends SpecLoc {
+  /** Thao tác đọc được ở dòng (hoặc heading), '?' nếu không có động từ */
+  ops: string
+  term: string
+  snippet: string
+}
+
+export interface CrudCell {
+  /** `CR`, `U`...; '?' khi có tham chiếu nhưng không xác định được thao tác (không đoán) */
+  ops: string
+  evidence: CrudEvidence[]
+}
+
+export interface CrudMatrix {
+  screens: { id: string; name: string }[]
+  /** Mọi bảng (không trùng tên) */
+  tables: string[]
+  /** cells[画面ID][tên bảng] */
+  cells: Record<string, Record<string, CrudCell>>
+}
+
+/** CRUD図 画面 × テーブル: tham chiếu bảng / cột (`TBL.COL` hoặc tên logic chỉ thuộc một bảng) nằm trong phần của
+ * một 画面ID được gán cho màn hình đó; thao tác lấy từ động từ trong dòng, không có thì từ heading, không có nữa thì '?'.
+ * Tên của chính tham chiếu (vd 論理名 `登録日`) không tính là động từ. */
+export function crudMatrix(index: SpecIndex): CrudMatrix {
+  const byRel = new Map<string, SpecScreen[]>()
+  for (const s of index.screens) byRel.set(s.rel, [...(byRel.get(s.rel) ?? []), s])
+  const screens = new Map<string, { id: string; name: string }>()
+  for (const s of index.screens) if (!screens.has(up(s.id))) screens.set(up(s.id), { id: s.id, name: s.name })
+  const tables = new Map<string, string>()
+  for (const t of index.tables) if (!tables.has(up(t.tableName))) tables.set(up(t.tableName), t.tableName)
+  const cells: Record<string, Record<string, CrudCell>> = {}
+  const seen = new Set<string>()
+  for (const r of index.refs) {
+    const table = tables.get(up(r.kind === 'table' ? r.name : r.kind === 'column' ? r.table : ''))
+    const owner = table && ownerScreen(byRel.get(r.rel) ?? [], r.line)
+    if (!table || !owner) continue
+    const id = (screens.get(up(owner.id)) as { id: string }).id
+    const k = `${id}|${table}|${r.rel}|${r.line}`
+    if (seen.has(k)) continue // bảng + cột của bảng trên cùng dòng: một bằng chứng
+    seen.add(k)
+    const own = r.snippet.split(r.term).join(' ')
+    const found = crudOpsOf(own)
+    const ops = found.length > 0 ? found : crudOpsOf(r.heading)
+    const row = (cells[id] ??= {})
+    const cell = (row[table] ??= { ops: '', evidence: [] })
+    if (cell.evidence.length < CRUD_MAX_EVIDENCE) cell.evidence.push({ rel: r.rel, line: r.line, heading: r.heading, ops: ops.join('') || '?', term: r.term, snippet: r.snippet })
+    cell.ops = CRUD_ORDER.filter((op) => cell.ops.includes(op) || ops.includes(op)).join('')
+  }
+  for (const row of Object.values(cells)) for (const cell of Object.values(row)) if (!cell.ops) cell.ops = '?'
+  return { screens: [...screens.values()], tables: [...tables.values()], cells }
+}
+
+/** CRUD図 dạng TSV (dán vào Excel) hoặc bảng Markdown. Hàng = màn hình, cột = bảng. */
+export function crudText(m: CrudMatrix, format: 'md' | 'tsv'): string {
+  const head = ['画面', ...m.tables]
+  const rows = m.screens.map((s) => [s.name ? `${s.id} ${s.name}` : s.id, ...m.tables.map((t) => m.cells[s.id]?.[t]?.ops ?? '')])
+  if (format === 'tsv') return [head, ...rows].map((r) => r.map((c) => c.replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n') + '\n'
+  const md = (r: string[]): string => `| ${r.map((c) => c.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s+/g, ' ')).join(' | ')} |`
+  return [md(head), `|${head.map(() => '---').join('|')}|`, ...rows.map(md)].join('\n') + '\n'
+}
 
 /* --------------------------------- Mermaid -------------------------------- */
 
