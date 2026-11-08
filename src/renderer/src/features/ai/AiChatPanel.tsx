@@ -128,6 +128,11 @@ export function AiChatPanel({
   }, [entries, busy, streamText])
 
   const saveKey = useCallback(async () => {
+    // Chưa có key mà ô trống: không báo "đã lưu" gây hiểu nhầm
+    if (!apiKeyInput.trim() && !config.hasKey) {
+      toast(tr('ai.toast.needKey', { provider: AI_PROVIDERS[config.provider].label }), 'err')
+      return
+    }
     try {
       const next = await window.api.aiSetConfig({
         apiKey: apiKeyInput.trim() || undefined,
@@ -140,7 +145,7 @@ export function AiChatPanel({
     } catch (e) {
       toast(tr('ai.toast.saveFailed', { err: errMsg(e) }), 'err')
     }
-  }, [apiKeyInput, config.model])
+  }, [apiKeyInput, config.model, config.hasKey, config.provider])
 
   const clearKey = useCallback(async () => {
     try {
