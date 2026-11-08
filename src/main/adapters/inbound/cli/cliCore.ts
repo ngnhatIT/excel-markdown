@@ -1,6 +1,7 @@
 /* CLI headless: cùng engine với app.
  * `node out/main/cli.js a.xlsx thuMuc/ -o outDir [tuỳ chọn]`  (Excel → Markdown)
  * `node out/main/cli.js md2xlsx a.md thuMuc/ -o Book.xlsx [--overwrite]`  (Markdown → Excel) */
+import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
@@ -10,12 +11,13 @@ import { writeMdFiles } from '../../outbound/mdOutput'
 import { listMarkdownFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
-import { workbookMdFiles } from '../../../domain/excel/output'
+import { ASSET_TOKEN, workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
 
 export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
           [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title]
-     cli md2xlsx <file.md|thư mục...> -o <file.xlsx> [--overwrite]`
+     cli md2xlsx <file.md|thư mục...> -o <file.xlsx> [--overwrite]
+     cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)`
 
 /** Quá số file Excel này trong một thư mục thì từ chối (chọn nhầm ổ đĩa không chạy mãi). */
 export const EXCEL_DIR_LIMIT = 2000
@@ -125,6 +127,26 @@ export async function buildExcel(inputs: string[], outPath: string, overwrite: b
   return res.data as { outPath: string; sheets: string[] }
 }
 
+/** Markdown của cả workbook để so sánh bằng git (`git diff` qua textconv): mọi sheet kể cả sheet ẩn và `DEL_`,
+ * không tiêu đề tên file (git đưa file tạm tên ngẫu nhiên), ảnh thành tên + sha1 nội dung để đổi ảnh cũng hiện trong diff. */
+export function workbookTextconv(file: string): string {
+  const wb = readWorkbook(file)
+  const opts: ConvertOptions = { ...DEFAULT_OPTIONS, skipDelSheets: false }
+  const names = listSheetsInWorkbook(wb, false).map((s) => s.name)
+  return (
+    convertSheetsInWorkbook(wb, names, opts)
+      .map((s) =>
+        s.markdown.trim().replace(new RegExp(ASSET_TOKEN + '([^)\\s]+)', 'g'), (_m, enc: string) => {
+          const name = decodeURIComponent(enc)
+          const data = s.images?.[name]
+          return data ? `${enc}#sha1=${createHash('sha1').update(data).digest('hex').slice(0, 12)}` : enc
+        })
+      )
+      .filter((m) => m !== '')
+      .join('\n\n---\n\n') + '\n'
+  )
+}
+
 async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<number> {
   const inputs: string[] = []
   let outPath = ''
@@ -154,6 +176,11 @@ async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<num
  * `md2xlsx` ở đầu là chiều ngược lại. Trả về mã thoát (0 = ok, 1 = có file lỗi). */
 export async function runCli(argv: string[], log: (s: string) => void = console.log): Promise<number> {
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
+  if (argv[0] === 'textconv') {
+    if (argv.length !== 2) throw new Error('Dùng: cli textconv <file.xlsx>')
+    process.stdout.write(workbookTextconv(argv[1]))
+    return 0
+  }
   const args = parseArgs(argv)
   const inputs = await expandExcelInputs(args.files)
   if (inputs.length === 0) throw new Error('Không có file Excel nào trong thư mục đầu vào')

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
 import * as XLSX from 'xlsx'
-import { expandExcelInputs, parseArgs, runCli } from './cliCore'
+import { expandExcelInputs, parseArgs, runCli, workbookTextconv } from './cliCore'
 
 const fixture = join(__dirname, '../../../../../test/fixtures/excel-authored.xlsx')
 const tmp = mkdtempSync(join(tmpdir(), 'x2m-cli-'))
@@ -97,5 +97,22 @@ describe('md2xlsx (Markdown → Excel)', () => {
   it('thiếu -o / không có file -> ném lỗi đối số', async () => {
     await expect(runCli(['md2xlsx', md])).rejects.toThrow('-o')
     await expect(runCli(['md2xlsx', '-o', 'x.xlsx'])).rejects.toThrow('Chưa có file')
+  })
+})
+
+describe('textconv (git diff driver)', () => {
+  const ui = join(__dirname, '../../../../../test/fixtures/ui-drawings.xlsx')
+
+  it('Markdown cả workbook, không phụ thuộc tên file (git đưa file tạm), ảnh kèm sha1 nội dung', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'x2m-tc-'))
+    const tmpName = join(dir, 'Xa1b2c_ui.xlsx')
+    copyFileSync(ui, tmpName)
+    const text = workbookTextconv(tmpName)
+    expect(text).toBe(workbookTextconv(ui))
+    expect(text).toContain('## 画面レイアウト')
+    expect(text).toContain('## 画面遷移図')
+    expect(text).toMatch(/\]\(image1\.png#sha1=[0-9a-f]{12}\)/)
+    expect(text).not.toContain('x2m-asset:')
+    expect(text).not.toContain('Xa1b2c')
   })
 })

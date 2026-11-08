@@ -91,6 +91,20 @@ node out/main/cli.js a.xlsx b.xlsx -o out --front-matter --chunk 50
 Cờ: `--per-workbook`, `--range A1:F40`, `--formulas`, `--front-matter`, `--chunk N`, `--keep-del`,
 `--keep-empty`, `--no-escape`, `--no-title`.
 
+Đầu vào là thư mục thì convert mọi file Excel bên trong (đệ quy, bỏ `~$*`, giữ cấu trúc thư mục con).
+Chiều ngược lại: `node out/main/cli.js md2xlsx docs/ -o out/Book.xlsx [--overwrite]`.
+
+**Xem thay đổi file Excel bằng `git diff`** (textconv: git so sánh Markdown thay vì file nhị phân):
+
+```bash
+git config diff.x2m.textconv "node /đường/dẫn/out/main/cli.js textconv"
+git config diff.x2m.cachetextconv true
+echo '*.xlsx diff=x2m' >> .gitattributes
+```
+
+Sau đó `git diff`, `git log -p`, SourceTree... hiện thay đổi theo từng sheet dạng Markdown; ảnh hiện
+kèm mã sha1 nên đổi ảnh cũng thấy.
+
 ---
 
 ## 2. Markdown → Excel
