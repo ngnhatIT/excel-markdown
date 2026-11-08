@@ -115,6 +115,12 @@ describe('nameAndLinkSheets: link sang sheet khác', () => {
     expect(named[0].blocks[1]).toEqual({ kind: 'paragraph', text: 'p', link: "'It''s'!A1" })
   })
 
+  it('tên sheet có dấu câu: nhận slug kiểu GitHub (ab-一覧) và slug kiểu cũ (a-b-一覧)', () => {
+    const s: SheetModel[] = [{ name: 'X', blocks: [tbl('#ab-一覧', '#a-b-一覧')] }, { name: 'A&B 一覧', blocks: [] }]
+    const rows = (nameAndLinkSheets([{ path: 'a.md', sheets: s }])[0].blocks[0] as Extract<SheetModel['blocks'][number], { kind: 'table' }>).rows
+    expect(rows.map((r) => r[0].link)).toEqual(["'A&B 一覧'!A1", "'A&B 一覧'!A1"])
+  })
+
   it('link ngoài giữ nguyên; tên sheet có `!` -> bỏ link (exceljs không ghi được)', () => {
     const s: SheetModel[] = [{ name: 'A', blocks: [tbl('https://x.example', '#b-c')] }, { name: 'B!C', blocks: [] }]
     const rows = (nameAndLinkSheets([{ path: 'a.md', sheets: s }])[0].blocks[0] as Extract<SheetModel['blocks'][number], { kind: 'table' }>).rows

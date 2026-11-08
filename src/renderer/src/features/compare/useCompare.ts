@@ -38,9 +38,13 @@ export function useCompare() {
   }, [])
 
   const swap = useCallback(() => {
-    seq.current = { old: seq.current.new + 1, new: seq.current.old + 1 }
-    setSlots((prev) => ({ old: { ...prev.new, loading: false }, new: { ...prev.old, loading: false } }))
-  }, [])
+    const { old: o, new: n } = slots
+    // Bỏ kết quả đang tải dở (gắn với phía cũ); phía nào đang tải thì tải lại ở vị trí mới
+    seq.current = { old: seq.current.old + 1, new: seq.current.new + 1 }
+    setSlots({ old: n, new: o })
+    if (n.loading && n.path) void load('old', n.path)
+    if (o.loading && o.path) void load('new', o.path)
+  }, [slots, load])
 
   const reload = useCallback(() => {
     for (const side of ['old', 'new'] as const) if (slots[side].path) void load(side, slots[side].path as string)

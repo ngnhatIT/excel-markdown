@@ -282,7 +282,7 @@ export function PreviewPane({
       // Bản xuất đứng riêng: chỉ ảnh data: còn dùng được, ảnh cục bộ không đi theo file.
       // Sơ đồ Mermaid được vẽ sẵn thành SVG (giao diện sáng) để trang xuất không cần thư viện
       const body = await inlineMermaid(
-        sanitizeHtml(marked.parse(md, { breaks: false }) as string, {
+        sanitizeHtml(marked.parse(frontMatterAsCode(md), { breaks: false }) as string, {
           resolveImage: (src) => (/^data:image\//i.test(src) ? src : null),
         }),
         'default'

@@ -11,7 +11,7 @@ import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import { listMarkdownFiles } from '../../outbound/mdFolder'
 import { handleMdRequest } from '../worker/mdHandler'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
-import { plannedMdFileNames, safeFileName, workbookMdFiles } from '../../../domain/excel/output'
+import { workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir } from '../../../domain/guards'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
@@ -170,31 +170,6 @@ async function runMd2Xlsx(argv: string[], log: (s: string) => void): Promise<num
 const outputNames = (md: { name: string; images?: { path: string }[] }[]): string[] => [
   ...new Set(md.flatMap((f) => [f.name, ...(f.images ?? []).map((i) => i.path.split('/')[0])])),
 ]
-
-/** Đầu ra (file .md, thư mục ảnh) mà `runCli(args)` sẽ ghi và đã có trên đĩa, đường dẫn tương đối `-o`; tính trước khi
- * convert như hỏi ghi đè của app (plannedMdFileNames: theo mọi sheet hiển thị, có thể thừa tên sheet rỗng — vô hại).
- * shortcut: thư mục ảnh tính là `<tên>_images` cho mọi workbook (chưa convert nên chưa biết có ảnh không) và không
- * khử trùng cùng tên .md; chỉ lệch khi tên trùng hiếm gặp, sửa khi gặp thật. File đọc lỗi bỏ qua (convert sẽ báo lỗi). */
-export async function existingOutputs(args: CliArgs): Promise<string[]> {
-  const root = resolve(args.outDir)
-  const byDir = new Map<string, { base: string; sheets: string[] }[]>()
-  for (const { file, relDir } of await expandExcelInputs(args.files)) {
-    let sheets: string[]
-    try {
-      sheets = listSheetsInWorkbook(readWorkbook(file), args.options.skipDelSheets).filter((s) => !s.hidden).map((s) => s.name)
-    } catch {
-      continue
-    }
-    if (!byDir.has(relDir)) byDir.set(relDir, [])
-    byDir.get(relDir)?.push({ base: basename(file, extname(file)), sheets })
-  }
-  const out: string[] = []
-  for (const [relDir, specs] of byDir) {
-    const names = [...plannedMdFileNames(specs, args.perWorkbook), ...specs.map((s) => safeFileName(s.base + '_images'))]
-    for (const n of names) if (existsSync(join(root, relDir, n))) out.push(relDir ? `${relDir}/${n}` : n)
-  }
-  return out
-}
 
 /** Convert mọi sheet hiển thị của từng file (thư mục → mọi file Excel bên trong, giữ cấu trúc thư mục con).
  * `md2xlsx` ở đầu là chiều ngược lại. Trả về mã thoát (0 = ok, 1 = có file lỗi). */

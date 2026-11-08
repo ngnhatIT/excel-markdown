@@ -1,5 +1,5 @@
 /* Đa ngôn ngữ giao diện (vi / en / ja), không thư viện: từ điển phẳng + store nhỏ cho React. */
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { vi } from './vi'
 import { en } from './en'
 import { ja } from './ja'
@@ -67,5 +67,6 @@ export function useLang(): Lang {
 /** Hàm dịch gắn với ngôn ngữ hiện tại; component render lại khi đổi ngôn ngữ. */
 export function useT(): TFn {
   const lang = useLang()
-  return (key, params) => translate(lang, key, params)
+  // Cùng một hàm cho tới khi đổi ngôn ngữ: hook nào phụ thuộc `t` không chạy lại sau mỗi lần render
+  return useMemo<TFn>(() => (key, params) => translate(lang, key, params), [lang])
 }

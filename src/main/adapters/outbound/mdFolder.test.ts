@@ -63,3 +63,19 @@ describe('searchMarkdownFolder', () => {
     expect((await searchMarkdownFolder(root, '  ')).files).toEqual([])
   })
 })
+
+describe('searchMarkdownFolder: cache và hủy sớm', () => {
+  it('file sửa sau lần tìm trước vẫn được đọc lại (cache theo mtime/size)', async () => {
+    const root = makeTree()
+    writeFileSync(join(root, 'docs/a.md'), '旧\n')
+    expect((await searchMarkdownFolder(root, '新')).files).toEqual([])
+    writeFileSync(join(root, 'docs/a.md'), '新しい行\n')
+    expect((await searchMarkdownFolder(root, '新')).files.map((f) => f.rel)).toEqual(['docs/a.md'])
+  })
+
+  it('isStale -> dừng, không đọc tiếp', async () => {
+    const root = makeTree()
+    writeFileSync(join(root, 'docs/a.md'), 'x\n')
+    expect((await searchMarkdownFolder(root, 'x', 200, 20, () => true)).files).toEqual([])
+  })
+})

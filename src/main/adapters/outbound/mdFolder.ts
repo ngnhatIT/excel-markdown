@@ -71,18 +71,56 @@ export async function readMarkdownFile(path: string): Promise<string> {
   return text.charCodeAt(0) === 0xfeff ? text.slice(1) : text
 }
 
+// Nội dung file cho tìm kiếm: gõ từ khóa nhiều lần không đọc lại cả thư mục. Khóa theo mtime + size; tối đa ~64 MB (LRU).
+const TEXT_CACHE_MAX = 64 * 1024 * 1024
+const textCache = new Map<string, { mtime: number; size: number; text: string }>()
+let textCacheBytes = 0
+
+async function readMarkdownCached(path: string): Promise<string> {
+  const st = await stat(path)
+  const hit = textCache.get(path)
+  if (hit && hit.mtime === st.mtimeMs && hit.size === st.size) {
+    textCache.delete(path)
+    textCache.set(path, hit)
+    return hit.text
+  }
+  const text = await readMarkdownFile(path)
+  if (hit) {
+    textCache.delete(path)
+    textCacheBytes -= hit.text.length * 2
+  }
+  const bytes = text.length * 2
+  if (bytes > TEXT_CACHE_MAX / 4) return text // file rất lớn: không giữ
+  textCache.set(path, { mtime: st.mtimeMs, size: st.size, text })
+  textCacheBytes += bytes
+  for (const [k, v] of textCache) {
+    if (textCacheBytes <= TEXT_CACHE_MAX) break
+    textCache.delete(k)
+    textCacheBytes -= v.text.length * 2
+  }
+  return text
+}
+
 /** Tìm `query` trong nội dung mọi file .md dưới `root` (cùng danh sách với `listMarkdownFiles`).
  * File không đọc được / quá lớn thì bỏ qua. Dừng khi đủ `maxFiles` file khớp. */
-export async function searchMarkdownFolder(root: string, query: string, maxFiles = 200, maxHitsPerFile = 20): Promise<MdSearchResult> {
+export async function searchMarkdownFolder(
+  root: string,
+  query: string,
+  maxFiles = 200,
+  maxHitsPerFile = 20,
+  /** true = đã có lần tìm mới hơn: dừng sớm, kết quả này sẽ bị bỏ */
+  isStale: () => boolean = () => false
+): Promise<MdSearchResult> {
   const terms = searchTerms(query)
   const out: MdSearchResult = { files: [], truncated: false }
   if (terms.length === 0) return out
   const { files } = await listMarkdownFiles(root)
   for (let i = 0; i < files.length; i += 32) {
+    if (isStale()) return out
     const batch = await Promise.all(
       files.slice(i, i + 32).map(async (rel) => {
         try {
-          return { rel, hits: searchMarkdownText(await readMarkdownFile(join(root, rel)), terms, maxHitsPerFile) }
+          return { rel, hits: searchMarkdownText(await readMarkdownCached(join(root, rel)), terms, maxHitsPerFile) }
         } catch {
           return { rel, hits: [] }
         }

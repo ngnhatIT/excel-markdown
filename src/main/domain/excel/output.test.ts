@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { plannedMdFileNames, workbookMdFiles, type SheetResult } from './output'
+import { joinWorkbookMarkdown, plannedMdFileNames, SHEET_TOKEN, workbookMdFiles, type SheetResult } from './output'
 
 const OPTS = { escapeMarkdown: true, frontMatter: false }
 
@@ -25,5 +25,15 @@ describe('plannedMdFileNames', () => {
   it('khớp tên workbookMdFiles ghi (per-workbook)', () => {
     const withSheets = specs.filter((s) => s.sheets.length > 0)
     expect(plannedMdFileNames(withSheets, true)).toEqual(actualNames(withSheets, true))
+  })
+})
+
+describe('link sang sheet khác: slug kiểu GitHub', () => {
+  it('tên sheet có dấu câu -> #ab-一覧 (khớp trình đọc của app và GitHub)', () => {
+    const sheets: SheetResult[] = [
+      { sheet: 'S', markdown: '## S\n\n[参照](' + SHEET_TOKEN + encodeURIComponent('A&B 一覧') + ')' },
+      { sheet: 'A&B 一覧', markdown: '## A&B 一覧\n\nx' },
+    ]
+    expect(joinWorkbookMarkdown('book', sheets)).toContain('[参照](#ab-一覧)')
   })
 })

@@ -9,7 +9,7 @@ import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { buildExcel, existingOutputs, parseArgs, runCli } from '../cli/cliCore'
+import { buildExcel, runCli } from '../cli/cliCore'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
 
@@ -212,23 +212,22 @@ async function callTool(name: string, a: Args): Promise<string> {
       if (a.front_matter === true) argv.push('--front-matter')
       if (typeof a.chunk_rows === 'number') argv.push('--chunk', String(a.chunk_rows))
       if (typeof a.range === 'string' && a.range.trim()) argv.push('--range', a.range)
-      if (a.overwrite !== true) {
-        const existing = await existingOutputs(parseArgs(argv))
-        if (existing.length > 0) {
-          throw new Error(
-            `Chưa ghi gì: ${existing.length} file/thư mục đích đã có trong ${a.out_dir}:\n${existing.join('\n')}\n` +
-              'Gọi lại với overwrite: true để ghi đè, hoặc chọn out_dir khác.'
-          )
-        }
-      }
+      // Không ghi đè file .md của người dùng nếu agent không xin rõ: workbook có file đích trùng bị bỏ qua
+      // (mỗi workbook chỉ đọc một lần, kiểm trùng ngay trước khi ghi)
+      if (a.overwrite !== true) argv.push('--no-clobber')
       const logs: string[] = []
       await runCli(argv, (s) => logs.push(s))
-      const written = logs.filter((s) => !s.startsWith('LỖI '))
       const failed = logs.filter((s) => s.startsWith('LỖI '))
-      // Một phần lỗi vẫn báo file đã ghi; isError chỉ khi không ghi được file nào
-      if (failed.length > 0 && written.length === 0) throw new Error('Không ghi được file nào:\n' + failed.join('\n'))
+      const skipped = logs.filter((s) => s.startsWith('BỎ QUA '))
+      const written = logs.filter((s) => !s.startsWith('LỖI ') && !s.startsWith('BỎ QUA '))
+      const skipPart =
+        skipped.length > 0
+          ? `\n\n${skipped.length} workbook bỏ qua vì file đích đã có (gọi lại với overwrite: true để ghi đè, hoặc chọn out_dir khác):\n` + skipped.join('\n')
+          : ''
       const errPart = failed.length > 0 ? `\n\n${failed.length} file Excel lỗi:\n` + failed.join('\n') : ''
-      return `Đã ghi ${written.length} file vào ${a.out_dir}:\n` + written.join('\n') + errPart
+      // isError chỉ khi không ghi được file nào
+      if (written.length === 0) throw new Error(`Chưa ghi file nào vào ${a.out_dir}.` + skipPart + errPart)
+      return `Đã ghi ${written.length} file vào ${a.out_dir}:\n` + written.join('\n') + skipPart + errPart
     }
     case 'list_docs': {
       const { files, truncated } = await listMarkdownFiles(absDir(a, 'root'))

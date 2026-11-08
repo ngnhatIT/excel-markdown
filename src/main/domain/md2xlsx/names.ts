@@ -2,6 +2,7 @@
 
 import { dirname, resolve } from 'node:path'
 import type { SheetModel } from './model'
+import { slugifyHeading } from '../../../shared/mdView'
 
 const MAX_SHEET_NAME = 31
 // Ký tự Excel cấm trong tên sheet.
@@ -50,8 +51,9 @@ export function assignSheetNames(sheets: SheetModel[]): SheetModel[] {
   return sheets.map((sheet) => ({ ...sheet, name: safeSheetName(sheet.name, used) }))
 }
 
-// Cùng quy tắc với headingSlug của excel/output.ts: anchor của `## tên sheet` khi Excel -> Markdown gộp workbook.
-const headingSlug = (s: string): string => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
+// Anchor của `## tên sheet` khi Excel -> Markdown gộp workbook: slug kiểu GitHub (shared/mdView), nhận cả slug kiểu cũ.
+/** Slug kiểu cũ (bản app trước): file .md đã tạo bằng bản cũ vẫn khớp được link. */
+const legacySlug = (s: string): string => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
 const EXTERNAL_LINK_RE = /^(?:https?|mailto):/i
 
 /**
@@ -78,9 +80,10 @@ export function nameAndLinkSheets(files: { path: string; sheets: SheetModel[] }[
     }
     let idx: number | undefined
     if (h.startsWith('#')) {
-      const want = headingSlug(h.slice(1))
+      const want = h.slice(1)
       const { from, to } = spans[file]
-      for (let i = from; i < to && idx === undefined; i++) if (want !== '' && headingSlug(raw[i].name) === want) idx = i
+      const hit = (name: string): boolean => want !== '' && (slugifyHeading(name) === want || legacySlug(name) === legacySlug(want))
+      for (let i = from; i < to && idx === undefined; i++) if (hit(raw[i].name)) idx = i
     } else {
       const path = resolve(dirname(spans[file].path), h.replace(/#.*$/, ''))
       idx = spans.find((s) => s.path === path && s.to > s.from)?.from

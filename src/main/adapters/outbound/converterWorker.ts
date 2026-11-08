@@ -15,6 +15,8 @@ interface Live {
   pending: Map<number, Pending>
   /** Lý do process bị kill chủ động (Hủy / quá giờ); không có = dừng bất thường */
   reason?: Error
+  /** Watchdog: còn yêu cầu chờ mà quá `timeoutMs` không có phản hồi nào thì kill */
+  watchdog?: ReturnType<typeof setTimeout>
 }
 
 export class ConverterWorker {
@@ -25,7 +27,8 @@ export class ConverterWorker {
     private readonly entry: string,
     private readonly args: string[],
     private readonly serviceName: string,
-    /** Quá thời gian này mà yêu cầu chưa xong thì kill worker (file độc/hỏng làm parse treo); 0 = không giới hạn */
+    /** Quá thời gian này worker không trả lời yêu cầu nào (đang có yêu cầu chờ) thì kill (file độc/hỏng làm parse treo);
+     * tính từ phản hồi gần nhất, không từ lúc xếp hàng — worker xử lý tuần tự. 0 = không giới hạn */
     private readonly timeoutMs = 0
   ) {}
 
@@ -37,6 +40,7 @@ export class ConverterWorker {
       const p = live.pending.get(res.id)
       if (!p) return
       live.pending.delete(res.id)
+      this.arm(live)
       if (res.ok) {
         p.resolve(res.data)
       } else {
@@ -46,6 +50,7 @@ export class ConverterWorker {
       }
     })
     proc.on('exit', (code) => {
+      clearTimeout(live.watchdog)
       if (this.live === live) this.live = null
       const err =
         live.reason ??
@@ -63,20 +68,21 @@ export class ConverterWorker {
     const live = this.live ?? this.spawn()
     const id = ++this.seq
     return new Promise<T>((resolve, reject) => {
-      const timer =
-        this.timeoutMs > 0
-          ? setTimeout(() => {
-              if (!live.pending.has(id)) return
-              this.kill(live, new Error(`Đọc file quá ${Math.round(this.timeoutMs / 1000)} giây nên đã dừng. File có thể bị hỏng hoặc quá lớn.`))
-            }, this.timeoutMs)
-          : undefined
-      const done = (): void => clearTimeout(timer)
-      live.pending.set(id, {
-        resolve: (v) => (done(), resolve(v as T)),
-        reject: (e) => (done(), reject(e)),
-      })
+      live.pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+      // Hàng đợi đang trống: yêu cầu này chạy ngay, bắt đầu đếm; đang có việc thì watchdog đã chạy sẵn
+      if (live.pending.size === 1) this.arm(live)
       live.proc.postMessage({ ...req, id })
     })
+  }
+
+  /** Đặt lại watchdog sau mỗi phản hồi; hết việc thì tắt. */
+  private arm(live: Live): void {
+    clearTimeout(live.watchdog)
+    live.watchdog = undefined
+    if (this.timeoutMs <= 0 || live.pending.size === 0) return
+    live.watchdog = setTimeout(() => {
+      this.kill(live, new Error(`Đọc file quá ${Math.round(this.timeoutMs / 1000)} giây nên đã dừng. File có thể bị hỏng hoặc quá lớn.`))
+    }, this.timeoutMs)
   }
 
   /** Khởi động sẵn để yêu cầu đầu tiên không phải chờ process lên. */
@@ -91,6 +97,7 @@ export class ConverterWorker {
   }
 
   private kill(live: Live, reason: Error): void {
+    clearTimeout(live.watchdog)
     live.reason = reason
     if (this.live === live) this.live = null
     live.proc.kill()

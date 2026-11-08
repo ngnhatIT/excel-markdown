@@ -2,6 +2,7 @@
  * Main process chỉ import file này (không nạp SheetJS); parse Excel chạy trong worker.
  */
 import type { ConvertOptions } from '../../../shared/types'
+import { slugifyHeading } from '../../../shared/mdView'
 
 export interface SheetResult {
   sheet: string
@@ -68,7 +69,8 @@ export function linkSheets(md: string, href: (sheet: string) => string | undefin
 /** Anchor của heading `## tên sheet`: cùng quy tắc slugify của trang HTML xuất từ app (shared/guideHtml.ts);
  * tên chỉ gồm chữ/số/khoảng trắng (đa số tên sheet) cho kết quả giống GitHub.
  * shortcut: không tính hậu tố `-2` khi trùng heading khác (vd tên sheet trùng tên workbook), thêm khi gặp thật. */
-const headingSlug = (s: string): string => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-+|-+$/g, '')
+// Cùng slug với trình đọc của app và GitHub (shared/mdView), để link `#tên sheet` mở đúng mục ở mọi nơi
+const headingSlug = slugifyHeading
 
 export type FrontMatterValue = string | string[] | Record<string, string>
 

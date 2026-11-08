@@ -87,6 +87,8 @@ export function SelectionTranslate({ containerRef }: { containerRef: React.RefOb
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape' && (open || anchor)) {
+        // Popup đang mở: Esc chỉ đóng popup, không tới phím tắt chung (xóa ô lọc / kết quả) gắn ở window
+        if (open) e.stopPropagation()
         close()
         return
       }
