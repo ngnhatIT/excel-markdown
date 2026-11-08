@@ -6,6 +6,16 @@
 
 ## Chưa phát hành
 Minor: tính năng mới; output Excel → Markdown chỉ đổi ở sheet có ảnh/shape/comment, Markdown → Excel không đổi.
+- Tính năng: **Trợ lý AI nhiều nhà cung cấp**: Gemini, Claude (SDK `@anthropic-ai/sdk`, mặc định
+  `claude-opus-5-5`, bật `fallbacks: "default"` cho model hỗ trợ) và OpenAI / Codex (Responses API,
+  `store: false`). Key riêng từng bên (key Gemini cũ giữ nguyên), danh sách model lấy từ API.
+- Tính năng: câu trả lời AI **stream** (hiện dần, kênh IPC `ai:delta`); khối tài liệu chuyển lên
+  system/instructions để nhà cung cấp cache được khi hỏi tiếp, hiện số token đọc từ cache.
+- Tính năng: chọn **ngữ cảnh tối đa** 32k / 120k / 250k token (mặc định 32k như cũ); ước lượng token đếm chữ Nhật ~1 token/ký tự.
+- Tính năng: nút nhanh **Sinh test case** và **Đối chiếu chéo** (cả thư mục).
+- Tính năng: **MCP server** `out/main/mcp.js` (stdio) cho Claude Code / Codex / Claude Desktop:
+  `convert_excel`, `list_docs`, `search_docs`, `read_doc`.
+- Sửa: meta trong front-matter (`meta: {"画面ID": ...}`) bị bộ RAG bỏ qua, nay vào tiêu đề từng mục.
 - Tính năng: Excel → Markdown đọc **lớp vẽ** của sheet .xlsx (`domain/excel/drawings.ts`): ảnh ghi ra
   `<tên>_images/` và chèn `![tên (A7:H24)](...)` đúng chỗ trong sheet; chữ trong shape/text box/callout
   thành `- 〔図形 B10〕...`; mũi tên nối hai shape thành `- 〔矢印〕A → B（nhãn）`; comment ô thành

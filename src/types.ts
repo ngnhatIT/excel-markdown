@@ -131,10 +131,41 @@ export type MdConvertResult =
   | { status: 'cancelled' }
   | { status: 'declined' }
 
-/* --------------------------- Trợ lý AI (Gemini RAG) --------------------------- */
+/* --------------------------- Trợ lý AI (RAG, nhiều nhà cung cấp) --------------------------- */
 
 export type AiModelId = string
-export const DEFAULT_AI_MODEL: AiModelId = 'gemini-2.5-flash'
+export type AiProvider = 'gemini' | 'claude' | 'openai'
+export const AI_PROVIDER_IDS: AiProvider[] = ['gemini', 'claude', 'openai']
+
+/** Thông tin hiển thị + model mặc định của từng nhà cung cấp (danh sách đầy đủ lấy từ API bằng nút ↻). */
+export const AI_PROVIDERS: Record<AiProvider, { label: string; defaultModel: AiModelId; suggested: AiModelId[]; keyHint: string; site: string }> = {
+  gemini: {
+    label: 'Gemini',
+    defaultModel: 'gemini-2.5-flash',
+    suggested: ['gemini-2.5-flash', 'gemini-2.5-pro'],
+    keyHint: 'Dán Gemini API Key (AIza...)',
+    site: 'aistudio.google.com',
+  },
+  claude: {
+    label: 'Claude',
+    defaultModel: 'claude-opus-5-5',
+    suggested: ['claude-opus-5-5', 'claude-sonnet-5-5', 'claude-haiku-5-5'],
+    keyHint: 'Dán Claude API Key (sk-ant-...)',
+    site: 'console.anthropic.com',
+  },
+  openai: {
+    label: 'OpenAI / Codex',
+    defaultModel: 'gpt-5',
+    suggested: ['gpt-5'],
+    keyHint: 'Dán OpenAI API Key (sk-...)',
+    site: 'platform.openai.com',
+  },
+}
+
+export const DEFAULT_AI_MODEL: AiModelId = AI_PROVIDERS.gemini.defaultModel
+export const DEFAULT_AI_PROVIDER: AiProvider = 'gemini'
+/** Mức ngữ cảnh tối đa mỗi câu hỏi (token ước lượng): càng lớn càng ít sót nhưng càng tốn tiền. */
+export const AI_CONTEXT_LEVELS = [32_000, 120_000, 250_000] as const
 export type AiScope = 'folder' | 'active'
 
 export interface RagCitation {
@@ -150,14 +181,26 @@ export interface AiChatTurn {
 }
 
 export interface AiConfigInfo {
+  provider: AiProvider
   hasKey: boolean
   maskedKey: string
   model: AiModelId
+  contextTokens: number
+  /** Key đã che của từng nhà cung cấp ('' = chưa có) */
+  keys: Record<AiProvider, string>
+}
+
+export interface AiSetConfigPayload {
+  provider?: AiProvider
+  apiKey?: string
+  model?: AiModelId
+  contextTokens?: number
 }
 
 export interface AiAskRequest {
   question: string
   scope: AiScope
+  provider?: AiProvider
   model?: AiModelId
   rootDir?: string | null
   relFiles?: string[]
@@ -168,14 +211,18 @@ export interface AiAskRequest {
   history?: AiChatTurn[]
 }
 
+export interface AiUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+  /** Số token đầu vào đọc từ cache của nhà cung cấp (rẻ hơn nhiều) */
+  cachedTokens?: number
+}
+
 export interface AiAskResponse {
   answer: string
   citations: RagCitation[]
   mode: 'full-active' | 'full-folder' | 'parent-rag'
   docCount: number
-  usage?: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
+  usage?: AiUsage
 }

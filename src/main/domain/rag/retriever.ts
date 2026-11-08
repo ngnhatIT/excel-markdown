@@ -155,13 +155,15 @@ function formatSectionBlock(sec: RagSection): string {
   return `=== TÀI LIỆU: ${sec.relPath} | MỤC: ${sec.sectionTitle} ===\n${sec.metaHeader}\n${sec.content}`
 }
 
-/** Xây dựng ngữ cảnh gửi cho Gemini theo chiến lược Ưu tiên Chất lượng (Quality-First). */
+/** Xây dựng ngữ cảnh gửi cho model AI theo chiến lược Ưu tiên Chất lượng (Quality-First). */
 export function buildRagContext(
   docs: RagDocument[],
   query: string,
   opts: { scope: 'folder' | 'active'; activeFilePath?: string; maxContextTokens?: number }
 ): RagContextResult {
   const maxTokens = opts.maxContextTokens ?? DEFAULT_MAX_CONTEXT_TOKENS
+  // Mức ngữ cảnh người dùng chọn lớn hơn thì file đang xem cũng được nạp nguyên văn tới mức đó
+  const activeMax = Math.max(MAX_ACTIVE_FILE_TOKENS, maxTokens)
   const nonEmptyDocs = docs.filter((d) => d.tokensEst > 0)
 
   if (nonEmptyDocs.length === 0) {
@@ -173,7 +175,7 @@ export function buildRagContext(
     const target =
       nonEmptyDocs.find((d) => d.filePath === opts.activeFilePath) ?? nonEmptyDocs[0]
 
-    if (target.tokensEst > MAX_ACTIVE_FILE_TOKENS && target.sections.length > 1) {
+    if (target.tokensEst > activeMax && target.sections.length > 1) {
       const outlineBlock = `=== MỤC LỤC FILE ĐANG XEM: ${target.relPath} ===\n${target.metaHeader}\nMục: ${target.outline.join(', ')}`
       let usedTokens = estimateTokens(outlineBlock)
       const queryTerms = buildWeightedQueryTerms(query)
@@ -189,7 +191,7 @@ export function buildRagContext(
       const blocks: string[] = [outlineBlock]
       const citations: RagCitation[] = []
       for (const { sec } of rankedSecs) {
-        if (usedTokens + sec.tokensEst > MAX_ACTIVE_FILE_TOKENS && citations.length > 0) continue
+        if (usedTokens + sec.tokensEst > activeMax && citations.length > 0) continue
         blocks.push(formatSectionBlock(sec))
         usedTokens += sec.tokensEst + 8
         citations.push({

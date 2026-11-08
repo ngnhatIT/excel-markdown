@@ -3,7 +3,8 @@ import type {
   AiAskRequest,
   AiAskResponse,
   AiConfigInfo,
-  AiModelId,
+  AiProvider,
+  AiSetConfigPayload,
   ApiResult,
   ConvertFileSpec,
   ConvertOptions,
@@ -98,15 +99,21 @@ contextBridge.exposeInMainWorld('api', {
   readMarkdown: (path: string): Promise<string> =>
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
 
-  // Trợ lý AI (Gemini RAG)
+  // Trợ lý AI (RAG: Gemini / Claude / OpenAI)
   aiGetConfig: (): Promise<AiConfigInfo> =>
     unwrap(ipcRenderer.invoke('ai:getConfig') as Promise<ApiResult<AiConfigInfo>>),
-  aiSetConfig: (payload: { apiKey?: string; model?: AiModelId }): Promise<AiConfigInfo> =>
+  aiSetConfig: (payload: AiSetConfigPayload): Promise<AiConfigInfo> =>
     unwrap(ipcRenderer.invoke('ai:setConfig', payload) as Promise<ApiResult<AiConfigInfo>>),
   aiAsk: (req: AiAskRequest): Promise<AiAskResponse> =>
     unwrap(ipcRenderer.invoke('ai:ask', req) as Promise<ApiResult<AiAskResponse>>),
-  aiListModels: (): Promise<string[]> =>
-    unwrap(ipcRenderer.invoke('ai:listModels') as Promise<ApiResult<string[]>>),
+  aiListModels: (provider?: AiProvider): Promise<string[]> =>
+    unwrap(ipcRenderer.invoke('ai:listModels', provider) as Promise<ApiResult<string[]>>),
+  /** Nhận từng đoạn câu trả lời đang stream; trả về hàm huỷ đăng ký. */
+  onAiDelta: (cb: (text: string) => void): (() => void) => {
+    const h = (_e: unknown, text: string): void => cb(text)
+    ipcRenderer.on('ai:delta', h)
+    return () => ipcRenderer.removeListener('ai:delta', h)
+  },
   aiCancel: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

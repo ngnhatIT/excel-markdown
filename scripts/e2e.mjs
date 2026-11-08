@@ -458,6 +458,21 @@ try {
     (await waitFor(`document.body.innerText.includes('Clipboard trống') && document.querySelector('.md-body h1')?.textContent === 'Bản dán'`, 3000)) >= 0)
   await ev(`(${treeRow('docs')})?.querySelector('button')?.click(), 1`)
   check('Đọc Markdown: thu gọn thư mục docs -> ẩn b.md', (await waitFor(`!(${treeRow('b.md')})`, 2000)) >= 0)
+
+  // Trợ lý AI: chọn nhà cung cấp, key riêng từng bên (không gọi mạng)
+  const providerBtn = (t) => `[...document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button')].find(b => b.textContent.startsWith(${JSON.stringify(t)}))`
+  check('AI: chưa có key -> hiện hộp cấu hình với 3 nhà cung cấp',
+    (await waitFor(`document.querySelectorAll('[aria-label="Nhà cung cấp AI"] button').length === 3`, 3000)) >= 0)
+  check('AI: có chọn ngữ cảnh tối đa 3 mức', await ev(`document.querySelectorAll('#x2m-ai-ctx option').length === 3`))
+  await ev(`(${providerBtn('Claude')})?.click(), 1`)
+  check('AI: chọn Claude -> ô key gợi ý sk-ant, nút đầu panel ghi Claude',
+    (await waitFor(`(${providerBtn('Claude')})?.getAttribute('aria-checked') === 'true' && document.querySelector('.x2m-ai-keybox input[type=password]')?.placeholder.includes('sk-ant') && document.body.innerText.includes('🔑 Claude')`, 3000)) >= 0)
+  if (process.env.E2E_SHOT) writeFileSync(process.env.E2E_SHOT, Buffer.from((await send('Page.captureScreenshot')).result.data, 'base64'))
+  const cfg = await ev(`window.api.aiSetConfig({ apiKey: 'sk-ant-e2e-test-key-123456' })`)
+  check('AI: lưu key Claude không đụng key Gemini/OpenAI', cfg?.provider === 'claude' && cfg.keys.claude === 'sk-a••••3456' && cfg.keys.gemini === '' && cfg.keys.openai === '', cfg)
+  const cleared = await ev(`window.api.aiSetConfig({ apiKey: '' }).then(() => window.api.aiSetConfig({ provider: 'gemini' }))`)
+  check('AI: xóa key Claude, quay lại Gemini', cleared?.provider === 'gemini' && cleared.keys.claude === '', cleared)
+
   await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
   await waitFor(`!!document.querySelector('.x2m-footer')`, 2000)
 
