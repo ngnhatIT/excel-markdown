@@ -57,6 +57,15 @@ function systemTheme(): 'dark' | 'light' {
   }
 }
 
+/** decodeURIComponent không ném với chuỗi % hỏng (link do người viết tài liệu gõ tay). */
+const safeDecode = (s: string): string => {
+  try {
+    return decodeURIComponent(s)
+  } catch {
+    return s
+  }
+}
+
 export default function App(): React.ReactElement {
   const t = useT()
   const [options, setOptions] = useState<ConvertOptions>(DEFAULT_OPTIONS)
@@ -595,8 +604,14 @@ export default function App(): React.ReactElement {
         if (abs === viewerPath) {
           if (hash) void openAt(abs, hash, undefined, true)
         } else {
-          viewerOpenFiles([abs], hash || undefined)
-          if (hash) setScrollTarget({ heading: hash, instant: true, seq: Date.now() })
+          // Kiểm file tồn tại trước: link hỏng không được thêm "file ma" vào danh sách File đã mở
+          window.api.readMarkdown(abs).then(
+            () => {
+              viewerOpenFiles([abs], hash || undefined)
+              if (hash) setScrollTarget({ heading: hash, instant: true, seq: Date.now() })
+            },
+            (err: unknown) => toast(tr('toast.linkBroken', { target: safeDecode(href.replace(/#.*$/, '')), error: errMsg(err) }), 'err')
+          )
         }
       } else toast(tr('toast.linkUnsupported'), 'err')
       return true

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { marked } from 'marked'
 import { buildGuideHtml, guideFileStem } from '../../../shared/guideHtml'
-import { slugifyHeading, uniqueSlugs } from '../../../shared/mdView'
+import { frontMatterAsCode, slugifyHeading, uniqueSlugs } from '../../../shared/mdView'
 import { errMsg } from '../lib/api'
 import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
@@ -178,7 +178,7 @@ export function PreviewPane({
   const html = useMemo(() => {
     if (!display.md) return ''
     try {
-      return sanitizeHtml(marked.parse(display.md, { breaks: false }) as string, { resolveImage })
+      return sanitizeHtml(marked.parse(frontMatterAsCode(display.md), { breaks: false }) as string, { resolveImage })
     } catch {
       return ''
     }
@@ -243,7 +243,8 @@ export function PreviewPane({
   }, [scrollTarget, loading, html, display.truncated, tab])
 
   // lang: nhãn "Bảng: ..." theo ngôn ngữ giao diện
-  const outline = useMemo(() => extractOutline(display.md), [display.md, lang])
+  // Mục lục tính trên toàn văn (không phải bản đã cắt "Hiện thêm"): copy TSV/MD của bảng dài phải đủ dòng
+  const outline = useMemo(() => extractOutline(md), [md, lang])
   const tablesInOutline = useMemo(() => outline.filter((x) => x.kind === 'table'), [outline])
 
   const jumpToItem = useCallback((item: OutlineItem) => {
@@ -256,8 +257,19 @@ export function PreviewPane({
     const el = targets[item.domIndex] as HTMLElement | undefined
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    } else if (display.truncated) {
+      // Mục nằm trong phần đang ẩn: mở hết rồi nhảy sau khi render
+      setExpanded(true)
+      pendingJump.current = item
     }
-  }, [])
+  }, [display.truncated])
+  const pendingJump = useRef<OutlineItem | null>(null)
+  useEffect(() => {
+    const item = pendingJump.current
+    if (!item || display.truncated) return
+    pendingJump.current = null
+    requestAnimationFrame(() => jumpToItem(item))
+  }, [display.truncated, jumpToItem])
 
   const copyTableData = useCallback(async (text: string, label: string) => {
     const ok = await copyText(text)
@@ -343,7 +355,8 @@ export function PreviewPane({
             <IconMarkdown size={15} /> {t('preview.tab.source')}
           </button>
         </div>
-        <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] items-center justify-end gap-1 text-xs">
+        {/* flex-wrap: cửa sổ hẹp thì xuống dòng, không đẩy nút Lùi/Tiến + tên file tràn ra mép trái */}
+        <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center justify-end gap-1 text-xs">
           {leading}
           {title ? (
             <span className="x2m-meta-stats dim mr-auto min-w-48 truncate pl-1 text-dim" title={title}>

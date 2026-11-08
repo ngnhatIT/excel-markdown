@@ -52,6 +52,11 @@ export function useExcelConvert({
     setProgress(null)
     try {
       const res = await window.api.convert({ files: specs, outDir: dir, options, outputMode })
+      // Bấm Hủy ở hộp thoại ghi đè (hoặc Hủy trước khi ghi được gì): không phải lỗi, không hiện bảng kết quả đỏ
+      if (res.length > 0 && res.every((r) => r.cancelled && r.filesWritten.length === 0)) {
+        toast(t('toast.excel.cancelledAll'))
+        return
+      }
       setResults(res)
       const okCount = res.filter((r) => r.ok).length
       const cancelledCount = res.filter((r) => r.cancelled).length

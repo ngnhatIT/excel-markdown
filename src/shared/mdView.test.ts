@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  frontMatterAsCode,
   buildMdTree,
   formatRelativeTime,
   hrefHash,
@@ -164,5 +165,13 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(new Date(2026, 9, 27, 8, 0, 0).getTime(), now, 'en-US')).toBe('yesterday')
     expect(formatRelativeTime(ago(4 * DAY), now, 'ja-JP')).toBe('4 日前')
     expect(formatRelativeTime(new Date(2026, 8, 5, 10, 0, 0).getTime(), now, 'ja-JP')).toBe('2026/09/05')
+  })
+})
+
+describe('frontMatterAsCode', () => {
+  it('front-matter đầu file -> khối yaml; không có thì giữ nguyên', () => {
+    expect(frontMatterAsCode('---\nsource: a.xlsx\nsheet: S\n---\n## S\n')).toBe('```yaml\nsource: a.xlsx\nsheet: S\n```\n## S\n')
+    expect(frontMatterAsCode('# A\n---\nx\n---\n')).toBe('# A\n---\nx\n---\n')
+    expect(frontMatterAsCode('---\r\na: 1\r\n---\r\nbody')).toBe('```yaml\na: 1\n```\nbody')
   })
 })

@@ -193,6 +193,10 @@
 
 /* In / lưu PDF (window.print): chỉ in vùng xem trước, bỏ toàn bộ khung app */
 @media print {
+  .x2m-onboarding,
+  .x2m-toasts,
+  .x2m-tr-btn,
+  .x2m-tr-popup,
   .x2m-header,
   .x2m-footer,
   .x2m-side,

@@ -26,3 +26,9 @@ describe('searchMarkdownText', () => {
     expect(hit.text.length).toBeLessThanOrEqual(162)
   })
 })
+
+describe('searchMarkdownText: hiragana ↔ katakana', () => {
+  it('てーぶる tìm ra テーブル', () => {
+    expect(searchMarkdownText('## テーブル定義\n', searchTerms('てーぶる'))).toHaveLength(1)
+  })
+})

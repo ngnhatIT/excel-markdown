@@ -1,7 +1,8 @@
 /* Khớp mờ cho bảng lệnh Ctrl+K (thuần, có test). */
+import { foldText } from '../../../shared/textFold'
 
 /** NFKC (toàn角 -> 半角, ｶﾅ半角 -> カナ) + chữ thường, để `ＡＢＣ` khớp `abc`. */
-const norm = (s: string): string => s.normalize('NFKC').toLowerCase()
+const norm = (s: string): string => foldText(s.normalize('NFKC'))
 
 const isBoundary = (ch: string | undefined): boolean => ch === undefined || /[\s/\\_.\-・›]/.test(ch)
 

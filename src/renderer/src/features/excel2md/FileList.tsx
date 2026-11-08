@@ -163,6 +163,7 @@ export function FileList(p: Props): React.ReactElement {
                     }}
                     onChange={(e) => p.onToggleFileSheets(f.id, e.target.checked)}
                     title={t('files.toggleSheets')}
+                    aria-label={`${t('files.toggleSheets')}: ${f.name}`}
                   />
                   <button className={cn("x2m-file-name", fileNameBtn)} onClick={() => p.onToggleExpanded(f.id)} title={f.path}>
                     <span className={cn("x2m-file-name-text", fileNameText)}>{f.name}</span>
