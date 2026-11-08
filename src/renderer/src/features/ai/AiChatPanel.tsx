@@ -410,7 +410,7 @@ export function AiChatPanel({
               </label>
               <select
                 id="x2m-ai-ctx"
-                className="x2m-select flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
+                className="x2m-select min-w-0 flex-1 truncate rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
                 value={config.contextTokens}
                 onChange={(e) => void changeContext(Number(e.target.value))}
                 title={t('ai.contextTitle')}

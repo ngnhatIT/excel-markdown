@@ -359,7 +359,7 @@ export function PreviewPane({
         <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center justify-end gap-1 text-xs">
           {leading}
           {title ? (
-            <span className="x2m-meta-stats dim mr-auto min-w-48 truncate pl-1 text-dim" title={title}>
+            <span className="x2m-meta-stats dim mr-auto min-w-24 flex-1 basis-0 truncate pl-1 text-dim" title={title}>
               <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
               {stats ? ` · ${t('preview.stats', { lines: stats.lines, tables: stats.tables, chars: stats.chars.toLocaleString(LOCALES[lang]) })}` : ''}
             </span>

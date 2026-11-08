@@ -127,7 +127,7 @@ export const en: Dict = {
   'files.rows': '{n} rows',
   'files.rowsHidden': '{n} rows (hidden in Excel)',
   'files.hiddenTag': 'hidden',
-  'files.rowsShort': '{n}r',
+  'files.rowsShort': '{n} rows',
 
   'mdfiles.title': 'Markdown files ({n})',
   'mdfiles.empty': 'Drop Markdown files here',

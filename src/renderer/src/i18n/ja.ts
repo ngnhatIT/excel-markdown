@@ -127,7 +127,7 @@ export const ja: Dict = {
   'files.rows': '{n} 行',
   'files.rowsHidden': '{n} 行（Excel で非表示のシート）',
   'files.hiddenTag': '非表示',
-  'files.rowsShort': '{n}行',
+  'files.rowsShort': '{n} 行',
 
   'mdfiles.title': 'Markdown ファイル（{n}）',
   'mdfiles.empty': 'Markdown ファイルをここにドロップ',

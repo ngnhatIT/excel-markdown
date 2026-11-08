@@ -127,7 +127,7 @@ export const vi = {
   'files.rows': '{n} dòng',
   'files.rowsHidden': '{n} dòng (sheet ẩn trong Excel)',
   'files.hiddenTag': 'ẩn',
-  'files.rowsShort': '{n}d',
+  'files.rowsShort': '{n} dòng',
 
   'mdfiles.title': 'File Markdown ({n})',
   'mdfiles.empty': 'Kéo thả file Markdown vào đây',

@@ -186,8 +186,10 @@
   animation-delay: 120ms;
 }
 
-/* Toast nổi trên nội dung bất kỳ: kính gần đặc để chữ phía sau không lộ qua (ngoài @layer nên thắng utility glass) */
-.x2m-toast {
+/* Toast / popup dịch / bảng lệnh nổi trên nội dung bất kỳ: kính gần đặc để chữ phía sau không lộ qua (ngoài @layer nên thắng utility glass) */
+.x2m-toast,
+.x2m-tr-popup,
+.x2m-palette {
   background:
     linear-gradient(160deg, var(--sheen), transparent 32%),
     color-mix(in srgb, var(--backdrop-base) 90%, transparent);
