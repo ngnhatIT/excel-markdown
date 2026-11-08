@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { compressMarkdownLossless, parseMarkdownForRag } from './chunker'
+import { frontMatter } from '../excel/output'
+import { compressMarkdownLossless, estimateTokens, parseMarkdownForRag } from './chunker'
 
 describe('compressMarkdownLossless', () => {
   it('thu gọn khoảng trắng căn cột bảng và dòng trống thừa nhưng giữ nguyên 100% dữ liệu, bảng 版数 và ghi chú ※', () => {
@@ -74,5 +75,20 @@ describe('parseMarkdownForRag', () => {
     const empty = parseMarkdownForRag('/e.md', 'e.md', '   ')
     expect(empty.sections).toHaveLength(0)
     expect(empty.tokensEst).toBe(0)
+  })
+})
+
+describe('front-matter từ converter', () => {
+  it('đọc được meta dạng JSON một dòng (meta: {...}) vào metaHeader', () => {
+    const md = frontMatter({ source: 'a.xlsx', sheet: 'S1', title: 'Màn hình KH', meta: { 画面ID: 'SC001' } }) + '# T\n\nbody\n'
+    expect(parseMarkdownForRag('/x/a.md', 'a.md', md).metaHeader).toContain('画面ID: SC001')
+  })
+})
+
+describe('estimateTokens', () => {
+  it('chữ Nhật tính ~1 token mỗi ký tự, chữ Latin ~1 token mỗi 3 ký tự', () => {
+    expect(estimateTokens('顧客一覧')).toBe(4)
+    expect(estimateTokens('abcdef')).toBe(2)
+    expect(estimateTokens('顧客 abc')).toBe(4)
   })
 })

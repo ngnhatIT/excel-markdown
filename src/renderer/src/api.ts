@@ -3,7 +3,8 @@ import type {
   AiAskRequest,
   AiAskResponse,
   AiConfigInfo,
-  AiModelId,
+  AiProvider,
+  AiSetConfigPayload,
   ConvertOptions,
   ConvertResultItem,
   MdConvertResult,
@@ -50,9 +51,10 @@ export interface WindowApi {
   listMarkdownFolder(root: string): Promise<MdFolderListing>
   readMarkdown(path: string): Promise<string>
   aiGetConfig(): Promise<AiConfigInfo>
-  aiSetConfig(payload: { apiKey?: string; model?: AiModelId }): Promise<AiConfigInfo>
+  aiSetConfig(payload: AiSetConfigPayload): Promise<AiConfigInfo>
   aiAsk(req: AiAskRequest): Promise<AiAskResponse>
-  aiListModels(): Promise<string[]>
+  aiListModels(provider?: AiProvider): Promise<string[]>
+  onAiDelta(cb: (text: string) => void): () => void
   aiCancel(): Promise<void>
 }
 

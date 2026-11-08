@@ -1,6 +1,16 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { marked } from 'marked'
-import { DEFAULT_AI_MODEL, type AiAskResponse, type AiChatTurn, type AiConfigInfo, type RagCitation } from '../../../types'
+import {
+  AI_CONTEXT_LEVELS,
+  AI_PROVIDER_IDS,
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  type AiAskResponse,
+  type AiChatTurn,
+  type AiConfigInfo,
+  type AiProvider,
+  type RagCitation,
+} from '../../../types'
 import { errMsg } from '../api'
 import { PASTE_PATH } from '../hooks/useMdViewer'
 import { sanitizeHtml } from '../sanitize'
@@ -45,21 +55,36 @@ interface Props {
   onJumpToCitation: (citation: RagCitation) => void
 }
 
-const QUICK_PROMPTS = [
+const QUICK_PROMPTS: Array<{ label: string; prompt: string; scope: 'folder' | 'active' }> = [
   {
     label: '📋 Tóm tắt nghiệp vụ',
     prompt:
       'Hãy tóm tắt mục đích nghiệp vụ, luồng xử lý chính và các bảng quan trọng của tài liệu đang xem bằng tiếng Việt.',
+    scope: 'active',
   },
   {
     label: '🌐 Dịch sang tiếng Việt',
     prompt:
       'Hãy dịch và giải thích chi tiết các mục, bảng biểu và chú thích (※) trong tài liệu đang xem sang tiếng Việt chuẩn BA/BrSE.',
+    scope: 'active',
   },
   {
     label: '🔍 Kiểm tra thiếu sót',
     prompt:
       'Hãy rà soát tài liệu thiết kế này xem có điểm nào mơ hồ, thiếu điều kiện biên (validation/error handling) hoặc mâu thuẫn giữa các mục không.',
+    scope: 'active',
+  },
+  {
+    label: '🧪 Sinh test case',
+    prompt:
+      'Từ tài liệu đang xem, hãy sinh bảng test case (No | Hạng mục | Điều kiện / Dữ liệu vào | Thao tác | Kết quả mong đợi | Nguồn) bao phủ từng 項目, 入力チェック, sự kiện và trường hợp lỗi. Mỗi dòng ghi rõ trích dẫn nguồn.',
+    scope: 'active',
+  },
+  {
+    label: '🔗 Đối chiếu chéo',
+    prompt:
+      'Hãy đối chiếu chéo các tài liệu trong thư mục: tên bảng/cột DB, mã màn hình, độ dài - kiểu dữ liệu và mã lỗi có khớp nhau giữa các file không. Liệt kê từng điểm lệch kèm trích dẫn hai phía.',
+    scope: 'folder',
   },
 ]
 
@@ -76,18 +101,25 @@ export function AiChatPanel({
   onJumpToCitation,
 }: Props): React.ReactElement {
   const [config, setConfig] = useState<AiConfigInfo>({
+    provider: DEFAULT_AI_PROVIDER,
     hasKey: false,
     maskedKey: '',
-    model: DEFAULT_AI_MODEL,
+    model: AI_PROVIDERS[DEFAULT_AI_PROVIDER].defaultModel,
+    contextTokens: AI_CONTEXT_LEVELS[0],
+    keys: { gemini: '', claude: '', openai: '' },
   })
+  const providerInfo = AI_PROVIDERS[config.provider]
   const [showKeyBox, setShowKeyBox] = useState(false)
-  const [models, setModels] = useState<string[]>([DEFAULT_AI_MODEL, 'gemini-2.5-pro'])
+  const [models, setModels] = useState<string[]>(AI_PROVIDERS[DEFAULT_AI_PROVIDER].suggested)
+  const [streamText, setStreamText] = useState('')
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [scope, setScope] = useState<'folder' | 'active'>('folder')
   const [entries, setEntries] = useState<ChatEntry[]>([])
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const listRef = useRef<HTMLDivElement | null>(null)
+  // Mã của câu hỏi đang chạy: bấm Dừng thì tăng lên để mọi delta/kết quả muộn của câu hỏi cũ bị bỏ qua
+  const askSeq = useRef(0)
 
   useEffect(() => {
     window.api
@@ -103,7 +135,7 @@ export function AiChatPanel({
     if (listRef.current) {
       listRef.current.scrollTop = listRef.current.scrollHeight
     }
-  }, [entries, busy])
+  }, [entries, busy, streamText])
 
   const saveKey = useCallback(async () => {
     try {
@@ -114,7 +146,7 @@ export function AiChatPanel({
       setConfig(next)
       setApiKeyInput('')
       setShowKeyBox(false)
-      toast('Đã lưu cấu hình Gemini AI', 'ok')
+      toast(`Đã lưu cấu hình ${AI_PROVIDERS[next.provider].label}`, 'ok')
     } catch (e) {
       toast('Lưu cấu hình thất bại: ' + errMsg(e), 'err')
     }
@@ -125,7 +157,7 @@ export function AiChatPanel({
       const next = await window.api.aiSetConfig({ apiKey: '' })
       setConfig(next)
       setApiKeyInput('')
-      toast('Đã xóa Gemini API Key', 'ok')
+      toast(`Đã xóa ${AI_PROVIDERS[next.provider].label} API Key`, 'ok')
     } catch (e) {
       toast('Xóa key thất bại: ' + errMsg(e), 'err')
     }
@@ -140,24 +172,47 @@ export function AiChatPanel({
     }
   }, [])
 
-  const refreshModels = useCallback(async () => {
+  const changeProvider = useCallback(async (provider: AiProvider) => {
     try {
-      const ids = await window.api.aiListModels()
-      setModels(ids)
-      toast(`Key dùng được ${ids.length} model Gemini`, 'ok')
+      setModels(AI_PROVIDERS[provider].suggested)
+      setConfig(await window.api.aiSetConfig({ provider }))
     } catch (e) {
       toast(errMsg(e), 'err')
     }
   }, [])
 
-  useEffect(() => {
-    if (config.hasKey) {
-      window.api
-        .aiListModels()
-        .then(setModels)
-        .catch(() => {})
+  const changeContext = useCallback(async (contextTokens: number) => {
+    try {
+      setConfig(await window.api.aiSetConfig({ contextTokens }))
+    } catch (e) {
+      toast(errMsg(e), 'err')
     }
-  }, [config.hasKey])
+  }, [])
+
+  const refreshModels = useCallback(async () => {
+    try {
+      const ids = await window.api.aiListModels(config.provider)
+      setModels(ids)
+      toast(`Key dùng được ${ids.length} model ${AI_PROVIDERS[config.provider].label}`, 'ok')
+    } catch (e) {
+      toast(errMsg(e), 'err')
+    }
+  }, [config.provider])
+
+  useEffect(() => {
+    if (!config.hasKey) return
+    // Đổi nhà cung cấp khi danh sách cũ chưa về thì bỏ kết quả cũ
+    let stale = false
+    window.api
+      .aiListModels(config.provider)
+      .then((ids) => {
+        if (!stale && ids.length > 0) setModels(ids)
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+  }, [config.hasKey, config.provider])
 
   const sendQuestion = useCallback(
     async (questionText: string, forceScope?: 'folder' | 'active') => {
@@ -165,7 +220,7 @@ export function AiChatPanel({
       if (!q || busy) return
       if (!config.hasKey) {
         setShowKeyBox(true)
-        toast('Vui lòng nhập Gemini API Key trước khi hỏi AI', 'err')
+        toast(`Vui lòng nhập ${providerInfo.label} API Key trước khi hỏi AI`, 'err')
         return
       }
 
@@ -178,11 +233,29 @@ export function AiChatPanel({
       setEntries((prev) => [...prev, userEntry])
       setInput('')
       setBusy(true)
+      const seq = ++askSeq.current
+      const isCurrent = (): boolean => askSeq.current === seq
+
+      // Gom các đoạn stream, vẽ lại tối đa ~16 lần/giây để không parse Markdown theo từng token
+      let acc = ''
+      let timer: number | undefined
+      const off = window.api.onAiDelta((t) => {
+        if (!isCurrent()) return
+        acc += t
+        if (timer === undefined) {
+          timer = window.setTimeout(() => {
+            timer = undefined
+            if (isCurrent()) setStreamText(acc)
+          }, 60)
+        }
+      })
 
       try {
         const res = await window.api.aiAsk({
           question: q,
           scope: effectiveScope,
+          provider: config.provider,
+          model: config.model,
           rootDir,
           relFiles,
           looseFiles: looseFiles.map((f) => f.path),
@@ -191,6 +264,7 @@ export function AiChatPanel({
           pastedMarkdown: pastedMarkdown ?? (activeFilePath === PASTE_PATH ? activeMarkdown : null),
           history,
         })
+        if (!isCurrent()) return
         const modelEntry: ChatEntry = {
           id: uid(),
           role: 'model',
@@ -203,7 +277,7 @@ export function AiChatPanel({
         setEntries((prev) => [...prev, modelEntry])
       } catch (e) {
         const msg = errMsg(e)
-        if (!msg.includes('Đã dừng')) {
+        if (isCurrent() && !msg.includes('Đã dừng')) {
           toast(msg, 'err')
           setEntries((prev) => [
             ...prev,
@@ -218,15 +292,22 @@ export function AiChatPanel({
           ])
         }
       } finally {
-        setBusy(false)
+        off()
+        window.clearTimeout(timer)
+        if (isCurrent()) {
+          setStreamText('')
+          setBusy(false)
+        }
       }
     },
-    [busy, config.hasKey, scope, entries, rootDir, relFiles, looseFiles, activeFilePath, activeMarkdown, pastedMarkdown]
+    [busy, config.hasKey, config.provider, config.model, providerInfo.label, scope, entries, rootDir, relFiles, looseFiles, activeFilePath, activeMarkdown, pastedMarkdown]
   )
 
   const stopAsk = useCallback(async () => {
-    await window.api.aiCancel().catch(() => {})
+    askSeq.current++
+    setStreamText('')
     setBusy(false)
+    await window.api.aiCancel().catch(() => {})
   }, [])
 
   const hasPaste = Boolean((pastedMarkdown && pastedMarkdown.trim() !== '') || activeFilePath === PASTE_PATH)
@@ -243,9 +324,10 @@ export function AiChatPanel({
           <button
             className={cn('btn btn-sm btn-ghost', showKeyBox && 'active-pill')}
             onClick={() => setShowKeyBox((s) => !s)}
-            title="Cấu hình Gemini API Key & Model"
+            title="Cấu hình nhà cung cấp AI, API Key & Model"
           >
-            🔑 {config.hasKey ? config.maskedKey : 'API Key'}
+            🔑 {providerInfo.label}
+            {config.hasKey ? ` · ${config.maskedKey}` : ''}
           </button>
           {entries.length > 0 && (
             <button
@@ -263,6 +345,24 @@ export function AiChatPanel({
       <div className="x2m-ai-panel flex min-h-0 flex-1 flex-col">
         {showKeyBox && (
           <div className="x2m-ai-keybox flex flex-col gap-2 border-b border-line bg-raised/50 p-3">
+            <div className="x2m-ai-scope flex items-center gap-1 rounded-lg border border-line bg-raised p-0.5" role="radiogroup" aria-label="Nhà cung cấp AI">
+              {AI_PROVIDER_IDS.map((p) => (
+                <button
+                  key={p}
+                  role="radio"
+                  aria-checked={config.provider === p}
+                  className={cn(
+                    'x2m-ai-scope-btn flex-1 text-center rounded-md py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+                    config.provider === p && 'active seg-on'
+                  )}
+                  onClick={() => void changeProvider(p)}
+                  title={config.keys[p] ? `Đã có key ${config.keys[p]}` : `Chưa có key — lấy tại ${AI_PROVIDERS[p].site}`}
+                >
+                  {AI_PROVIDERS[p].label}
+                  {config.keys[p] ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
             <div className="x2m-ai-keybox-row flex items-center gap-2">
               <label className="x2m-ai-label text-xs font-medium text-dim">Model:</label>
               <select
@@ -286,7 +386,7 @@ export function AiChatPanel({
               <input
                 type="password"
                 className="x2m-input flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
-                placeholder={config.hasKey ? `Đang dùng ${config.maskedKey} (nhập mới để đổi)` : 'Dán Gemini API Key (AIza...)'}
+                placeholder={config.hasKey ? `Đang dùng ${config.maskedKey} (nhập mới để đổi)` : providerInfo.keyHint}
                 value={apiKeyInput}
                 onChange={(e) => setApiKeyInput(e.target.value)}
               />
@@ -299,8 +399,27 @@ export function AiChatPanel({
                 </button>
               )}
             </div>
+            <div className="x2m-ai-keybox-row flex items-center gap-2">
+              <label className="x2m-ai-label shrink-0 whitespace-nowrap text-xs font-medium text-dim" htmlFor="x2m-ai-ctx">
+                Ngữ cảnh:
+              </label>
+              <select
+                id="x2m-ai-ctx"
+                className="x2m-select flex-1 rounded-md border border-line bg-canvas px-2.5 py-1 text-xs text-ink outline-none focus:border-accent"
+                value={config.contextTokens}
+                onChange={(e) => void changeContext(Number(e.target.value))}
+                title="Tài liệu nhỏ hơn mức này được gửi nguyên văn; lớn hơn thì chỉ gửi phần khớp nhất"
+              >
+                {AI_CONTEXT_LEVELS.map((n) => (
+                  <option key={n} value={n}>
+                    {(n / 1000).toLocaleString('vi-VN')}k token{n === AI_CONTEXT_LEVELS[0] ? ' (tiết kiệm)' : n === AI_CONTEXT_LEVELS[2] ? ' (đầy đủ nhất, tốn nhất)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
             <div className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
-              Key được mã hóa cục bộ bằng OS SafeStorage, chỉ gọi trực tiếp tới Google Gemini API.
+              Key mã hóa cục bộ bằng OS SafeStorage, chỉ gửi trực tiếp tới {providerInfo.site}. Key API tính tiền theo token, khác gói
+              đăng ký ChatGPT/Claude. Muốn dùng gói đăng ký: xem mục MCP trong README.
               {!config.hasKey && ' Lưu key xong, danh sách model mới nhất sẽ tự tải về.'}
             </div>
           </div>
@@ -336,7 +455,8 @@ export function AiChatPanel({
                   key={i}
                   className="x2m-ai-chip rounded-full border border-line bg-canvas px-2.5 py-1 text-xs text-dim hover:border-accent-line hover:text-ink hover:bg-hover transition-colors"
                   disabled={busy}
-                  onClick={() => void sendQuestion(q.prompt, 'active')}
+                  onClick={() => void sendQuestion(q.prompt, q.scope)}
+                  title={q.scope === 'folder' ? 'Chạy trên cả thư mục' : 'Chạy trên file đang xem'}
                 >
                   {q.label}
                 </button>
@@ -396,6 +516,7 @@ export function AiChatPanel({
                           {entry.usage && (
                             <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]">
                               ⚡ {entry.usage.totalTokens.toLocaleString('vi-VN')} tokens
+                              {entry.usage.cachedTokens ? ` · cache ${entry.usage.cachedTokens.toLocaleString('vi-VN')}` : ''}
                             </span>
                           )}
                         </>
@@ -416,7 +537,24 @@ export function AiChatPanel({
               </div>
             ))
           )}
-          {busy && (
+          {busy && streamText && (
+            <div className="x2m-ai-msg is-model flex flex-col items-start">
+              <div className="x2m-ai-bubble-model self-start rounded-2xl rounded-tl-xs border border-line bg-raised/70 p-3 text-xs text-ink max-w-[95%] shadow-xs" aria-live="polite">
+                <AnswerHtml text={streamText} />
+                <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-[11px] text-faint border-t border-line/40 pt-1.5">
+                  <span>Đang viết...</span>
+                  <button
+                    className={cx('btn btn-sm btn-ghost ml-auto text-[11px] text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
+                    onClick={() => void stopAsk()}
+                    title="Dừng tạo câu trả lời"
+                  >
+                    Dừng
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {busy && !streamText && (
             <div className="x2m-ai-loading self-start flex items-center gap-3 rounded-2xl rounded-tl-xs border border-line bg-raised/70 px-3.5 py-2.5 text-xs text-dim shadow-xs">
               <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label="Đang trả lời">
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.4s]" />

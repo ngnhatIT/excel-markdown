@@ -1,7 +1,19 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, safeStorage, shell, type MessageBoxOptions } from 'electron'
-import { DEFAULT_AI_MODEL, type AiAskRequest, type AiAskResponse, type AiConfigInfo, type AiModelId } from '../types'
-import { parseMarkdownForRag, type RagDocument } from './domain/rag/chunker'
-import { callGeminiApi, listGeminiModels, maskApiKey, redactApiKey } from './adapters/outbound/gemini/geminiClient'
+import {
+  AI_CONTEXT_LEVELS,
+  AI_PROVIDER_IDS,
+  AI_PROVIDERS,
+  DEFAULT_AI_PROVIDER,
+  type AiAskRequest,
+  type AiAskResponse,
+  type AiConfigInfo,
+  type AiModelId,
+  type AiProvider,
+  type AiSetConfigPayload,
+} from '../types'
+import { loadRagDocumentCached } from './adapters/outbound/ragDocCache'
+import { maskApiKey, redactApiKey } from './adapters/outbound/llm/shared'
+import { askLlm, listModels } from './adapters/outbound/llm/askLlm'
 import { buildRagContext } from './domain/rag/retriever'
 import { collectRagDocuments, RAG_MAX_FILES, RAG_MAX_LOOSE } from './domain/rag/collect'
 import { join, dirname, basename, extname, isAbsolute, resolve } from 'node:path'
@@ -547,9 +559,6 @@ ipcMain.handle(
  * Scheme ảnh chỉ phục vụ file ảnh nằm trong các thư mục này. */
 const viewerRoots = new Set<string>()
 
-/** Đủ chứa mọi file của một câu hỏi, để hỏi lại không phải đọc/parse lại từ đầu. */
-const RAG_CACHE_MAX = RAG_MAX_FILES + RAG_MAX_LOOSE
-const ragDocCache = new Map<string, RagDocument>()
 let aiAbort: AbortController | null = null
 
 function encryptApiKey(rawKey: string): string {
@@ -580,81 +589,73 @@ function decryptApiKey(stored: unknown): string {
   return ''
 }
 
-function normalizeAiModel(m: unknown): AiModelId {
-  return typeof m === 'string' && /^gemini-[\w.-]{1,60}$/.test(m) ? m : DEFAULT_AI_MODEL
+const MODEL_RE: Record<AiProvider, RegExp> = {
+  gemini: /^gemini-[\w.-]{1,60}$/,
+  claude: /^claude-[\w.-]{1,60}$/,
+  openai: /^[\w.:-]{1,80}$/,
 }
 
-ipcMain.handle('ai:listModels', async () => {
+function normalizeProvider(p: unknown): AiProvider {
+  return AI_PROVIDER_IDS.includes(p as AiProvider) ? (p as AiProvider) : DEFAULT_AI_PROVIDER
+}
+
+function normalizeAiModel(provider: AiProvider, m: unknown): AiModelId {
+  return typeof m === 'string' && MODEL_RE[provider].test(m) ? m : AI_PROVIDERS[provider].defaultModel
+}
+
+function normalizeContextTokens(n: unknown): number {
+  return AI_CONTEXT_LEVELS.includes(n as (typeof AI_CONTEXT_LEVELS)[number]) ? (n as number) : AI_CONTEXT_LEVELS[0]
+}
+
+// Gemini giữ khóa lưu cũ để key người dùng đã nhập vẫn dùng được sau khi nâng cấp
+const keyField = (p: AiProvider): string => (p === 'gemini' ? 'aiApiKeyEnc' : `aiApiKeyEnc_${p}`)
+const modelField = (p: AiProvider): string => (p === 'gemini' ? 'aiModel' : `aiModel_${p}`)
+
+function aiConfigInfo(store: Record<string, unknown>): AiConfigInfo {
+  const provider = normalizeProvider(store['aiProvider'])
+  const keys = Object.fromEntries(
+    AI_PROVIDER_IDS.map((p) => [p, maskApiKey(decryptApiKey(store[keyField(p)]))])
+  ) as Record<AiProvider, string>
+  return {
+    provider,
+    hasKey: keys[provider] !== '',
+    maskedKey: keys[provider],
+    model: normalizeAiModel(provider, store[modelField(provider)]),
+    contextTokens: normalizeContextTokens(store['aiContextTokens']),
+    keys,
+  }
+}
+
+ipcMain.handle('ai:listModels', async (_e, providerArg?: AiProvider) => {
   let rawKey = ''
   try {
     const store = await readStore()
-    rawKey = decryptApiKey(store['aiApiKeyEnc'])
-    return { ok: true, data: await listGeminiModels(rawKey) }
+    const provider = normalizeProvider(providerArg ?? store['aiProvider'])
+    rawKey = decryptApiKey(store[keyField(provider)])
+    return { ok: true, data: await listModels(provider, rawKey) }
   } catch (err) {
     return { ok: false, error: redactApiKey(err instanceof Error ? err.message : String(err), rawKey) }
   }
 })
 
-async function loadRagDocumentCached(absPath: string, relPath: string): Promise<RagDocument | null> {
-  if (!isMarkdownPath(absPath)) return null
-  try {
-    const st = await stat(absPath)
-    const mtime = st.mtimeMs
-    const cached = ragDocCache.get(absPath)
-    if (cached && cached.mtime === mtime && cached.relPath === relPath) {
-      // LRU: đưa lên cuối để file đang dùng không bị đẩy ra trước file cũ
-      ragDocCache.delete(absPath)
-      ragDocCache.set(absPath, cached)
-      return cached
-    }
-    const text = await readMarkdownFile(absPath)
-    const doc = parseMarkdownForRag(absPath, relPath, text, mtime)
-    if (ragDocCache.size >= RAG_CACHE_MAX) {
-      const oldestKey = ragDocCache.keys().next().value
-      if (oldestKey) ragDocCache.delete(oldestKey)
-    }
-    ragDocCache.set(absPath, doc)
-    return doc
-  } catch {
-    return null
-  }
-}
-
 ipcMain.handle('ai:getConfig', async () => {
   try {
-    const store = await readStore()
-    const key = decryptApiKey(store['aiApiKeyEnc'])
-    const model = normalizeAiModel(store['aiModel'])
-    const info: AiConfigInfo = {
-      hasKey: key.length > 0,
-      maskedKey: maskApiKey(key),
-      model,
-    }
-    return { ok: true, data: info }
+    return { ok: true, data: aiConfigInfo(await readStore()) }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
 })
 
-ipcMain.handle('ai:setConfig', async (_e, payload: { apiKey?: string; model?: AiModelId }) => {
+ipcMain.handle('ai:setConfig', async (_e, payload: AiSetConfigPayload) => {
   try {
     await updateStore((store) => {
-      if (typeof payload?.apiKey === 'string') {
-        store['aiApiKeyEnc'] = encryptApiKey(payload.apiKey)
-      }
-      if (payload?.model) {
-        store['aiModel'] = normalizeAiModel(payload.model)
-      }
+      if (payload?.provider !== undefined) store['aiProvider'] = normalizeProvider(payload.provider)
+      const provider = normalizeProvider(store['aiProvider'])
+      if (typeof payload?.apiKey === 'string') store[keyField(provider)] = encryptApiKey(payload.apiKey)
+      if (payload?.model) store[modelField(provider)] = normalizeAiModel(provider, payload.model)
+      if (payload?.contextTokens !== undefined) store['aiContextTokens'] = normalizeContextTokens(payload.contextTokens)
     })
-    const store = await readStore()
-    const key = decryptApiKey(store['aiApiKeyEnc'])
-    const model = normalizeAiModel(store['aiModel'])
-    const info: AiConfigInfo = {
-      hasKey: key.length > 0,
-      maskedKey: maskApiKey(key),
-      model,
-    }
-    return { ok: true, data: info }
+    return { ok: true, data: aiConfigInfo(await readStore()) }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) }
   }
@@ -668,7 +669,7 @@ ipcMain.handle('ai:cancel', async () => {
   return { ok: true, data: null }
 })
 
-ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
+ipcMain.handle('ai:ask', async (e, req: AiAskRequest) => {
   let rawKey = ''
   if (aiAbort) aiAbort.abort()
   const controller = new AbortController()
@@ -678,8 +679,9 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     if (!question) return { ok: false, error: 'Câu hỏi không được để trống.' }
 
     const store = await readStore()
-    rawKey = decryptApiKey(store['aiApiKeyEnc'])
-    const model = normalizeAiModel(req.model ?? store['aiModel'])
+    const provider = normalizeProvider(req.provider ?? store['aiProvider'])
+    rawKey = decryptApiKey(store[keyField(provider)])
+    const model = normalizeAiModel(provider, req.model ?? store[modelField(provider)])
 
     const { docs, skippedFiles } = await collectRagDocuments(req, loadRagDocumentCached)
 
@@ -690,9 +692,10 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
     const ragCtx = buildRagContext(docs, question, {
       scope: req.scope,
       activeFilePath: req.activeFilePath ?? undefined,
+      maxContextTokens: normalizeContextTokens(store['aiContextTokens']),
     })
 
-    const apiRes = await callGeminiApi({
+    const apiRes = await askLlm(provider, {
       apiKey: rawKey,
       model,
       question,
@@ -700,6 +703,10 @@ ipcMain.handle('ai:ask', async (_e, req: AiAskRequest) => {
       history: Array.isArray(req.history) ? req.history : [],
       availableCitations: ragCtx.citations,
       signal: controller.signal,
+      // Đẩy từng đoạn câu trả lời về renderer để hiện dần trong lúc model còn đang viết
+      onDelta: (text) => {
+        if (!e.sender.isDestroyed()) e.sender.send('ai:delta', text)
+      },
     })
 
     const out: AiAskResponse = {

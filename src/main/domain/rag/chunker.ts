@@ -24,10 +24,15 @@ export interface RagDocument {
   sections: RagSection[]
 }
 
-/** Ước lượng số token (~ 1 token cho mỗi 3 ký tự đối với văn bản trộn Nhật - Việt - Anh). */
+const CJK_CHAR_RE = /[぀-ヿ㐀-䶿一-鿿豈-﫿＀-￯]/g
+
+/** Ước lượng số token: chữ Nhật/CJK ~1 token mỗi ký tự, phần còn lại (Việt/Anh/ký hiệu) ~1 token mỗi 3 ký tự.
+ * Đếm thiếu chữ Nhật thì mức "Ngữ cảnh tối đa" gửi quá giới hạn thật của model và bị lỗi 400. */
 export function estimateTokens(text: string): number {
   const t = text.trim()
-  return t.length === 0 ? 0 : Math.max(1, Math.ceil(t.length / 3))
+  if (t.length === 0) return 0
+  const cjk = t.match(CJK_CHAR_RE)?.length ?? 0
+  return Math.max(1, Math.ceil(cjk + (t.length - cjk) / 3))
 }
 
 const unescapeHeading = (s: string): string => s.replace(/\\([#*~_`[\]()<>|-])/g, '$1').trim()
@@ -110,6 +115,16 @@ export function parseMarkdownForRag(
     const titleMatch = /^title:\s*(.+)$/.exec(fmLine.trim())
     if (titleMatch) {
       addMeta(unquoteYaml(titleMatch[1]))
+      continue
+    }
+    // Converter ghi meta thành một dòng JSON: `meta: {"画面ID":"SC001"}`
+    const metaJson = /^meta:\s*(\{.*\})\s*$/.exec(fmLine.trim())
+    if (metaJson) {
+      try {
+        for (const [k, v] of Object.entries(JSON.parse(metaJson[1]) as Record<string, unknown>)) addMeta(`${k}: ${String(v)}`)
+      } catch {
+        /* meta không phải JSON hợp lệ: bỏ qua */
+      }
       continue
     }
     const metaKv = /^\s{2}"?([^":]+)"?:\s*(.+)$/.exec(fmLine)
