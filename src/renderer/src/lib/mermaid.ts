@@ -156,7 +156,20 @@ export async function renderMermaidIn(root: HTMLElement, theme: MermaidTheme): P
     box.setAttribute('aria-label', t('mermaid.aria'))
     box.append(svg)
     host.replaceWith(box)
+    fitViewBox(svg as SVGSVGElement)
   }
+}
+
+/* Trên Electron, viewBox mermaid tự tính có thể lệch khỏi nội dung thật (gốc âm, nội dung tràn phải -> sơ đồ bị cắt).
+ * Tính lại từ getBBox khi SVG đã nằm trong trang (chỉ đo được lúc đó). */
+function fitViewBox(svg: SVGSVGElement): void {
+  const b = svg.getBBox()
+  if (!b.width || !b.height) return
+  const pad = 8
+  const [w, h] = [b.width + 2 * pad, b.height + 2 * pad]
+  svg.setAttribute('viewBox', `${b.x - pad} ${b.y - pad} ${w} ${h}`)
+  svg.setAttribute('width', String(w))
+  svg.setAttribute('height', String(h))
 }
 
 /** Bản HTML (đã sanitize) với khối mermaid đã thay bằng SVG, dùng cho trang HTML xuất ra. */
