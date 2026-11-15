@@ -14,6 +14,7 @@ import type {
   OutputMode,
 } from '../../../shared/types'
 import type { SpecIndex } from '../../../shared/specIndex'
+import type { FoundProjectConfig } from '../../../shared/projectConfig'
 import { errCodeText } from '../i18n'
 
 export interface SheetListItem {
@@ -58,6 +59,8 @@ export interface WindowApi {
   listMarkdownFolder(root: string): Promise<MdFolderListing>
   searchMarkdownFolder(root: string, query: string): Promise<MdSearchResult>
   specIndex(root: string): Promise<SpecIndex>
+  configFind(target: string): Promise<FoundProjectConfig | null>
+  configOpen(path: string): Promise<void>
   readMarkdown(path: string): Promise<string>
   aiGetConfig(): Promise<AiConfigInfo>
   aiSetConfig(payload: AiSetConfigPayload): Promise<AiConfigInfo>

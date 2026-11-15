@@ -187,6 +187,11 @@ export const ja: Dict = {
   'opts.range': 'セル範囲（例 A1:F40）',
   'opts.rangePlaceholder': 'シート全体',
   'opts.chunk': 'N 行ごとに表を分割（0 = オフ）',
+  'opts.project.title': 'プロジェクト設定（x2m.json）',
+  'opts.project.locked': 'チーム全員が同じ結果になるよう、このファイルで指定されたオプションは固定されます。',
+  'opts.project.none': 'このファイルには変換オプションの指定がありません。',
+  'opts.project.open': 'x2m.json を開く',
+  'project.applied': 'x2m.json のルールを適用中',
   'opts.note':
     '基本設計のバナー、機能ID/画面ID/テーブルID のメタ情報、セクション、No/№/項番 の表、2 段ヘッダー、横/縦の結合セル、表末尾の ※ 注記、シート間の数式を自動認識します。ショートカット：Ctrl+O ファイル追加、Ctrl+Enter 変換。',
 

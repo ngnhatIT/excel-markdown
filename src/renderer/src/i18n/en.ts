@@ -187,6 +187,11 @@ export const en: Dict = {
   'opts.range': 'Cell range (e.g. A1:F40)',
   'opts.rangePlaceholder': 'Whole sheet',
   'opts.chunk': 'Split tables every N rows (0 = off)',
+  'opts.project.title': 'Project config (x2m.json)',
+  'opts.project.locked': 'Options set in this file are locked so the whole team gets the same output.',
+  'opts.project.none': 'The file sets no convert options.',
+  'opts.project.open': 'Open x2m.json',
+  'project.applied': 'Applying rules from x2m.json',
   'opts.note':
     'Auto-detects 基本設計 banners, 機能ID/画面ID/テーブルID metadata, sections, No/№/項番 tables, 2-level headers, horizontal/vertical merges, ※ notes under tables and cross-sheet formulas. Shortcuts: Ctrl+O add files, Ctrl+Enter convert.',
 

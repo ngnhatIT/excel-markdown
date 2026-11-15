@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { diffSpecMarkdown, type SpecDiff } from '../../../../shared/specDiff'
 import { errMsg } from '../../lib/api'
+import type { FoundProjectConfig } from '../../../../shared/projectConfig'
 
 export type Side = 'old' | 'new'
 
@@ -65,6 +66,23 @@ export function useCompare() {
     [slots.old.path, setPath]
   )
 
+  // x2m.json áp dụng cho bản mới (cột khóa của dự án); tìm lại mỗi lần bản mới được đọc (kể cả ⟳)
+  const [projectCfg, setProjectCfg] = useState<FoundProjectConfig | null>(null)
+  const newPath = slots.new.path
+  useEffect(() => {
+    let live = true
+    if (!newPath || slots.new.text === null) setProjectCfg(null)
+    else
+      window.api.configFind(newPath).then(
+        (c) => live && setProjectCfg(c),
+        () => live && setProjectCfg(null)
+      )
+    return () => {
+      live = false
+    }
+  }, [newPath, slots.new.text])
+  const keyColumns = projectCfg?.config.rules.diffKeyColumns
+
   // Diff chạy sau một nhịp render để kịp hiện trạng thái "đang so sánh" với file lớn
   const [diff, setDiff] = useState<SpecDiff | null>(null)
   const [diffing, setDiffing] = useState(false)
@@ -77,16 +95,16 @@ export function useCompare() {
     }
     setDiffing(true)
     const t = window.setTimeout(() => {
-      setDiff(diffSpecMarkdown(oldText, newText))
+      setDiff(diffSpecMarkdown(oldText, newText, keyColumns ? { diffKeyColumns: keyColumns } : undefined))
       setDiffing(false)
     }, 16)
     return () => window.clearTimeout(t)
-  }, [oldText, newText])
+  }, [oldText, newText, keyColumns])
 
   const busy = slots.old.loading || slots.new.loading || diffing
   return useMemo(
-    () => ({ slots, diff, busy, setPath, clear, swap, reload, addPaths }),
-    [slots, diff, busy, setPath, clear, swap, reload, addPaths]
+    () => ({ slots, diff, busy, setPath, clear, swap, reload, addPaths, projectCfg }),
+    [slots, diff, busy, setPath, clear, swap, reload, addPaths, projectCfg]
   )
 }
 

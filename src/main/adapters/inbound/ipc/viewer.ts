@@ -11,6 +11,7 @@ import { buildSpecIndex, type SpecIndex } from '../../../../shared/specIndex'
 import { findGlossaryRel, parseGlossary } from '../../../../shared/glossary'
 import { setProjectGlossary } from '../../../domain/rag/glossary'
 import { logError } from '../../outbound/store'
+import { findProjectConfig } from '../../outbound/projectConfigFile'
 
 /** Chỉ mục 影響調査 lớn hơn (ký tự JSON) thì không gửi sang renderer. */
 const SPEC_PAYLOAD_MAX = 16 * 1024 * 1024
@@ -81,7 +82,10 @@ export function registerViewerIpc(): void {
     if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'E_SEARCH_NOT_OPENED' }
     try {
       const { files, mtimes } = await listMarkdownFiles(root)
-      const key = JSON.stringify(files.map((f) => [f, mtimes[f]]))
+      const found = await findProjectConfig(root)
+      const project = found ? { path: found.path, warnings: found.warnings, rules: found.config.rules } : undefined
+      // Sửa x2m.json thì khóa đổi theo: tính lại chỉ mục với luật mới
+      const key = JSON.stringify([files.map((f) => [f, mtimes[f]]), project ?? null])
       const hit = specCache.get(root)
       if (hit?.key === key) {
         setProjectGlossary(hit.index.glossary?.entries ?? [])
@@ -89,7 +93,7 @@ export function registerViewerIpc(): void {
       }
       const docs = await readMarkdownFolder(root, files, () => gen !== specGen)
       if (!docs) return { ok: false, error: 'E_SPECMAP_STALE' }
-      const index = buildSpecIndex(docs)
+      const index = buildSpecIndex(docs, project)
       setProjectGlossary(index.glossary?.entries ?? [])
       // Chặn payload IPC quá lớn (thư mục khổng lồ): báo lỗi thay vì treo renderer
       if (JSON.stringify(index).length > SPEC_PAYLOAD_MAX) return { ok: false, error: 'E_SPECMAP_TOO_BIG' }

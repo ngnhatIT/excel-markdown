@@ -1,4 +1,5 @@
 import type { ConvertOptions, OutputMode, VerticalMergeMode } from '../../../../shared/types'
+import type { FoundProjectConfig } from '../../../../shared/projectConfig'
 import { cn } from '../../lib/utils'
 import { SidePanel } from '../../components/SidePanel'
 import { btnGhost, btnSm, cx, input } from '../../lib/ui'
@@ -7,13 +8,13 @@ import { useT } from '../../i18n'
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const segGroup = 'grid grid-cols-3 gap-1 rounded-xl border border-line-subtle bg-canvas p-[3px]'
 const segBtn = cx(
-  'cursor-pointer rounded-lg px-1 py-1.5 text-center text-[11.5px] font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200',
+  'cursor-pointer rounded-lg px-1 py-1.5 text-center text-[11.5px] font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50',
   focusRing
 )
 const segState = (on: boolean): string => (on ? 'active seg-on' : 'text-dim hover:bg-hover hover:text-ink')
 const optRow = 'flex cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] [&_.dim]:mt-px [&_.dim]:block [&_.dim]:text-[11px] [&_.dim]:text-dim'
 const optGroup = 'glass-chip flex flex-col gap-2 rounded-xl p-3'
-const chk = 'chk size-3.5 shrink-0 cursor-pointer accent-accent'
+const chk = 'chk size-3.5 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed disabled:opacity-50'
 const fieldCls = 'flex flex-col gap-1 mt-1 text-xs text-dim'
 
 interface Props {
@@ -26,6 +27,9 @@ interface Props {
   collapsed: boolean
   onToggleCollapsed: () => void
   width?: number
+  /** x2m.json áp dụng cho thư mục xuất: tùy chọn có trong file bị khóa theo file */
+  projectConfig?: FoundProjectConfig | null
+  onOpenProjectConfig?: (path: string) => void
 }
 
 /** Cột phải: chế độ xuất file, preset nhanh và tùy chọn convert. */
@@ -39,8 +43,12 @@ export function OptionsPanel({
   collapsed,
   onToggleCollapsed,
   width,
+  projectConfig,
+  onOpenProjectConfig,
 }: Props): React.ReactElement {
   const t = useT()
+  const locked = new Set(Object.keys(projectConfig?.config.convert ?? {}))
+  const lock = (k: keyof ConvertOptions): boolean => locked.has(k)
   const vMerge: VerticalMergeMode = options.verticalMerge ?? 'repeat'
   const alignTables = options.alignTables === true
 
@@ -76,11 +84,37 @@ export function OptionsPanel({
       }
     >
       <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-3">
+        {projectConfig && (
+          <div className={`x2m-project-config ${optGroup} text-[11.5px] leading-[1.5]`} role="note">
+            <div className="font-semibold text-ink">{t('opts.project.title')}</div>
+            <div className="text-dim">{t(locked.size > 0 ? 'opts.project.locked' : 'opts.project.none')}</div>
+            <div className="truncate text-faint" title={projectConfig.path}>
+              {projectConfig.path}
+            </div>
+            {projectConfig.warnings.length > 0 && (
+              <ul className="list-disc pl-4 text-warning">
+                {projectConfig.warnings.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+            )}
+            {onOpenProjectConfig && (
+              <button
+                type="button"
+                className={cx('btn btn-sm btn-ghost self-start', btnGhost, btnSm)}
+                onClick={() => onOpenProjectConfig(projectConfig.path)}
+              >
+                {t('opts.project.open')}
+              </button>
+            )}
+          </div>
+        )}
         <div className={`x2m-opt-group ${optGroup}`}>
           <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.preset')}</div>
           <div className={`x2m-presets ${segGroup}`} role="group" aria-label={t('opts.presetAria')}>
             <button
               type="button"
+              disabled={locked.size > 0}
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'spec'), activePreset === 'spec' && 'active')}
               onClick={() =>
                 applyPreset({
@@ -97,6 +131,7 @@ export function OptionsPanel({
             </button>
             <button
               type="button"
+              disabled={locked.size > 0}
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'grid'), activePreset === 'grid' && 'active')}
               onClick={() =>
                 applyPreset({
@@ -113,6 +148,7 @@ export function OptionsPanel({
             </button>
             <button
               type="button"
+              disabled={locked.size > 0}
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'rag'), activePreset === 'rag' && 'active')}
               onClick={() =>
                 applyPreset({
@@ -164,6 +200,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('skipDelSheets')}
               checked={options.skipDelSheets}
               onChange={(e) => onSetOption('skipDelSheets', e.target.checked)}
             />
@@ -173,6 +210,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('skipEmptySheets')}
               checked={options.skipEmptySheets}
               onChange={(e) => onSetOption('skipEmptySheets', e.target.checked)}
             />
@@ -182,6 +220,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('includeSheetTitle')}
               checked={options.includeSheetTitle}
               onChange={(e) => onSetOption('includeSheetTitle', e.target.checked)}
             />
@@ -191,6 +230,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('detectTwoColTables')}
               checked={options.detectTwoColTables}
               onChange={(e) => onSetOption('detectTwoColTables', e.target.checked)}
             />
@@ -203,6 +243,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('alignTables')}
               checked={alignTables}
               onChange={(e) => onSetOption('alignTables', e.target.checked)}
             />
@@ -215,6 +256,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('escapeMarkdown')}
               checked={options.escapeMarkdown}
               onChange={(e) => onSetOption('escapeMarkdown', e.target.checked)}
             />
@@ -230,6 +272,7 @@ export function OptionsPanel({
           <div className={`x2m-seg-group ${segGroup}`} role="radiogroup" aria-label={t('opts.vmergeAria')}>
             <button
               type="button"
+              disabled={lock('verticalMerge')}
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'repeat'), vMerge === 'repeat' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'repeat')}
               title={t('opts.vmerge.repeatTitle')}
@@ -238,6 +281,7 @@ export function OptionsPanel({
             </button>
             <button
               type="button"
+              disabled={lock('verticalMerge')}
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'empty'), vMerge === 'empty' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'empty')}
               title={t('opts.vmerge.emptyTitle')}
@@ -246,6 +290,7 @@ export function OptionsPanel({
             </button>
             <button
               type="button"
+              disabled={lock('verticalMerge')}
               className={cn('x2m-seg-btn', segBtn, segState(vMerge === 'ditto'), vMerge === 'ditto' && 'active')}
               onClick={() => onSetOption('verticalMerge', 'ditto')}
               title={t('opts.vmerge.dittoTitle')}
@@ -261,6 +306,7 @@ export function OptionsPanel({
             <input
               type="radio"
               className={cx('chk', chk)}
+              disabled={lock('multiline')}
               checked={options.multiline === 'br'}
               onChange={() => onSetOption('multiline', 'br')}
             />
@@ -270,6 +316,7 @@ export function OptionsPanel({
             <input
               type="radio"
               className={cx('chk', chk)}
+              disabled={lock('multiline')}
               checked={options.multiline === 'space'}
               onChange={() => onSetOption('multiline', 'space')}
             />
@@ -283,6 +330,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('showFormulas')}
               checked={options.showFormulas}
               onChange={(e) => onSetOption('showFormulas', e.target.checked)}
             />
@@ -295,6 +343,7 @@ export function OptionsPanel({
             <input
               type="checkbox"
               className={cx('chk', chk)}
+              disabled={lock('frontMatter')}
               checked={options.frontMatter}
               onChange={(e) => onSetOption('frontMatter', e.target.checked)}
             />
@@ -319,6 +368,7 @@ export function OptionsPanel({
               type="number"
               className={cx('input', input, '!bg-canvas !text-[12.5px]')}
               min={0}
+              disabled={lock('chunkRows')}
               value={options.chunkRows}
               onChange={(e) => onSetOption('chunkRows', Math.max(0, Math.floor(Number(e.target.value)) || 0))}
             />

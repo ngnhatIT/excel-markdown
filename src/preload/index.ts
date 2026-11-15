@@ -16,6 +16,7 @@ import type {
   OutputMode,
 } from '../shared/types'
 import type { SpecIndex } from '../shared/specIndex'
+import type { FoundProjectConfig } from '../shared/projectConfig'
 
 interface SheetListItem {
   name: string
@@ -111,6 +112,11 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('mdv:read', path) as Promise<ApiResult<string>>),
   searchMarkdownFolder: (root: string, query: string): Promise<MdSearchResult> =>
     unwrap(ipcRenderer.invoke('mdv:search', root, query) as Promise<ApiResult<MdSearchResult>>),
+  /** x2m.json áp dụng cho thư mục / file (tìm lên thư mục cha, dừng ở gốc repo); null nếu không có. */
+  configFind: (target: string): Promise<FoundProjectConfig | null> =>
+    unwrap(ipcRenderer.invoke('config:find', target) as Promise<ApiResult<FoundProjectConfig | null>>),
+  configOpen: (path: string): Promise<void> =>
+    unwrap(ipcRenderer.invoke('config:open', path) as Promise<ApiResult<null>>).then(() => undefined),
   /** Bản đồ thiết kế + 影響調査 của thư mục đã mở. */
   specIndex: (root: string): Promise<SpecIndex> => unwrap(ipcRenderer.invoke('mdv:specIndex', root) as Promise<ApiResult<SpecIndex>>),
 
