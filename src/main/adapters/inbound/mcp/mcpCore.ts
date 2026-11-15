@@ -9,8 +9,8 @@ import { buildRagContext } from '../../../domain/rag/retriever'
 import { listMarkdownFiles, readMarkdownFile } from '../../outbound/mdFolder'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
-import { buildExcel, collectTableDefs, formatImpact, formatIssues, loadSpecIndex, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
-import { crudMatrix, crudText, impactOf } from '../../../../shared/specIndex'
+import { buildExcel, collectTableDefs, CONFIG_PREFIX, configNote, formatImpact, formatIssues, loadSpecIndex, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
+import { crudMatrix, crudText, impactOf, type SpecIndex } from '../../../../shared/specIndex'
 import { atxHeading, fenceAfter } from '../../../../shared/mdLines'
 import { SQL_DIALECTS, type SqlDialect } from '../../../../shared/tableDef'
 import { friendlyError } from '../../../domain/errors'
@@ -239,6 +239,12 @@ export function markdownOutline(text: string): string[] {
   return out
 }
 
+/** Dòng đầu kết quả khi thư mục có x2m.json (client MCP không hiện stderr). */
+const configHead = (index: SpecIndex): string => {
+  const lines = configNote(index.project)
+  return lines.length > 0 ? lines.join('\n') + '\n\n' : ''
+}
+
 async function callTool(name: string, a: Args): Promise<string> {
   switch (name) {
     case 'convert_excel': {
@@ -259,18 +265,21 @@ async function callTool(name: string, a: Args): Promise<string> {
       // (mỗi workbook chỉ đọc một lần, kiểm trùng ngay trước khi ghi)
       if (a.overwrite !== true) argv.push('--no-clobber')
       const logs: string[] = []
-      await runCli(argv, (s) => logs.push(s))
+      await runCli(argv, (s) => logs.push(s), (s) => logs.push(s))
       const failed = logs.filter((s) => s.startsWith('LỖI '))
       const skipped = logs.filter((s) => s.startsWith('BỎ QUA '))
-      const written = logs.filter((s) => !s.startsWith('LỖI ') && !s.startsWith('BỎ QUA '))
+      const config = logs.filter((s) => s.startsWith(CONFIG_PREFIX))
+      const written = logs.filter((s) => !s.startsWith('LỖI ') && !s.startsWith('BỎ QUA ') && !s.startsWith(CONFIG_PREFIX))
+      // Client MCP không hiện stderr: báo x2m.json đang áp dụng ngay trong kết quả
+      const cfgPart = config.length > 0 ? '\n\nCấu hình dự án (x2m.json) đã áp dụng:\n' + config.join('\n') : ''
       const skipPart =
         skipped.length > 0
           ? `\n\n${skipped.length} workbook bỏ qua vì file đích đã có (gọi lại với overwrite: true để ghi đè, hoặc chọn out_dir khác):\n` + skipped.join('\n')
           : ''
       const errPart = failed.length > 0 ? `\n\n${failed.length} file Excel lỗi:\n` + failed.join('\n') : ''
       // isError chỉ khi không ghi được file nào
-      if (written.length === 0) throw new Error(`Chưa ghi file nào vào ${a.out_dir}.` + skipPart + errPart)
-      return `Đã ghi ${written.length} file vào ${a.out_dir}:\n` + written.join('\n') + skipPart + errPart
+      if (written.length === 0) throw new Error(`Chưa ghi file nào vào ${a.out_dir}.` + skipPart + errPart + cfgPart)
+      return `Đã ghi ${written.length} file vào ${a.out_dir}:\n` + written.join('\n') + skipPart + errPart + cfgPart
     }
     case 'list_docs': {
       const { files, truncated } = await listMarkdownFiles(absDir(a, 'root'))
@@ -345,7 +354,7 @@ async function callTool(name: string, a: Args): Promise<string> {
       // loadSpecIndex kiểm thư mục tồn tại (không đọc file bất kỳ)
       const index = await loadSpecIndex(root)
       const issues = formatIssues(index.issues)
-      const text = formatImpact(query, impactOf(index, query)) + (issues.length > 0 ? `\n整合性チェック (${issues.length}):\n` + issues.join('\n') + '\n' : '')
+      const text = configHead(index) + formatImpact(query, impactOf(index, query)) + (issues.length > 0 ? `\n整合性チェック (${issues.length}):\n` + issues.join('\n') + '\n' : '')
       if (text.length <= PREVIEW_MAX_CHARS) return text
       return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`impact\` để lấy đủ.)`
     }
@@ -356,7 +365,7 @@ async function callTool(name: string, a: Args): Promise<string> {
       const evidence = m.screens.flatMap((s) =>
         Object.entries(m.cells[s.id] ?? {}).flatMap(([t, c]) => [`${s.id} × ${t}: ${c.ops}`, ...c.evidence.map((e) => `  ${e.rel}:${e.line} [${e.ops}] ${e.snippet}`)])
       )
-      const text = crudText(m, 'md') + (evidence.length > 0 ? '\nBằng chứng:\n' + evidence.join('\n') + '\n' : '')
+      const text = configHead(index) + crudText(m, 'md') + (evidence.length > 0 ? '\nBằng chứng:\n' + evidence.join('\n') + '\n' : '')
       if (text.length <= PREVIEW_MAX_CHARS) return text
       return text.slice(0, PREVIEW_MAX_CHARS) + `\n\n(…đã cắt: ${text.length} ký tự, chỉ hiện ${PREVIEW_MAX_CHARS}. Dùng CLI \`crud\` để lấy đủ.)`
     }

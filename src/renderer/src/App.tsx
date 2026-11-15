@@ -9,6 +9,7 @@ import {
   type OutputMode,
 } from '../../shared/types'
 import { hrefHash, imageUrl, resolveRelative } from '../../shared/mdView'
+import type { FoundProjectConfig } from '../../shared/projectConfig'
 import { errMsg } from './lib/api'
 import { baseName, copyText, toast } from './lib/utils'
 import { iconBtn } from './lib/ui'
@@ -72,6 +73,21 @@ export default function App(): React.ReactElement {
   const [options, setOptions] = useState<ConvertOptions>(DEFAULT_OPTIONS)
   const [outputMode, setOutputMode] = useState<OutputMode>('per-sheet')
   const [outDir, setOutDir] = useState<string>('')
+  /** x2m.json của thư mục xuất: tùy chọn trong file đè lên tùy chọn của người dùng (không ghi vào store) */
+  const [projectCfg, setProjectCfg] = useState<FoundProjectConfig | null>(null)
+  useEffect(() => {
+    let live = true
+    if (!outDir) setProjectCfg(null)
+    else
+      window.api.configFind(outDir).then(
+        (c) => live && setProjectCfg(c),
+        () => live && setProjectCfg(null)
+      )
+    return () => {
+      live = false
+    }
+  }, [outDir])
+  const effectiveOptions = useMemo(() => (projectCfg ? { ...options, ...projectCfg.config.convert } : options), [options, projectCfg])
   const [recentDirs, setRecentDirs] = useState<string[]>([])
   const [theme, setTheme] = useState<'dark' | 'light'>(systemTheme)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -110,7 +126,7 @@ export default function App(): React.ReactElement {
     toggleSheet,
     reloadSheets,
     relistAll,
-  } = useFiles(options.skipDelSheets, persist)
+  } = useFiles(effectiveOptions.skipDelSheets, persist)
 
   const {
     files: mdFiles,
@@ -395,7 +411,23 @@ export default function App(): React.ReactElement {
     [selFile, selSheet, selectSheet]
   )
 
-  const preview = usePreview(selFile, selSheet, options)
+  const preview = usePreview(selFile, selSheet, effectiveOptions)
+
+  // skipDelSheets đổi (người dùng chỉnh, preset, đặt lại, hoặc x2m.json của thư mục xuất): nạp lại danh sách sheet
+  const lastSkipDel = useRef(effectiveOptions.skipDelSheets)
+  useEffect(() => {
+    if (lastSkipDel.current === effectiveOptions.skipDelSheets) return
+    lastSkipDel.current = effectiveOptions.skipDelSheets
+    void relistAll(effectiveOptions.skipDelSheets)
+  }, [effectiveOptions.skipDelSheets, relistAll])
+
+  const openProjectConfig = useCallback(async (path: string) => {
+    try {
+      await window.api.configOpen(path)
+    } catch (err) {
+      toast(errMsg(err), 'err')
+    }
+  }, [])
 
   /* ------------------------------- options --------------------------------- */
   const setOption = useCallback(
@@ -405,10 +437,9 @@ export default function App(): React.ReactElement {
         persist('options', next)
         return next
       })
-      // đổi skipDelSheets thì nạp lại danh sách sheet
-      if (key === 'skipDelSheets') void relistAll(value as boolean)
+      // đổi skipDelSheets: effect theo effectiveOptions.skipDelSheets nạp lại danh sách sheet
     },
-    [relistAll, persist]
+    [persist]
   )
 
   const applyPreset = useCallback(
@@ -418,9 +449,8 @@ export default function App(): React.ReactElement {
         persist('options', next)
         return next
       })
-      if (patch.skipDelSheets !== undefined) void relistAll(patch.skipDelSheets)
     },
-    [relistAll, persist]
+    [persist]
   )
 
   const setMode = useCallback(
@@ -513,6 +543,7 @@ export default function App(): React.ReactElement {
 
   const { progress, setProgress, doConvert, cancelConvert } = useExcelConvert({
     files,
+    // Tùy chọn của người dùng: useExcelConvert tự đọc lại x2m.json của thư mục xuất ngay lúc convert
     options,
     outputMode,
     ensureOutDir,
@@ -1026,7 +1057,9 @@ export default function App(): React.ReactElement {
             )}
 
             <OptionsPanel
-              options={options}
+              options={effectiveOptions}
+              projectConfig={projectCfg}
+              onOpenProjectConfig={openProjectConfig}
               outputMode={outputMode}
               onSetOption={setOption}
               onApplyPreset={applyPreset}

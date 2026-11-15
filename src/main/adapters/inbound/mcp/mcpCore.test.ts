@@ -258,3 +258,24 @@ describe('MCP impact', () => {
     }
   })
 })
+
+describe('MCP: x2m.json', () => {
+  const repo = join(tmp, 'cfg-repo')
+  mkdirSync(join(repo, '.git'), { recursive: true })
+  mkdirSync(join(repo, 'docs'), { recursive: true })
+  writeFileSync(join(repo, 'x2m.json'), JSON.stringify({ convert: { frontMatter: true }, rules: { screenIdLabels: ['画面コード'] } }))
+  writeFileSync(join(repo, 'docs', 'a.md'), '## 画面\n- **画面コード**: S01\n\nTBL_A を参照\n')
+
+  it('convert_excel: dòng cấu hình không tính là file đã ghi, có trong kết quả', async () => {
+    const out = join(repo, 'out')
+    const text = (await call('convert_excel', { files: [fixture], out_dir: out })).result.content[0].text
+    expect(text).toContain('Cấu hình dự án (x2m.json) đã áp dụng:\nCẤU HÌNH ' + join(repo, 'x2m.json'))
+    const n = Number(/Đã ghi (\d+) file/.exec(text)?.[1])
+    expect(n).toBe(readdirSync(out).filter((f) => f.endsWith('.md')).length)
+  })
+
+  it('crud: báo x2m.json ở đầu kết quả và dùng nhãn 画面ID của dự án', async () => {
+    const text = (await call('crud', { root: join(repo, 'docs') })).result.content[0].text
+    expect(text.startsWith('CẤU HÌNH ' + join(repo, 'x2m.json') + '\n\n')).toBe(true)
+  })
+})

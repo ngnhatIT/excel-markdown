@@ -688,8 +688,21 @@ try {
   await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
   await waitFor(`!!document.querySelector('.x2m-footer')`, 2000)
 
+  // x2m.json cạnh thư mục xuất (gốc repo giả bằng .git): tùy chọn trong file bị khóa, có khung báo cấu hình dự án.
+  // Reload xóa window.__csp nên giữ lại vi phạm đã thu trước đó.
+  const cspBeforeCfg = await ev('window.__csp.slice()')
+  mkdirSync(join(tmp, '.git'), { recursive: true })
+  writeFileSync(join(tmp, 'x2m.json'), JSON.stringify({ convert: { frontMatter: true } }))
+  await send('Page.reload')
+  await waitFor(`!!document.querySelector('.x2m-app')`)
+  check('x2m.json: khung "Cấu hình dự án" hiện ở cột tùy chọn',
+    (await waitFor(`(document.querySelector('.x2m-project-config')?.textContent ?? '').includes('x2m.json')`, 5000)) >= 0)
+  const lockedInputs = await ev(`[...document.querySelectorAll('.x2m-opts input:disabled')].map(i => i.checked)`)
+  check('x2m.json: đúng một tùy chọn bị khóa (front-matter, đang bật), preset bị vô hiệu',
+    JSON.stringify(lockedInputs) === '[true]' && (await ev(`[...document.querySelectorAll('.x2m-preset-btn')].every(b => b.disabled)`)), lockedInputs)
+
   // Cuối cùng: không vi phạm CSP, không exception
-  const csp = await ev('window.__csp.slice()')
+  const csp = [...cspBeforeCfg, ...(await ev('window.__csp.slice()'))]
   check('không vi phạm CSP', Array.isArray(csp) && csp.length === 0, csp)
   // Đối chứng: CSP thật sự chặn tải mạng và bộ thu bắt được vi phạm
   await ev(`(() => { const i = new Image(); i.src = 'https://example.com/x.png'; return 1 })()`)

@@ -1,11 +1,13 @@
 /* IPC chung: store cài đặt, hộp thoại chọn file/thư mục, lưu HTML/Markdown, mở thư mục, phiên bản app, log lỗi của renderer. */
 import { app, dialog, ipcMain, shell } from 'electron'
-import { writeFile } from 'node:fs/promises'
+import { stat, writeFile } from 'node:fs/promises'
+import { dirname, isAbsolute } from 'node:path'
 import { errorCode, errText } from '../../../domain/errors'
 import { safeFileName } from '../../../domain/excel/output'
 import { isOpenableDirectory } from '../../../domain/guards'
 import { isSecretStoreKey } from '../../outbound/llm/aiConfig'
 import { logError, readStore, updateStore } from '../../outbound/store'
+import { findProjectConfig } from '../../outbound/projectConfigFile'
 import { mt, setMainLang } from '../../../i18nMain'
 
 /** Giá trị lưu vào store tối đa (ký tự JSON): renderer bị chiếm quyền không làm phình store.json. */
@@ -160,6 +162,24 @@ export function registerSystemIpc(onLangChange: () => void): void {
     } catch (err) {
       return { ok: false, error: errText(err) }
     }
+  })
+
+  /** x2m.json áp dụng cho một thư mục (thư mục xuất) hoặc file (bản mới khi so sánh); null nếu không có.
+   * Chỉ đọc đúng file x2m.json nên không mở rộng quyền đọc của renderer. */
+  const foundConfigs = new Set<string>()
+  ipcMain.handle('config:find', async (_e, target: unknown) => {
+    if (typeof target !== 'string' || target === '' || !isAbsolute(target)) return { ok: true, data: null }
+    const isFile = await stat(target).then((s) => s.isFile(), () => false)
+    const found = await findProjectConfig(isFile ? dirname(target) : target)
+    if (found) foundConfigs.add(found.path)
+    return { ok: true, data: found }
+  })
+
+  /** Mở x2m.json bằng app mặc định: chỉ đường dẫn mà config:find đã trả (không mở được file bất kỳ). */
+  ipcMain.handle('config:open', async (_e, path: unknown) => {
+    if (typeof path !== 'string' || !foundConfigs.has(path)) return { ok: false, error: 'E_BAD_REQUEST' }
+    const errMsg = await shell.openPath(path)
+    return errMsg ? { ok: false, error: errMsg } : { ok: true, data: null }
   })
 
   ipcMain.handle('app:getVersion', () => ({ ok: true, data: app.getVersion() }))

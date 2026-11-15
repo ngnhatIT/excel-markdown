@@ -292,3 +292,52 @@ describe('impact / lint (Bản đồ thiết kế + 影響調査)', () => {
     expect(r.err).toContain('Không phải thư mục')
   })
 })
+
+describe('x2m.json (cấu hình dự án)', () => {
+  // `.git` chặn việc tìm lên trên: x2m.json ngoài thư mục tạm không ảnh hưởng test
+  const repo = join(tmp, 'cfg-repo')
+  mkdirSync(join(repo, '.git'), { recursive: true })
+  writeFileSync(join(repo, 'x2m.json'), JSON.stringify({ convert: { frontMatter: true }, rules: { screenIdLabels: ['画面コード'] }, typo: 1 }))
+  const firstMd = (dir: string): string => readFileSync(join(dir, readdirSync(dir).find((f) => f.endsWith('.md')) as string), 'utf8')
+
+  it('parseArgs: cờ áp lên trên tùy chọn xuất phát; --no-config', () => {
+    const base = { ...parseArgs(['a.xlsx', '-o', 'o']).options, frontMatter: true }
+    expect(parseArgs(['a.xlsx', '-o', 'o'], base).options.frontMatter).toBe(true)
+    expect(parseArgs(['a.xlsx', '-o', 'o', '--no-escape'], base).options.escapeMarkdown).toBe(false)
+    expect(parseArgs(['a.xlsx', '-o', 'o', '--no-config']).noConfig).toBe(true)
+  })
+
+  it('convert dùng tùy chọn của x2m.json tìm từ thư mục -o; dòng CẤU HÌNH + cảnh báo đi riêng (stderr), không lẫn danh sách file', async () => {
+    const out = join(repo, 'out')
+    const logs: string[] = []
+    const notes: string[] = []
+    expect(await runCli([fixture, '-o', out], (s) => logs.push(s), (s) => notes.push(s))).toBe(0)
+    expect(firstMd(out).startsWith('---\n')).toBe(true)
+    expect(notes[0]).toBe('CẤU HÌNH ' + join(repo, 'x2m.json'))
+    expect(notes.some((s) => s.startsWith('CẤU HÌNH ⚠ typo'))).toBe(true)
+    expect(logs.some((s) => s.startsWith('CẤU HÌNH'))).toBe(false)
+  })
+
+  it('--no-config: bỏ qua x2m.json', async () => {
+    const out = join(repo, 'out-nc')
+    const notes: string[] = []
+    expect(await runCli([fixture, '-o', out, '--no-config'], () => {}, (s) => notes.push(s))).toBe(0)
+    expect(firstMd(out).startsWith('---\n')).toBe(false)
+    expect(notes).toEqual([])
+  })
+
+  it('lint dùng nhãn 画面ID của dự án', async () => {
+    const docs = join(repo, 'docs')
+    mkdirSync(docs, { recursive: true })
+    writeFileSync(join(docs, 'a.md'), '## 画面\n- **画面コード**: S01\n')
+    const logs: string[] = []
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+    try {
+      expect(await runCli(['lint', docs], (s) => logs.push(s))).toBe(0)
+      expect(err.mock.calls.map((c) => String(c[0]))).toContain('CẤU HÌNH ' + join(repo, 'x2m.json') + '\n')
+    } finally {
+      err.mockRestore()
+    }
+    expect(logs.at(-1)).toContain('1 màn hình')
+  })
+})

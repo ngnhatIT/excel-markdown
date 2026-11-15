@@ -136,7 +136,7 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
 
 export function ComparePane({ state, dragOver }: { state: CompareState; dragOver: boolean }): React.ReactElement {
   const t = useT()
-  const { slots, diff, busy } = state
+  const { slots, diff, busy, projectCfg } = state
   const [onlyChanges, setOnlyChanges] = useState(true)
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   const [cursor, setCursor] = useState(-1)
@@ -266,6 +266,12 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
           {slot('old')}
           {slot('new')}
         </div>
+        {projectCfg && (
+          <p className="m-0 border-b border-line-subtle px-3 py-1 text-[11.5px] text-dim" title={projectCfg.path}>
+          {t('project.applied')}: <span className="text-faint">{projectCfg.path}</span>
+          {projectCfg.warnings.length > 0 && <span className="block text-warning">{projectCfg.warnings.join(' · ')}</span>}
+        </p>
+        )}
         {diff && diff.sections.length > 0 && (
           <nav className="x2m-compare-sections flex min-h-0 flex-1 flex-col border-t border-line-subtle" aria-label={t('compare.sections')}>
             <div className="px-3 pt-2.5 pb-1 text-[11.5px] font-semibold text-dim">{t('compare.sections')}</div>

@@ -4,6 +4,7 @@
  * Dùng chung main (IPC, CLI, MCP) + renderer. Dữ liệu không tin cậy: mọi thứ đều có giới hạn. */
 import { findGlossaryRel, parseGlossary, type GlossaryEntry } from './glossary'
 import { atxHeading, fenceAfter, tsvCell } from './mdLines'
+import { normRule, type ProjectRules } from './projectConfig'
 import { splitTableRow } from './specDiff'
 import { parseTableDefs, toErMermaid, type TableColumn, type TableDef } from './tableDef'
 
@@ -95,6 +96,15 @@ export interface SpecIndex {
   /** 用語集 của dự án (`用語集.md` / `glossary.md` ở gốc hoặc sâu tối đa 2 cấp), null nếu không có */
   glossary: { rel: string; entries: GlossaryEntry[] } | null
   truncated: { docs: boolean; refs: boolean }
+  /** Cấu hình dự án x2m.json đã áp dụng (không có file thì không có khóa này) */
+  project?: SpecProject
+}
+
+/** x2m.json đã tìm thấy: đường dẫn, cảnh báo khi đọc, luật cộng thêm. */
+export interface SpecProject {
+  path: string
+  warnings: string[]
+  rules: ProjectRules
 }
 
 /* -------------------------------- Tiện ích -------------------------------- */
@@ -179,8 +189,12 @@ interface RawEdge extends SpecLoc {
 }
 
 /** Chỉ mục của cả thư mục. Không ném với Markdown bất kỳ. */
-export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
+export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecIndex {
   const docs = input.slice(0, SPEC_MAX_DOCS)
+  const rules = project?.rules
+  const screenIdLabels = new Set([...SCREEN_ID_LABELS, ...(rules?.screenIdLabels ?? []).map(normLabel)])
+  const transitionLabels = new Set([...TRANSITION_LABELS, ...(rules?.transitionLabels ?? []).map(normLabel)])
+  const extraAmbiguous = rules?.ambiguousWords ?? []
   const screens: SpecScreen[] = []
   const tables: TableDef[] = []
   const raw: RawEdge[] = []
@@ -237,7 +251,7 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
       const label = normLabel(m[1])
       const value = m[2].trim()
       if (!value) return
-      if (SCREEN_ID_LABELS.has(label)) {
+      if (screenIdLabels.has(label)) {
         current = { ...loc(i), id: value.normalize('NFKC'), name: pendingName, end: section.lastIndexOf(section[i]) + 1 }
         screens.push(current)
         if (!screenSec.has(up(current.id))) screenSec.set(up(current.id), `${doc.rel}#${section[i]}`)
@@ -245,7 +259,7 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
       } else if (SCREEN_NAME_LABELS.has(label)) {
         if (current && !current.name) current.name = value
         else pendingName = value
-      } else if (TRANSITION_LABELS.has(label)) {
+      } else if (transitionLabels.has(label)) {
         const cur = current as SpecScreen | null
         pushChain(value, i, cur ? cur.id : '')
       }
@@ -439,10 +453,11 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
     if (!info || !specRels.has(doc.rel)) continue
     for (let i = 0; i < info.lines.length && ambiguous < MAX_AMBIGUOUS; i++) {
       if (info.lines[i].length > MAX_LINE) continue
-      const m = AMBIGUOUS_RE.exec(plain(info.lines[i]))
-      if (!m) continue
+      const text = plain(info.lines[i])
+      const subject = AMBIGUOUS_RE.exec(text)?.[0] ?? (extraAmbiguous.length > 0 ? extraAmbiguous.find((w) => normRule(text).includes(w)) : undefined)
+      if (!subject) continue
       ambiguous++
-      issues.push({ rel: doc.rel, line: i + 1, heading: info.heading[i], severity: 'warning', code: 'ambiguous-term', subject: m[0] })
+      issues.push({ rel: doc.rel, line: i + 1, heading: info.heading[i], severity: 'warning', code: 'ambiguous-term', subject })
     }
   }
 
@@ -458,6 +473,7 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
     refs,
     issues,
     glossary: gDoc ? { rel: gDoc.rel, entries: parseGlossary(gDoc.text) } : null,
+    ...(project ? { project } : {}),
     truncated: { docs: input.length > docs.length, refs: refsTruncated },
   }
 }
@@ -617,10 +633,12 @@ const CRUD_VERBS: Record<CrudOp, RegExp> = {
 /** Tối đa bằng chứng giữ cho một ô */
 const CRUD_MAX_EVIDENCE = 50
 
-/** Thao tác CRUD mà `text` nói tới (thứ tự C R U D), [] nếu không có động từ nào. */
-export function crudOpsOf(text: string): CrudOp[] {
+/** Thao tác CRUD mà `text` nói tới (thứ tự C R U D), [] nếu không có động từ nào.
+ * `extra`: động từ dự án khai trong x2m.json (đã chuẩn hóa bằng normRule), khớp chuỗi con. */
+export function crudOpsOf(text: string, extra?: ProjectRules['crudVerbs']): CrudOp[] {
   const t = text.normalize('NFC')
-  return CRUD_ORDER.filter((op) => CRUD_VERBS[op].test(t))
+  const lower = extra ? normRule(text) : ''
+  return CRUD_ORDER.filter((op) => CRUD_VERBS[op].test(t) || (extra?.[op].some((w) => lower.includes(w)) ?? false))
 }
 
 export interface CrudEvidence extends SpecLoc {
@@ -648,6 +666,7 @@ export interface CrudMatrix {
  * một 画面ID được gán cho màn hình đó; thao tác lấy từ động từ trong dòng, không có thì từ heading, không có nữa thì '?'.
  * Tên của chính tham chiếu (vd 論理名 `登録日`) không tính là động từ. */
 export function crudMatrix(index: SpecIndex): CrudMatrix {
+  const extra = index.project?.rules.crudVerbs
   const byRel = new Map<string, SpecScreen[]>()
   for (const s of index.screens) byRel.set(s.rel, [...(byRel.get(s.rel) ?? []), s])
   const screens = new Map<string, { id: string; name: string }>()
@@ -665,8 +684,8 @@ export function crudMatrix(index: SpecIndex): CrudMatrix {
     if (seen.has(k)) continue // bảng + cột của bảng trên cùng dòng: một bằng chứng
     seen.add(k)
     const own = r.snippet.split(r.term).join(' ')
-    const found = crudOpsOf(own)
-    const ops = found.length > 0 ? found : crudOpsOf(r.heading)
+    const found = crudOpsOf(own, extra)
+    const ops = found.length > 0 ? found : crudOpsOf(r.heading, extra)
     const row = (cells[id] ??= {})
     const cell = (row[table] ??= { ops: '', evidence: [] })
     if (cell.evidence.length < CRUD_MAX_EVIDENCE) cell.evidence.push({ rel: r.rel, line: r.line, heading: r.heading, ops: ops.join('') || '?', term: r.term, snippet: r.snippet })

@@ -4,6 +4,13 @@
 > `minor` (1.x.0) cho tính năng mới/tùy chọn mới; `major` (x.0.0) khi đổi format
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
+## Chưa phát hành
+Minor: tính năng mới. Không có `x2m.json` thì mọi kết quả giữ nguyên như 2.3.0.
+- Tính năng: **cấu hình dự án `x2m.json`** đặt trong thư mục tài liệu (đưa vào Git) để cả đội convert ra cùng kết quả và
+  dùng chung luật nhận diện. `convert`: tùy chọn Excel → Markdown (trong app bị khóa theo file, CLI / MCP làm mặc định).
+  `rules`: nhãn 画面ID / 画面遷移, chữ mơ hồ, động từ CRUD và cột khóa khi so sánh 新旧 của riêng dự án, cộng thêm vào
+  luật có sẵn. App, CLI, MCP báo file đang áp dụng và cảnh báo khi file sai. CLI thêm cờ `--no-config`.
+
 ## 2.3.0 — 2026-11-09
 Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /
 chữ gạch ngang, và link sang sheet khác (trước là link chết `#'Sheet'!A1`, nay trỏ đúng mục / file).

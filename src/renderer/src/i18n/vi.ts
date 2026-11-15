@@ -187,6 +187,11 @@ export const vi = {
   'opts.range': 'Vùng ô (vd A1:F40)',
   'opts.rangePlaceholder': 'Cả sheet',
   'opts.chunk': 'Tách bảng mỗi N dòng (0 = tắt)',
+  'opts.project.title': 'Cấu hình dự án (x2m.json)',
+  'opts.project.locked': 'Các tùy chọn có trong file bị khóa để cả đội convert ra cùng kết quả.',
+  'opts.project.none': 'File không đặt tùy chọn convert nào.',
+  'opts.project.open': 'Mở x2m.json',
+  'project.applied': 'Đang áp dụng luật của x2m.json',
   'opts.note':
     'App tự nhận diện banner 基本設計, meta 機能ID/画面ID/テーブルID, section, bảng No/№/項番, header 2 tầng, ô merge ngang/dọc, ghi chú ※ cuối bảng và công thức liên sheet. Phím tắt: Ctrl+O thêm file, Ctrl+Enter để convert.',
 

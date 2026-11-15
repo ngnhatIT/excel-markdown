@@ -192,6 +192,12 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
         </span>
       </div>
 
+      {index?.project && (
+        <p className="m-0 border-b border-line-subtle px-3 py-1 text-[11.5px] text-dim" title={index.project.path}>
+          {t('project.applied')}: <span className="text-faint">{index.project.path}</span>
+          {index.project.warnings.length > 0 && <span className="block text-warning">{index.project.warnings.join(' · ')}</span>}
+        </p>
+      )}
       {index && (index.truncated.docs || index.truncated.refs) && (
         <p className="m-0 border-b border-line-subtle bg-warning-soft px-3 py-1 text-[11.5px] text-warning">
           {[index.truncated.docs && t('sm.truncated.docs', { n: index.docCount }), index.truncated.refs && t('sm.truncated.refs')].filter(Boolean).join(' ')}

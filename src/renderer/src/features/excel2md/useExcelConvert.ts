@@ -47,11 +47,14 @@ export function useExcelConvert({
     }
     const dir = await ensureOutDir()
     if (!dir) return
+    // Thư mục xuất có thể vừa được chọn ở bước trên: áp x2m.json của nó (lỗi đọc thì convert theo tùy chọn hiện có)
+    const cfg = await window.api.configFind(dir).catch(() => null)
+    const opts = cfg ? { ...options, ...cfg.config.convert } : options
     setConverting(true)
     setResults(null)
     setProgress(null)
     try {
-      const res = await window.api.convert({ files: specs, outDir: dir, options, outputMode })
+      const res = await window.api.convert({ files: specs, outDir: dir, options: opts, outputMode })
       // Bấm Hủy ở hộp thoại ghi đè (hoặc Hủy trước khi ghi được gì): không phải lỗi, không hiện bảng kết quả đỏ
       if (res.length > 0 && res.every((r) => r.cancelled && r.filesWritten.length === 0)) {
         toast(t('toast.excel.cancelledAll'))
