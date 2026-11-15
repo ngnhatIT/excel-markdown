@@ -307,21 +307,23 @@ describe('x2m.json (cấu hình dự án)', () => {
     expect(parseArgs(['a.xlsx', '-o', 'o', '--no-config']).noConfig).toBe(true)
   })
 
-  it('convert dùng tùy chọn của x2m.json tìm từ thư mục -o, báo dòng CẤU HÌNH + cảnh báo', async () => {
+  it('convert dùng tùy chọn của x2m.json tìm từ thư mục -o; dòng CẤU HÌNH + cảnh báo đi riêng (stderr), không lẫn danh sách file', async () => {
     const out = join(repo, 'out')
     const logs: string[] = []
-    expect(await runCli([fixture, '-o', out], (s) => logs.push(s))).toBe(0)
+    const notes: string[] = []
+    expect(await runCli([fixture, '-o', out], (s) => logs.push(s), (s) => notes.push(s))).toBe(0)
     expect(firstMd(out).startsWith('---\n')).toBe(true)
-    expect(logs).toContain('CẤU HÌNH ' + join(repo, 'x2m.json'))
-    expect(logs.some((s) => s.startsWith('CẤU HÌNH ⚠ typo'))).toBe(true)
+    expect(notes[0]).toBe('CẤU HÌNH ' + join(repo, 'x2m.json'))
+    expect(notes.some((s) => s.startsWith('CẤU HÌNH ⚠ typo'))).toBe(true)
+    expect(logs.some((s) => s.startsWith('CẤU HÌNH'))).toBe(false)
   })
 
   it('--no-config: bỏ qua x2m.json', async () => {
     const out = join(repo, 'out-nc')
-    const logs: string[] = []
-    expect(await runCli([fixture, '-o', out, '--no-config'], (s) => logs.push(s))).toBe(0)
+    const notes: string[] = []
+    expect(await runCli([fixture, '-o', out, '--no-config'], () => {}, (s) => notes.push(s))).toBe(0)
     expect(firstMd(out).startsWith('---\n')).toBe(false)
-    expect(logs.some((s) => s.startsWith('CẤU HÌNH'))).toBe(false)
+    expect(notes).toEqual([])
   })
 
   it('lint dùng nhãn 画面ID của dự án', async () => {

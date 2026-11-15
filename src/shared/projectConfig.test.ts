@@ -60,4 +60,11 @@ describe('parseProjectConfig', () => {
     const r = parseProjectConfig(JSON.stringify({ rules: { diffKeyColumns: [' ＡＢＣ '] } }))
     expect(r.config.rules.diffKeyColumns).toEqual(['abc'])
   })
+
+  it('cảnh báo tối đa 20 dòng + một dòng tổng', () => {
+    const keys = Object.fromEntries(Array.from({ length: 50 }, (_, i) => ['k' + i, 1]))
+    const r = parseProjectConfig(JSON.stringify(keys))
+    expect(r.warnings).toHaveLength(21)
+    expect(r.warnings[20]).toBe('…và 30 cảnh báo khác')
+  })
 })

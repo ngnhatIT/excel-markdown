@@ -413,7 +413,7 @@ export default function App(): React.ReactElement {
 
   const preview = usePreview(selFile, selSheet, effectiveOptions)
 
-  // x2m.json đổi skipDelSheets (đổi thư mục xuất): nạp lại danh sách sheet như khi người dùng đổi tùy chọn
+  // skipDelSheets đổi (người dùng chỉnh, preset, đặt lại, hoặc x2m.json của thư mục xuất): nạp lại danh sách sheet
   const lastSkipDel = useRef(effectiveOptions.skipDelSheets)
   useEffect(() => {
     if (lastSkipDel.current === effectiveOptions.skipDelSheets) return
@@ -437,10 +437,9 @@ export default function App(): React.ReactElement {
         persist('options', next)
         return next
       })
-      // đổi skipDelSheets thì nạp lại danh sách sheet
-      if (key === 'skipDelSheets') void relistAll(value as boolean)
+      // đổi skipDelSheets: effect theo effectiveOptions.skipDelSheets nạp lại danh sách sheet
     },
-    [relistAll, persist]
+    [persist]
   )
 
   const applyPreset = useCallback(
@@ -450,9 +449,8 @@ export default function App(): React.ReactElement {
         persist('options', next)
         return next
       })
-      if (patch.skipDelSheets !== undefined) void relistAll(patch.skipDelSheets)
     },
-    [relistAll, persist]
+    [persist]
   )
 
   const setMode = useCallback(
@@ -545,7 +543,8 @@ export default function App(): React.ReactElement {
 
   const { progress, setProgress, doConvert, cancelConvert } = useExcelConvert({
     files,
-    options: effectiveOptions,
+    // Tùy chọn của người dùng: useExcelConvert tự đọc lại x2m.json của thư mục xuất ngay lúc convert
+    options,
     outputMode,
     ensureOutDir,
     converting,

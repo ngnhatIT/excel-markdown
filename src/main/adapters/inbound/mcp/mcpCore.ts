@@ -265,7 +265,7 @@ async function callTool(name: string, a: Args): Promise<string> {
       // (mỗi workbook chỉ đọc một lần, kiểm trùng ngay trước khi ghi)
       if (a.overwrite !== true) argv.push('--no-clobber')
       const logs: string[] = []
-      await runCli(argv, (s) => logs.push(s))
+      await runCli(argv, (s) => logs.push(s), (s) => logs.push(s))
       const failed = logs.filter((s) => s.startsWith('LỖI '))
       const skipped = logs.filter((s) => s.startsWith('BỎ QUA '))
       const config = logs.filter((s) => s.startsWith(CONFIG_PREFIX))

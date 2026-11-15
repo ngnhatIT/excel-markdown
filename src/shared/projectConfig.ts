@@ -9,6 +9,8 @@ export const PROJECT_CONFIG_FILE = 'x2m.json'
 export const PROJECT_CONFIG_MAX_BYTES = 256 * 1024
 const ITEM_MAX_CHARS = 40
 const LIST_MAX = 200
+/** Cảnh báo tối đa: file đầy khóa lạ không làm phình kết quả MCP / giao diện */
+const WARNINGS_MAX = 20
 
 export interface ProjectRules {
   ambiguousWords: string[]
@@ -81,8 +83,15 @@ function parseList(v: unknown, where: string, warnings: string[]): string[] {
   return out
 }
 
-/** Đọc nội dung x2m.json. Không bao giờ throw: phần sai bị bỏ, kèm cảnh báo tiếng Việt có tên khóa. */
+/** Đọc nội dung x2m.json. Không bao giờ throw: phần sai bị bỏ, kèm cảnh báo tiếng Việt có tên khóa (tối đa WARNINGS_MAX). */
 export function parseProjectConfig(text: string): { config: ProjectConfig; warnings: string[] } {
+  const r = parseAll(text)
+  if (r.warnings.length <= WARNINGS_MAX) return r
+  const more = r.warnings.length - WARNINGS_MAX
+  return { config: r.config, warnings: [...r.warnings.slice(0, WARNINGS_MAX), `…và ${more} cảnh báo khác`] }
+}
+
+function parseAll(text: string): { config: ProjectConfig; warnings: string[] } {
   const warnings: string[] = []
   const rules: ProjectRules = { ...EMPTY_RULES, crudVerbs: { C: [], R: [], U: [], D: [] } }
   const config: ProjectConfig = { convert: {}, rules }

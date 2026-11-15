@@ -337,7 +337,12 @@ const outputNames = (md: { name: string; images?: { path: string }[] }[]): strin
 
 /** Convert mọi sheet hiển thị của từng file (thư mục → mọi file Excel bên trong, giữ cấu trúc thư mục con).
  * `md2xlsx` ở đầu là chiều ngược lại. Trả về mã thoát (0 = ok, 1 = có file lỗi). */
-export async function runCli(argv: string[], log: (s: string) => void = console.log): Promise<number> {
+/** `note`: dòng báo x2m.json đang áp dụng (CLI: stderr, để stdout chỉ là danh sách file; MCP gom vào kết quả). */
+export async function runCli(
+  argv: string[],
+  log: (s: string) => void = console.log,
+  note: (s: string) => void = (s) => void process.stderr.write(s + '\n')
+): Promise<number> {
   if (argv[0] === '--help' || argv[0] === '-h') {
     log(USAGE)
     return 0
@@ -367,7 +372,7 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
   const first = parseArgs(argv)
   const found = first.noConfig ? null : await findProjectConfig(resolve(first.outDir))
   const args = found ? parseArgs(argv, { ...DEFAULT_OPTIONS, ...found.config.convert }) : first
-  for (const line of configNote(found)) log(line)
+  for (const line of configNote(found)) note(line)
   const inputs = await expandExcelInputs(args.files)
   if (inputs.length === 0) throw new Error('Không có file Excel nào trong thư mục đầu vào')
   const root = resolve(args.outDir)

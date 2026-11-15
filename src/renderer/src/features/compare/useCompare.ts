@@ -67,39 +67,46 @@ export function useCompare() {
   )
 
   // x2m.json áp dụng cho bản mới (cột khóa của dự án); tìm lại mỗi lần bản mới được đọc (kể cả ⟳)
-  const [projectCfg, setProjectCfg] = useState<FoundProjectConfig | null>(null)
+  // `path`: bản mới mà lần tìm này thuộc về. Diff chờ tới khi tìm xong cho đúng bản mới, để không hiện bản diff
+  // không có cột khóa rồi lại tính lại.
+  const [cfg, setCfg] = useState<{ path: string; found: FoundProjectConfig | null } | null>(null)
   const newPath = slots.new.path
+  const newText = slots.new.text
   useEffect(() => {
     let live = true
-    if (!newPath || slots.new.text === null) setProjectCfg(null)
-    else
+    if (newPath && newText !== null)
       window.api.configFind(newPath).then(
-        (c) => live && setProjectCfg(c),
-        () => live && setProjectCfg(null)
+        (found) => live && setCfg({ path: newPath, found }),
+        () => live && setCfg({ path: newPath, found: null })
       )
     return () => {
       live = false
     }
-  }, [newPath, slots.new.text])
-  const keyColumns = projectCfg?.config.rules.diffKeyColumns
+  }, [newPath, newText])
+  const cfgReady = cfg !== null && cfg.path === newPath
+  const projectCfg = cfgReady ? cfg.found : null
+  // Khóa chuỗi: đọc lại x2m.json (⟳) với cùng cột khóa thì không diff lại
+  const keyColumnsKey = JSON.stringify(projectCfg?.config.rules.diffKeyColumns ?? [])
 
   // Diff chạy sau một nhịp render để kịp hiện trạng thái "đang so sánh" với file lớn
   const [diff, setDiff] = useState<SpecDiff | null>(null)
   const [diffing, setDiffing] = useState(false)
   const oldText = slots.old.text
-  const newText = slots.new.text
   useEffect(() => {
     if (oldText === null || newText === null) {
       setDiff(null)
+      setDiffing(false)
       return
     }
     setDiffing(true)
+    if (!cfgReady) return
+    const keyColumns = JSON.parse(keyColumnsKey) as string[]
     const t = window.setTimeout(() => {
-      setDiff(diffSpecMarkdown(oldText, newText, keyColumns ? { diffKeyColumns: keyColumns } : undefined))
+      setDiff(diffSpecMarkdown(oldText, newText, keyColumns.length > 0 ? { diffKeyColumns: keyColumns } : undefined))
       setDiffing(false)
     }, 16)
     return () => window.clearTimeout(t)
-  }, [oldText, newText, keyColumns])
+  }, [oldText, newText, cfgReady, keyColumnsKey])
 
   const busy = slots.old.loading || slots.new.loading || diffing
   return useMemo(

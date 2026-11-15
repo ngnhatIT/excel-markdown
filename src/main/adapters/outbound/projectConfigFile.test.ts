@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -46,6 +46,13 @@ describe('findProjectConfig', () => {
     const found = await findProjectConfig(tmp)
     expect(found?.config.convert).toEqual({})
     expect(found?.warnings).toHaveLength(1)
+  })
+
+  it.skipIf(process.platform === 'win32')('x2m.json là symlink -> không tính (không mở được file đích qua "Mở x2m.json")', async () => {
+    await mkdir(join(tmp, '.git'))
+    await writeFile(join(tmp, 'target.command'), '{}')
+    await symlink(join(tmp, 'target.command'), join(tmp, 'x2m.json'))
+    expect(await findProjectConfig(tmp)).toBeNull()
   })
 
   it('đường dẫn tương đối -> null', async () => {
