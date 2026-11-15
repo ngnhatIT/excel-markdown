@@ -245,3 +245,19 @@ describe('toJson', () => {
     expect(JSON.parse(toJson(defs))).toEqual(defs)
   })
 })
+
+describe('sửa sau audit 2026-11', () => {
+  const def = (rows: string): string => `## TBL_X\n\n| 物理名 | 型 | NULL |\n|---|---|---|\n${rows}\n`
+
+  it('cột NULL ghi `NULL` / `可` là cho phép null (không sinh NOT NULL)', () => {
+    const cols = parseTableDefs(def('| memo | TEXT | NULL |\n| x | INT | 可 |\n| y | INT | - |'))[0].columns
+    expect(cols.map((c) => c.notNull)).toEqual([false, false, true])
+  })
+
+  it('NVARCHAR(MAX): chỉ SQL Server giữ (MAX)', () => {
+    const defs = parseTableDefs('## TBL_X\n\n| 物理名 | 型 |\n|---|---|\n| memo | NVARCHAR(MAX) |\n')
+    expect(toDDL(defs, 'postgres')).not.toContain('(MAX)')
+    expect(toDDL(defs, 'mysql')).not.toContain('(MAX)')
+    expect(toDDL(defs, 'sqlserver')).toContain('(MAX)')
+  })
+})

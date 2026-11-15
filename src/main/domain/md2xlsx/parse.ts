@@ -118,6 +118,9 @@ function blockLines(t: Token, withUrls = false): string[] {
   }
 }
 
+/** `- [x]` / `- [ ]`: ô đánh dấu của item task list ('' nếu không phải task). */
+const taskBox = (item: Token): string => (item.task ? (item.checked ? '☑ ' : '☐ ') : '')
+
 /** Số hiển thị của item đầu một list đánh số (`3.` -> 3); marked để `''` khi list không đánh số. */
 function listStart(list: Token): number {
   return typeof list.start === 'number' ? list.start : 1
@@ -131,8 +134,8 @@ function listLines(list: Token, withUrls: boolean): string[] {
   const start = listStart(list)
   return (list.items ?? []).flatMap((item: Token, i: number) => {
     const lines = (item.tokens ?? []).flatMap((x: Token) => blockLines(x, withUrls))
-    if (!list.ordered) return lines
-    const prefix = `${start + i}. `
+    if (!list.ordered && !item.task) return lines
+    const prefix = (list.ordered ? `${start + i}. ` : '') + taskBox(item)
     return lines.length === 0 ? [prefix] : [prefix + lines[0], ...lines.slice(1)]
   })
 }
@@ -202,7 +205,7 @@ function listBlocks(list: Token, out: Block[]): void {
     const tokens: Token[] = item.tokens ?? []
     const head = tokens[0]
     const hasText = head !== undefined && (head.type === 'text' || head.type === 'paragraph')
-    const prefix = list.ordered ? `${start + i}. ` : BULLET
+    const prefix = list.ordered ? `${start + i}. ` + taskBox(item) : taskBox(item) || BULLET
     const cell: XCell = hasText ? inlineXCell(head) : { text: '' }
     out.push(paragraph(prefix + cell.text, cell.link))
     // Phần còn lại của item (list con, đoạn nối tiếp, code...) thành block riêng ngay sau

@@ -64,7 +64,8 @@ export function sanitizeHtml(html: string, opts: SanitizeOptions = {}): string {
     out += html.slice(i, lt)
     const gt = html.indexOf('>', lt + 1)
     if (gt === -1) {
-      out += '&lt;' + html.slice(lt + 1)
+      // Thẻ không đóng: escape mọi `<` còn lại, nếu không `>` của HTML ghép phía sau sẽ đóng thẻ lồng bên trong
+      out += html.slice(lt).replace(/</g, '&lt;')
       break
     }
     const raw = html.slice(lt + 1, gt)

@@ -77,3 +77,11 @@ describe('sanitizeHtml + resolveImage (chế độ Đọc Markdown)', () => {
     expect(sanitizeHtml('<code class="language-a&quot; onclick=&quot;x">y</code>')).toBe('<code>y</code>')
   })
 })
+
+describe('thẻ không đóng', () => {
+  it('escape mọi `<` còn lại: HTML ghép phía sau không đóng được thẻ lồng bên trong', () => {
+    const out = sanitizeHtml('<p>a</p><div <img src=x onerror=alert(1) ')
+    expect(out).not.toMatch(/<img/)
+    expect(out).toContain('&lt;div &lt;img')
+  })
+})

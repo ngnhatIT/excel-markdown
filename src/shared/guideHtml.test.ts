@@ -6,7 +6,7 @@ describe('buildGuideHtml', () => {
     const out = buildGuideHtml('T', '<h1>A</h1><h2>B <code>c</code></h2><h2>B c</h2><h2>画面 定義</h2>')
     expect(out).toContain('<h1 id="a">A<a class="a" href="#a"')
     expect(out).toContain('<a class="l2" href="#b-c">B c</a>')
-    expect(out).toContain('id="b-c-2"')
+    expect(out).toContain('id="b-c-1"')
     expect(out).toContain('id="画面-定義"')
   })
   it('dưới 2 tiêu đề: không có mục lục', () => {
@@ -70,5 +70,15 @@ describe('buildGuideHtml: mục lục', () => {
     expect(out).toContain('>C &quot;q&quot; &lt;x&gt;</a>')
     expect(out).not.toContain('&amp;amp;')
     expect(out).not.toMatch(/id="[^"]*(amp|quot)/)
+  })
+})
+
+describe('id heading khớp trình đọc của app', () => {
+  it('trùng thì -1, -2 (như uniqueSlugs); h4 cũng có id', async () => {
+    const { buildGuideHtml } = await import('./guideHtml')
+    const out = buildGuideHtml('t', '<h2>概要</h2><h2>概要</h2><h2>概要-2</h2><h4>深い</h4>')
+    expect(out).toContain('id="概要-1"')
+    expect(out.match(/id="概要-2"/g)?.length).toBe(1)
+    expect(out).toContain('id="深い"')
   })
 })

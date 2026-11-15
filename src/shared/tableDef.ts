@@ -1,6 +1,7 @@
 /* テーブル定義書 (Markdown đã convert) → DDL / Mermaid erDiagram / JSON. Thuần, dùng chung main + renderer.
  * Nhận diện: meta `- **テーブルID**: X` / heading gần nhất cho tên bảng, rồi bảng Markdown kế tiếp có cột
  * tên vật lý + cột kiểu. Header mỗi công ty một kiểu nên so theo danh sách alias (NFKC, không phân biệt hoa thường). */
+import { atxHeading, fenceAfter, isDelimRow, normLabel } from './mdLines'
 import { splitTableRow } from './specDiff'
 
 export type SqlDialect = 'generic' | 'postgres' | 'mysql' | 'oracle' | 'sqlserver'
@@ -39,14 +40,6 @@ export interface TableDef {
 
 /* ------------------------------- Nhận diện ------------------------------- */
 
-/** Chuẩn hóa nhãn để so alias: NFKC, chữ thường, bỏ khoảng trắng / `*` / chú thích trong ngoặc. */
-const normLabel = (s: string): string =>
-  s
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .replace(/[\s*_`]/g, '')
-
 type Field = 'name' | 'logical' | 'type' | 'length' | 'scale' | 'pk' | 'notnull' | 'nullable' | 'default' | 'comment'
 
 const ALIASES: Record<Field, string[]> = {
@@ -78,9 +71,8 @@ function cellText(s: string | undefined): string {
     .trim()
 }
 
-const DELIM_RE = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-*:?\s*)*\|?\s*$/
 const isTableStart = (line: string, next: string | undefined): boolean =>
-  line.trimStart().startsWith('|') && next !== undefined && DELIM_RE.test(next) && next.includes('-')
+  line.trimStart().startsWith('|') && next !== undefined && isDelimRow(next)
 
 const META_RE = /^\s*(?:[-*+]\s+)?(?:\*\*)?([^*:：|]{1,40}?)(?:\*\*)?\s*[:：]\s*(?:\*\*)?\s*(.+?)\s*$/
 const ID_LABELS = new Set(['テーブルid', 'テーブル物理名', '物理名', 'tableid'].map(normLabel))
@@ -106,18 +98,17 @@ export function parseTableDefs(md: string, source = ''): TableDef[] {
   let fence = ''
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line)
-    if (f) {
-      if (!fence) fence = f[1]
-      else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = ''
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) {
+      fence = nf
       continue
     }
     if (fence) continue
-    const h = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line)
+    const h = atxHeading(line)
     if (h) {
-      const level = h[1].length
+      const level = h.level
       while (headings.length > 0 && headings[headings.length - 1].level >= level) headings.pop()
-      headings.push({ level, text: cleanHeading(h[2]) })
+      headings.push({ level, text: cleanHeading(h.text) })
       // Sheet / phần mới (# / ##): meta của bảng trước không còn hiệu lực
       if (level <= 2) metaId = metaName = ''
       continue
@@ -162,7 +153,7 @@ export function parseTableDefs(md: string, source = ''): TableDef[] {
         const notNull = cols.has('notnull')
           ? isYes(get(cells, 'notnull')) || /not\s*null/i.test(get(cells, 'notnull'))
           : cols.has('nullable')
-            ? !isYes(get(cells, 'nullable'))
+            ? !(isYes(get(cells, 'nullable')) || /^(?:null|可|許可)$/i.test(get(cells, 'nullable').normalize('NFKC').trim()))
             : false
         const def = get(cells, 'default')
         columns.push({
@@ -266,9 +257,10 @@ function sqlType(col: TableColumn, d: SqlDialect): string | null {
     // VARCHAR2(10 BYTE) chỉ hợp lệ ở Oracle
     if (d !== 'oracle') parens = parens.replace(/\s+(?:BYTE|CHAR)\s*\)/i, ')')
     const p = /^\(\s*(\d+|MAX)\s*(?:,\s*(\d+)\s*)?(\s(?:BYTE|CHAR))?\s*\)$/i.exec(parens)
-    return p ? `${name}(${p[1]}${p[2] ? ',' + p[2] : ''}${p[3] ? ' ' + p[3].trim().toUpperCase() : ''})` : name
+    // (MAX) chỉ có ở SQL Server: dialect khác đi tiếp nhánh không độ dài bên dưới
+    if (!p || !/^max$/i.test(p[1]) || d === 'sqlserver') return p ? `${name}(${p[1]}${p[2] ? ',' + p[2] : ''}${p[3] ? ' ' + p[3].trim().toUpperCase() : ''})` : name
   }
-  const len = /^max$/i.test(col.length) ? (d === 'sqlserver' ? 'MAX' : '') : num(col.length)
+  const len = parens || /^max$/i.test(col.length) ? (d === 'sqlserver' ? 'MAX' : '') : num(col.length)
   const scale = num(col.scale)
   if (cls === 'numeric') return len ? `${name}(${len}${scale ? ',' + scale : ''})` : name
   // VARCHAR không độ dài: MySQL / Oracle / SQL Server bắt buộc (SQL Server mặc định 1)

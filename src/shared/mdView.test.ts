@@ -173,5 +173,8 @@ describe('frontMatterAsCode', () => {
     expect(frontMatterAsCode('---\nsource: a.xlsx\nsheet: S\n---\n## S\n')).toBe('```yaml\nsource: a.xlsx\nsheet: S\n```\n## S\n')
     expect(frontMatterAsCode('# A\n---\nx\n---\n')).toBe('# A\n---\nx\n---\n')
     expect(frontMatterAsCode('---\r\na: 1\r\n---\r\nbody')).toBe('```yaml\na: 1\n```\nbody')
+    // `---` đầu file là đường kẻ (không có khóa YAML ngay sau): giữ nguyên
+    const ruled = '---\n\n# 第1章\n\n本文\n\n---\n\n# 第2章\n'
+    expect(frontMatterAsCode(ruled)).toBe(ruled)
   })
 })

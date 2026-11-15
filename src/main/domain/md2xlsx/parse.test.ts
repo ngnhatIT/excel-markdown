@@ -573,3 +573,10 @@ describe('front-matter YAML', () => {
     expect(parseMarkdownFile('## A\n\nx\n\n---\n\n## B\n\ny\n', 'a.md').sheets.map((s) => s.name)).toEqual(['A', 'B'])
   })
 })
+
+describe('task list', () => {
+  it('giữ trạng thái ô đánh dấu', () => {
+    const texts = g('- [x] done\n- [ ] todo\n').map((b) => (b.kind === 'paragraph' ? b.text : ''))
+    expect(texts).toEqual(['☑ done', '☐ todo'])
+  })
+})

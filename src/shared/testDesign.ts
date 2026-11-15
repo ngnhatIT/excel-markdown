@@ -2,6 +2,7 @@
  * Nguồn: bảng 【項目定義】 nằm trong phần có meta 画面ID (header so theo alias như tableDef.ts),
  * dòng `〔入力規則 C2:C50〕A / B` và 画面遷移 (meta + 〔矢印〕, lấy qua buildSpecIndex).
  * Mỗi quy tắc một dòng: 必須 / 桁数 (biên) / 形式 / 初期値 / 選択肢 / 表示 / ボタン / 遷移. Thuần, dùng chung. */
+import { atxHeading, fenceAfter, isDelimRow, normLabel, tsvCell } from './mdLines'
 import { splitTableRow } from './specDiff'
 import { buildSpecIndex, type SpecScreen } from './specIndex'
 
@@ -163,13 +164,6 @@ const TEXT = {
 
 /* ---------------------------------- Nhận diện ---------------------------------- */
 
-const normLabel = (s: string): string =>
-  s
-    .normalize('NFKC')
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .replace(/[\s*_`]/g, '')
-
 type Field = 'item' | 'required' | 'length' | 'type' | 'kind' | 'default' | 'note' | 'check'
 const ALIASES: Record<Field, string[]> = {
   item: ['項目名', '項目', '項目名称', 'item', 'itemname', 'tênhạngmục', 'hạngmục'],
@@ -202,7 +196,6 @@ const isBlank = (v: string): boolean => /^(?:[-－ー―‐]|n\/a|なし|無し|
 const isOutput = (kind: string): boolean => /出力|表示|output|display|label|ラベル|hiểnthị|hiển thị/i.test(kind)
 const isButton = (item: string, kind: string): boolean => /ボタン|button|nút/i.test(kind) || /ボタン|button|^nút|\bbtn\b/i.test(item)
 
-const DELIM_RE = /^\s*\|?\s*:?-+:?\s*(?:\|\s*:?-*:?\s*)*\|?\s*$/
 const LIST_RE = /〔入力規則\s*([^〕]*)〕\s*(.+)$/
 
 const fill = (s: string, p: Record<string, string | number>): string => s.replace(/\{(\w+)\}/g, (m, k: string) => (k in p ? String(p[k]) : m))
@@ -231,15 +224,14 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
-    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line)
-    if (f) {
-      if (!fence) fence = f[1]
-      else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = ''
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) {
+      fence = nf
       continue
     }
     if (fence) continue
-    const h = /^ {0,3}#{1,6}\s+(.*?)\s*#*\s*$/.exec(line)
-    if (h) heading = plain(h[1]).replace(/[【】]/g, '')
+    const h = atxHeading(line)
+    if (h) heading = plain(h.text).replace(/[【】]/g, '')
     const list = LIST_RE.exec(plain(line))
     if (list) {
       const sc = screenAt(i + 1)
@@ -251,7 +243,7 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
       }
       continue
     }
-    if (!line.trimStart().startsWith('|') || !DELIM_RE.test(lines[i + 1] ?? '') || !(lines[i + 1] ?? '').includes('-')) continue
+    if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
     const cols = new Map<Field, number>()
     splitTableRow(line).forEach((c, idx) => {
       const field = FIELD_OF.get(normLabel(plain(c)))
@@ -345,8 +337,7 @@ const cells = (r: TestRow): string[] => [String(r.no), r.screen, r.item, r.aspec
 
 /** TSV để dán vào Excel: tab / xuống dòng trong ô thành khoảng trắng. */
 export function testDesignTsv(d: TestDesign, lang: TestLang = 'ja'): string {
-  const clean = (s: string): string => s.replace(/[\t\r\n]+/g, ' ')
-  return [TEXT[lang].head, ...d.rows.map(cells)].map((r) => r.map(clean).join('\t')).join('\n') + '\n'
+  return [TEXT[lang].head, ...d.rows.map(cells)].map((r) => r.map(tsvCell).join('\t')).join('\n') + '\n'
 }
 
 /** Markdown `## テスト仕様書` + bảng (mở ở chế độ Markdown → Excel để ra .xlsx). */

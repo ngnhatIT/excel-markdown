@@ -6,6 +6,7 @@
  *   bỏ cột số thứ tự No/項番 — chèn hàng giữa bảng làm đánh số lại không bị báo là đổi cả bảng);
  *   dòng khác (meta bullet, đoạn văn, shape…) so theo dòng, xóa + thêm liền nhau thành "đổi" kèm diff trong dòng.
  * - Dòng trống bỏ qua (không so, không có trong hunks). */
+import { isDelimRow } from './mdLines'
 
 /* --------------------------------- Myers --------------------------------- */
 
@@ -240,7 +241,6 @@ interface Table {
 
 type Block = { kind: 'text'; line: Line } | { kind: 'table'; table: Table }
 
-const DELIM_RE = /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/
 
 /** Tách một dòng bảng thành ô: `\|` là ký tự `|`, `<br>` thành xuống dòng, bỏ khoảng trắng hai đầu. */
 export function splitTableRow(line: string): string[] {
@@ -267,7 +267,7 @@ function buildBlocks(lines: Line[]): Block[] {
     const l = lines[i]
     if (l.text.trim() === '') continue
     const next = lines[i + 1]
-    if (!l.fence && l.text.trimStart().startsWith('|') && next && !next.fence && next.n === l.n + 1 && DELIM_RE.test(next.text) && next.text.includes('-')) {
+    if (!l.fence && l.text.trimStart().startsWith('|') && next && !next.fence && next.n === l.n + 1 && isDelimRow(next.text)) {
       const table: Table = { header: splitTableRow(l.text), headerLine: l, delimLine: next, rows: [] }
       i += 2
       while (i < lines.length && !lines[i].fence && lines[i].n === lines[i - 1].n + 1 && lines[i].text.trimStart().startsWith('|')) {

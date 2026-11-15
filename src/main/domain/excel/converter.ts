@@ -329,7 +329,8 @@ function renderTable(
   headerSpans: HMergeSpan[] = []
 ): string {
   const { header, rows } = consolidateMergedCols(rawHeader, rawRows, headerSpans)
-  const maxCols = Math.max(header.length, ...rows.map((r) => r.length))
+  // reduce thay cho Math.max(...rows): spread >~125k dòng tràn stack
+  const maxCols = rows.reduce((m, r) => Math.max(m, r.length), header.length)
   const keptIdx: number[] = []
   for (let i = 0; i < maxCols; i++) {
     if ((header[i] ?? '') !== '' || rows.some((r) => (r[i] ?? '') !== '')) keptIdx.push(i)
@@ -342,7 +343,7 @@ function renderTable(
   let body: string[]
   if (opts.alignTables) {
     const widths = keptIdx.map((_, colIdx) =>
-      Math.max(3, displayWidth(h[colIdx]), ...bodyMatrix.map((row) => displayWidth(row[colIdx])))
+      bodyMatrix.reduce((m, row) => Math.max(m, displayWidth(row[colIdx])), Math.max(3, displayWidth(h[colIdx])))
     )
     head = [
       '| ' + h.map((cell, idx) => padDisplay(cell, widths[idx])).join(' | ') + ' |',
@@ -738,7 +739,8 @@ export function sheetToMarkdown(
       }
       continue
     }
-    if (isMetaRow(r)) {
+    // Trong bảng, dòng có nhãn meta ở cột đầu (前提条件 | ...) vẫn là dòng dữ liệu
+    if (!tableHeader && isMetaRow(r)) {
       flushTable()
       for (const p of parseMetaPairs(r)) {
         let val = p.values.join(' ')

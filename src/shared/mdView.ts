@@ -180,7 +180,8 @@ export function uniqueSlugs(texts: string[]): string[] {
 /** Front-matter YAML ở đầu file (`---` … `---`, do app tạo khi bật tùy chọn front-matter) -> khối code yaml
  * để bản xem không hiểu nhầm thành đường kẻ + heading setext khổng lồ. Chỉ dùng khi render, không đổi file. */
 export function frontMatterAsCode(md: string): string {
-  const m = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(md)
+  // Dòng đầu phải là khóa YAML (`source: …`), như parse.ts: `---` rồi nội dung thường là đường kẻ, không phải front-matter
+  const m = /^---\r?\n(?=[\w.-]+:[ \t])([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/.exec(md)
   if (!m || m[1].split('\n').length > 200) return md
   return '```yaml\n' + m[1] + '\n```\n' + md.slice(m[0].length)
 }

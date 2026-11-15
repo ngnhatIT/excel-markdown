@@ -1,5 +1,6 @@
 /* Tìm theo nội dung trong file Markdown (chế độ Đọc Markdown). Thuần, test không cần Electron. */
 import type { MdSearchHit } from '../../shared/types'
+import { atxHeading } from '../../shared/mdLines'
 import { foldText } from '../../shared/textFold'
 
 /** Độ dài tối đa đoạn trích của một dòng khớp. */
@@ -18,8 +19,8 @@ export function searchMarkdownText(md: string, terms: string[], max = 20): MdSea
   const lines = md.split(/\r?\n/)
   for (let i = 0; i < lines.length && hits.length < max; i++) {
     const line = lines[i]
-    const h = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line)
-    if (h) heading = h[1].replace(/\\([#*~_`[\]()<>|-])/g, '$1').trim()
+    const h = atxHeading(line)
+    if (h?.text) heading = h.text.replace(/\\([#*~_`[\]()<>|-])/g, '$1').trim()
     const low = foldText(line)
     if (!terms.every((t) => low.includes(t))) continue
     const text = line.trim()

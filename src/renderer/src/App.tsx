@@ -830,6 +830,7 @@ export default function App(): React.ReactElement {
               }}
               onSelect={(p) => {
                 setSpecMapOpen(false)
+                setScrollTarget(null) // mục tiêu cuộn của file trước không áp vào file vừa chọn
                 void viewerSelect(p)
               }}
               specMapOpen={specMapOpen && !!viewer.root}

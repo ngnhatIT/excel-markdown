@@ -218,15 +218,16 @@ export interface GuideMeta {
 /** `bodyHtml` PHẢI là HTML đã sanitize. */
 export function buildGuideHtml(title: string, bodyHtml: string, meta: GuideMeta = {}): string {
   const toc: { level: number; id: string; text: string }[] = []
-  const seen = new Map<string, number>()
-  let body = bodyHtml.replace(/<h([1-3])(\s+[^>]*)?>([\s\S]*?)<\/h\1>/gi, (_m, lv: string, _attrs: string, inner: string) => {
+  // Cùng cách đánh số trùng với uniqueSlugs (trình đọc của app): `-1`, `-2`…; h4–h6 cũng có id để link `#mục` không chết
+  const used = new Set<string>()
+  let body = bodyHtml.replace(/<h([1-6])(\s+[^>]*)?>([\s\S]*?)<\/h\1>/gi, (_m, lv: string, _attrs: string, inner: string) => {
     const cleanInner = inner.replace(/<a class="a"[^>]*>#<\/a>/gi, '')
     const text = htmlText(cleanInner).trim()
     const base = slugify(text) || 's'
-    const n = seen.get(base) ?? 0
-    seen.set(base, n + 1)
-    const id = n === 0 ? base : `${base}-${n + 1}`
-    toc.push({ level: Number(lv), id, text })
+    let id = base
+    for (let n = 1; used.has(id); n++) id = `${base}-${n}`
+    used.add(id)
+    if (Number(lv) <= 3) toc.push({ level: Number(lv), id, text })
     return `<h${lv} id="${escapeHtml(id)}">${cleanInner}<a class="a" href="#${escapeHtml(id)}" aria-label="Liên kết tới mục này">#</a></h${lv}>`
   })
   body = body.replace(/<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\][ \t]*(?:<br>|\n)?\s*/gi, (_m, k: string) => {

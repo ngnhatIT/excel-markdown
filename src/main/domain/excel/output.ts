@@ -137,17 +137,14 @@ export function mdFileName(base: string, sheet?: string): string {
 /** Trả về tên file chưa dùng: nếu `wanted` đã có trong `used` thì thêm hậu tố
  * ` (2)`, ` (3)`... Tên được chọn sẽ được thêm vào `used`. */
 export function dedupeFileName(wanted: string, used: Set<string>): string {
-  if (!used.has(wanted)) {
-    used.add(wanted)
-    return wanted
-  }
+  // Windows / macOS coi `Spec.md` và `spec.md` (và NFC / NFD) là một file: so tên đã chuẩn hóa
+  const key = (s: string): string => s.normalize('NFC').toLowerCase()
   const dot = wanted.lastIndexOf('.')
   const stem = dot >= 0 ? wanted.slice(0, dot) : wanted
   const ext = dot >= 0 ? wanted.slice(dot) : ''
-  let n = 2
-  while (used.has(stem + ' (' + n + ')' + ext)) n++
-  const name = stem + ' (' + n + ')' + ext
-  used.add(name)
+  let name = wanted
+  for (let n = 2; used.has(name) || used.has(key(name)); n++) name = stem + ' (' + n + ')' + ext
+  used.add(key(name))
   return name
 }
 

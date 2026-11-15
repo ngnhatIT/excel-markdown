@@ -234,7 +234,11 @@ export function useMdViewer(persist: (key: string, value: unknown) => void) {
 
   const removeLoose = useCallback((path: string) => {
     setLoose((prev) => prev.filter((p) => p !== path))
-    setDoc((d) => (d?.path === path ? null : d))
+    setDoc((d) => {
+      if (d?.path !== path) return d
+      ++readSeq.current // file này đang đọc dở thì không hiện lại sau khi bị gỡ
+      return null
+    })
   }, [])
 
   const toggleDir = useCallback((rel: string) => {
