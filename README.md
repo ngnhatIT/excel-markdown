@@ -115,7 +115,7 @@ node out/main/cli.js a.xlsx b.xlsx -o out --front-matter --chunk 50
 ```
 
 Cờ: `--per-workbook`, `--range A1:F40`, `--formulas`, `--front-matter`, `--chunk N`, `--keep-del`,
-`--keep-empty`, `--no-escape`, `--no-title`.
+`--keep-empty`, `--no-escape`, `--no-title`, `--no-config` (bỏ qua [x2m.json](#cấu-hình-dự-án-x2mjson)).
 
 Đầu vào là thư mục thì convert mọi file Excel bên trong (đệ quy, bỏ `~$*`, giữ cấu trúc thư mục con).
 Chiều ngược lại: `node out/main/cli.js md2xlsx docs/ -o out/Book.xlsx [--overwrite]`.
@@ -366,6 +366,49 @@ Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đ�
 So theo cấu trúc: sheet → mục → dòng bảng khớp theo cột khóa (`ID`, `項目ID`, `物理名`, `項目名`…), nên
 chèn một dòng giữa bảng (kể cả khi cột No đánh số lại) chỉ báo đúng một dòng thêm. Mọi thứ chạy trên máy,
 không gửi file đi đâu. Nút ⇄ đổi chỗ cũ / mới, ⟳ đọc lại hai file sau khi sửa.
+
+---
+
+## Cấu hình dự án (x2m.json)
+
+Đặt file `x2m.json` trong thư mục tài liệu (thường ở gốc repo, đưa vào Git cùng tài liệu) để cả đội convert ra cùng
+kết quả và dùng chung luật nhận diện của dự án. Không có file thì app chạy như cũ.
+
+```json
+{
+  "convert": { "frontMatter": true, "chunkRows": 50, "verticalMerge": "repeat" },
+  "rules": {
+    "ambiguousWords": ["要調整", "別途"],
+    "screenIdLabels": ["画面コード"],
+    "transitionLabels": ["遷移先"],
+    "crudVerbs": { "C": ["起票"], "U": ["差戻し"], "D": ["破棄"] },
+    "diffKeyColumns": ["項目コード"]
+  }
+}
+```
+
+- **`convert`**: tùy chọn Excel → Markdown, đúng tên như trong app (`includeSheetTitle`, `skipDelSheets`,
+  `skipEmptySheets`, `multiline`, `detectTwoColTables`, `escapeMarkdown`, `showFormulas`, `frontMatter`, `chunkRows`,
+  `verticalMerge`, `alignTables`). Không có `range` (vùng ô là theo từng file). Trong app, tùy chọn có trong file bị
+  khóa ở cột phải; CLI và MCP dùng làm mặc định, cờ dòng lệnh áp lên trên; `--no-config` bỏ qua file.
+- **`rules`**: **cộng thêm** vào luật có sẵn, không thay thế. Mỗi mục là chuỗi thường (không phải regex), tối đa 40 ký
+  tự, 200 mục mỗi danh sách; không phân biệt hoa thường / toàn角. Nhãn và cột khóa khớp nguyên văn; chữ mơ hồ và động
+  từ CRUD khớp một phần dòng.
+- File sai (JSON hỏng, khóa gõ sai, giá trị sai kiểu) không làm app lỗi: phần sai bị bỏ, kèm cảnh báo.
+
+**App tìm file ở đâu**: đi từ thư mục dưới đây lên các thư mục cha, dừng ở thư mục đầu tiên có `x2m.json`, hoặc ở gốc repo
+(thư mục có `.git`).
+
+| Chức năng | Bắt đầu tìm từ |
+|---|---|
+| Excel → Markdown (app) | thư mục xuất |
+| Đọc Markdown: Bản đồ thiết kế, 影響調査, CRUD図, 整合性チェック | thư mục đang mở |
+| So sánh 新旧 | thư mục chứa file **mới** (chỉ dùng `diffKeyColumns`) |
+| CLI / MCP convert | thư mục `-o` / `out_dir` |
+| CLI / MCP `impact`, `lint`, `crud` | thư mục tài liệu truyền vào |
+
+`textconv` (git diff file Excel) và So sánh file Excel không dùng `convert`: hai chỗ này luôn convert cố định để diff
+không phụ thuộc máy hay cấu hình.
 
 ---
 
