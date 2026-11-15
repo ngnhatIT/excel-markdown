@@ -1,5 +1,6 @@
 /* 改訂履歴 tự động từ kết quả So sánh 新旧 (specDiff): mỗi mục thay đổi một dòng nội dung sửa đổi.
  * Thuần, không gọi mạng; người dùng điền 版数 / 改訂者 rồi copy Markdown hoặc TSV (dán thẳng vào Excel). */
+import { tsvCell } from './mdLines'
 import { PATH_SEP, type RowChange, type SectionDiff, type SpecDiff } from './specDiff'
 
 export type RevLang = 'ja' | 'vi' | 'en'
@@ -109,7 +110,6 @@ export function revisionRows(diff: SpecDiff, lang: RevLang = 'ja'): RevisionRow[
 }
 
 const mdCell = (s: string): string => s.replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>')
-const tsvCell = (s: string): string => s.replace(/[\t\r\n]+/g, ' ')
 
 /** Bảng 改訂履歴: 版数 / 改訂日 / 改訂者 chỉ ghi ở dòng đầu (một lần sửa đổi nhiều mục). */
 export function revisionTable(rows: RevisionRow[], meta: RevisionMeta, lang: RevLang, format: 'md' | 'tsv'): string {

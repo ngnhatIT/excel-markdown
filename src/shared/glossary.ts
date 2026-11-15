@@ -1,6 +1,7 @@
 /* 用語集 của dự án: file `用語集.md` / `glossary.md` (bảng Markdown cột 日本語 | Tiếng Việt | English | 備考).
  * Dùng cho dịch nhanh (giữ đúng thuật ngữ), RAG (bung từ khóa Việt/Anh -> Nhật) và gợi ý tạo file từ Bản đồ thiết kế.
  * Thuần, dùng chung main + renderer. File là dữ liệu không tin cậy: mọi thứ đều có giới hạn. */
+import { isDelimRow } from './mdLines'
 import { splitTableRow } from './specDiff'
 import type { SpecIndex } from './specIndex'
 import { foldText } from './textFold'
@@ -56,7 +57,7 @@ export function parseGlossary(md: string): GlossaryEntry[] {
   const out: GlossaryEntry[] = []
   const lines = md.split(/\r?\n/)
   for (let i = 0; i + 1 < lines.length && out.length < GLOSSARY_MAX; i++) {
-    if (!lines[i].trimStart().startsWith('|') || !/^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(lines[i + 1])) continue
+    if (!lines[i].trimStart().startsWith('|') || !isDelimRow(lines[i + 1])) continue
     const head = splitTableRow(lines[i]).map(key)
     const col = (k: keyof GlossaryEntry): number => head.findIndex((h) => HEADER[k].includes(h))
     const idx = { ja: col('ja'), vi: col('vi'), en: col('en'), note: col('note') }

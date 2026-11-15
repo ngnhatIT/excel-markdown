@@ -11,6 +11,9 @@ export const MD_LIST_LIMIT = 5000
 /** File .md lớn hơn thì không đọc (preview không dùng được với file cỡ này). */
 export const MD_READ_MAX_BYTES = 20 * 1024 * 1024
 
+/** Quá số thư mục này thì dừng quét: `limit` chỉ đếm file khớp, ổ đĩa ít file .md vẫn bị duyệt hết nếu không chặn. */
+export const WALK_DIR_LIMIT = 20_000
+
 /** Thư mục không quét: thư viện cài đặt, thư mục ẩn (.git, .vscode...). */
 const SKIP_DIRS = new Set(['node_modules', 'bower_components', '$RECYCLE.BIN', 'System Volume Information'])
 
@@ -41,8 +44,9 @@ export async function walkFiles(
 ): Promise<{ files: string[]; truncated: boolean }> {
   const files: string[] = []
   const queue: string[] = ['']
-  while (queue.length > 0) {
-    const rel = queue.shift() as string
+  for (let qi = 0; qi < queue.length; qi++) {
+    if (qi >= WALK_DIR_LIMIT) return { files, truncated: true }
+    const rel = queue[qi]
     let entries
     try {
       entries = await readdir(rel ? join(root, rel) : root, { withFileTypes: true })
@@ -63,12 +67,14 @@ export async function walkFiles(
   return { files, truncated: false }
 }
 
+const isMdName = (name: string): boolean => /\.(md|markdown)$/i.test(name)
+
 /** Mọi file .md/.markdown dưới `root` (xem walkFiles), kèm mtime từng file. */
 export async function listMarkdownFiles(
   root: string,
   limit = MD_LIST_LIMIT
 ): Promise<{ files: string[]; mtimes: Record<string, number>; truncated: boolean }> {
-  const { files, truncated } = await walkFiles(root, (name) => /\.(md|markdown)$/i.test(name), limit)
+  const { files, truncated } = await walkFiles(root, isMdName, limit)
   return { files, mtimes: await statMtimes(root, files), truncated }
 }
 
@@ -96,9 +102,11 @@ async function readMarkdownCached(path: string): Promise<string> {
     return hit.text
   }
   const text = await readMarkdownFile(path)
-  if (hit) {
+  // Lấy lại mục cache sau await: lần tìm chạy song song có thể vừa thêm cùng file (trừ thiếu thì bộ đếm phình dần)
+  const old = textCache.get(path)
+  if (old) {
     textCache.delete(path)
-    textCacheBytes -= hit.text.length * 2
+    textCacheBytes -= old.text.length * 2
   }
   const bytes = text.length * 2
   if (bytes > TEXT_CACHE_MAX / 4) return text // file rất lớn: không giữ
@@ -143,7 +151,8 @@ export async function searchMarkdownFolder(
   const terms = searchTerms(query)
   const out: MdSearchResult = { files: [], truncated: false }
   if (terms.length === 0) return out
-  const { files } = await listMarkdownFiles(root)
+  // walkFiles trực tiếp: listMarkdownFiles còn stat mtime mọi file mà tìm kiếm không dùng
+  const { files } = await walkFiles(root, isMdName, MD_LIST_LIMIT)
   // 8 file một đợt: file tới 20 MB, đợt lớn hơn làm main process ngốn bộ nhớ
   for (let i = 0; i < files.length; i += 8) {
     if (isStale()) return out

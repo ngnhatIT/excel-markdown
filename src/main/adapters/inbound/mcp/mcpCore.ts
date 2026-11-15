@@ -11,6 +11,7 @@ import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { buildExcel, collectTableDefs, formatImpact, formatIssues, loadSpecIndex, renderTableDefs, runCli, TABLE_DEF_FORMATS, type TableDefFormat } from '../cli/cliCore'
 import { crudMatrix, crudText, impactOf } from '../../../../shared/specIndex'
+import { atxHeading, fenceAfter } from '../../../../shared/mdLines'
 import { SQL_DIALECTS, type SqlDialect } from '../../../../shared/tableDef'
 import { friendlyError } from '../../../domain/errors'
 import pkg from '../../../../../package.json'
@@ -226,15 +227,14 @@ export function markdownOutline(text: string): string[] {
   const out: string[] = []
   let fence = ''
   splitLines(text).forEach((line, i) => {
-    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line)
-    if (f) {
-      if (!fence) fence = f[1]
-      else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = ''
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) {
+      fence = nf
       return
     }
     if (fence) return
-    const h = /^ {0,3}(#{1,6})[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$/.exec(line)
-    if (h) out.push(`${i + 1}: ${h[1]} ${h[2]}`)
+    const h = atxHeading(line)
+    if (h) out.push(`${i + 1}: ${'#'.repeat(h.level)} ${h.text}`)
   })
   return out
 }

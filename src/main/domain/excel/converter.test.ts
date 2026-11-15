@@ -924,3 +924,28 @@ describe('safeFileName', () => {
     expect(safeFileName('   ')).toBe('sheet')
   })
 })
+
+describe('sửa sau audit 2026-11', () => {
+  it('dedupeFileName: tên chỉ khác hoa/thường là trùng (Windows / macOS ghi đè nhau)', () => {
+    const used = new Set<string>()
+    expect(dedupeFileName('Spec__A.md', used)).toBe('Spec__A.md')
+    expect(dedupeFileName('spec__A.md', used)).toBe('spec__A (2).md')
+  })
+
+  it('dòng có nhãn meta ở cột đầu nằm trong bảng vẫn là dòng của bảng', () => {
+    const out = md([
+      ['項目', '内容', '備考'],
+      ['アクター', '利用者', '-'],
+      ['前提条件', 'ログイン済み', '-'],
+      ['基本フロー', '検索する', '-'],
+    ])
+    expect(out).toContain('| 前提条件 | ログイン済み | - |')
+    expect(out.split('\n').filter((l) => /^\|\s*-{3,}/.test(l)).length).toBe(1)
+  })
+
+  it('bảng 130 000 dòng không tràn stack', () => {
+    const aoa: (string | number)[][] = [['No', '項目', '備考']]
+    for (let i = 1; i <= 130_000; i++) aoa.push([i, 'x', 'y'])
+    expect(md(aoa)).toContain('| 130000 | x | y |')
+  }, 30_000)
+})

@@ -27,12 +27,8 @@ export function tokenizeMultiLang(text: string): string[] {
   const tokens: string[] = []
 
   const words = lower.match(WORD_RE) ?? []
-  for (const w of words) {
-    if (!CJK_RUN_RE.test(w)) {
-      if (w.length > 0) tokens.push(w)
-    }
-    CJK_RUN_RE.lastIndex = 0
-  }
+  // Từ dính chữ Nhật (`apiを呼び出す`): giữ phần Latin (`api`), phần CJK tách 2-gram bên dưới
+  for (const w of words) for (const part of w.split(CJK_RUN_RE)) if (part) tokens.push(part)
 
   const cjkRuns = lower.match(CJK_RUN_RE) ?? []
   for (const run of cjkRuns) {
@@ -338,7 +334,8 @@ export function buildRagContext(
     for (const { sec, score } of rankedSecs) {
       if (score <= 0 && citations.length > 0) break
       if (usedTokens + sec.tokensEst > budget && citations.length > 0) continue
-      blocks.push(formatSectionBlock(sec))
+      // Mục đầu tiên có thể lớn hơn cả ngân sách (không file nào vừa): cắt cho vừa
+      blocks.push(fitTokens(formatSectionBlock(sec), Math.max(1000, budget - usedTokens)))
       usedTokens += sec.tokensEst + 8
       if (!includedDocPaths.has(sec.filePath)) {
         includedDocPaths.add(sec.filePath)

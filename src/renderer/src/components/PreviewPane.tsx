@@ -11,6 +11,7 @@ import { DdlPopover, ErDialog } from './TableDefTools'
 import { TestDesignDialog } from './TestDesignTools'
 import { buildTestDesign } from '../../../shared/testDesign'
 import { parseTableDefs, type TableDef } from '../../../shared/tableDef'
+import { fenceAfter } from '../../../shared/mdLines'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
 import { getLocale, LOCALES, t as tr, useLang, useT } from '../i18n'
@@ -49,8 +50,16 @@ export function extractOutline(md: string): OutlineItem[] {
   let headingIdx = 0
   let tableIdx = 0
   let i = 0
+  let fence = ''
   while (i < lines.length) {
     const line = lines[i]
+    // Dòng trong khối code (`# comment` của bash / SQL) không phải heading hay bảng: bỏ qua để chỉ số khớp DOM
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) fence = nf
+    if (nf !== undefined || fence) {
+      i++
+      continue
+    }
     const hMatch = /^(#{1,4})\s+(.+)$/.exec(line)
     if (hMatch) {
       const rawText = hMatch[2].replace(/\\([#*~_`[\]()<>|-])/g, '$1').trim()

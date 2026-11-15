@@ -74,6 +74,12 @@ describe('handleMdRequest mdInspect', () => {
     })
   })
 
+  it('file UTF-8 hợp lệ có ký tự U+FFFD thật -> vẫn đọc được', async () => {
+    const p = join(dir, 'fffd.md')
+    writeFileSync(p, '# 文字化け\n\n\uFFFD は置換文字\n', 'utf-8')
+    expect((await handleMdRequest({ id: 16, type: 'mdInspect', path: p })).ok).toBe(true)
+  })
+
   it('file không đọc được -> lỗi nêu tên file', async () => {
     const r = await handleMdRequest({ id: 8, type: 'mdInspect', path: join(dir, 'nope.md') })
     expect(r.ok).toBe(false)

@@ -110,3 +110,18 @@ describe('buildRagContext: file đang xem lớn hơn mức ngữ cảnh', () => 
     expect(res.contextText).toContain('đã cắt bớt')
   })
 })
+
+describe('sửa sau audit 2026-11', () => {
+  it('từ Latin dính chữ Nhật vẫn thành token', () => {
+    expect(tokenizeMultiLang('APIを呼び出す')).toContain('api')
+    expect(tokenizeMultiLang('ユーザーID DB更新')).toEqual(expect.arrayContaining(['id', 'db']))
+  })
+
+  it('thư mục: không file nào vừa ngân sách thì mục đầu tiên bị cắt cho vừa', () => {
+    const big = (name: string): string => `## ${name}\n` + Array.from({ length: 20_000 }, (_, i) => `| ${i} | 顧客コード ${name} |`).join('\n')
+    const docs = ['A', 'B'].map((n) => parseMarkdownForRag(`/d/${n}.md`, `${n}.md`, big(n)))
+    const res = buildRagContext(docs, '顧客コード', { scope: 'folder', maxContextTokens: 8000 })
+    expect(res.mode).toBe('parent-rag')
+    expect(res.contextText.length).toBeLessThan(8000 * 6)
+  })
+})

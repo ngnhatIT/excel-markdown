@@ -3,6 +3,7 @@
  * テーブル定義 (parseTableDefs), chỗ nhắc tới bảng / cột / 画面ID ở nơi khác, và lỗi nhất quán.
  * Dùng chung main (IPC, CLI, MCP) + renderer. Dữ liệu không tin cậy: mọi thứ đều có giới hạn. */
 import { findGlossaryRel, parseGlossary, type GlossaryEntry } from './glossary'
+import { atxHeading, fenceAfter, tsvCell } from './mdLines'
 import { splitTableRow } from './specDiff'
 import { parseTableDefs, toErMermaid, type TableColumn, type TableDef } from './tableDef'
 
@@ -140,15 +141,13 @@ function lineInfo(lines: string[]): { heading: string[]; section: number[] } {
   let sec = 0
   let fence = ''
   lines.forEach((line, i) => {
-    const f = /^ {0,3}(`{3,}|~{3,})/.exec(line)
-    if (f) {
-      if (!fence) fence = f[1]
-      else if (f[1][0] === fence[0] && f[1].length >= fence.length) fence = ''
-    } else if (!fence) {
-      const m = /^ {0,3}(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line)
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) fence = nf
+    else if (!fence) {
+      const m = atxHeading(line)
       if (m) {
-        h = plain(m[2]).trim()
-        if (m[1].length <= 2) sec++
+        h = plain(m.text).trim()
+        if (m.level <= 2) sec++
       } else if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) sec++
     }
     heading[i] = h
@@ -255,7 +254,7 @@ export function buildSpecIndex(input: SpecDoc[]): SpecIndex {
       tables.push(def)
       if (!tableSec.has(up(def.tableName))) tableSec.set(up(def.tableName), `${doc.rel}#${section[def.line - 1]}`)
       const set = defLines.get(doc.rel) ?? new Set<number>()
-      const last = Math.max(...def.columns.map((c) => c.line))
+      const last = def.columns.reduce((m, c) => Math.max(m, c.line), def.line)
       for (let n = def.line; n <= last; n++) set.add(n)
       defLines.set(doc.rel, set)
     }
@@ -681,7 +680,7 @@ export function crudMatrix(index: SpecIndex): CrudMatrix {
 export function crudText(m: CrudMatrix, format: 'md' | 'tsv'): string {
   const head = ['画面', ...m.tables]
   const rows = m.screens.map((s) => [s.name ? `${s.id} ${s.name}` : s.id, ...m.tables.map((t) => m.cells[s.id]?.[t]?.ops ?? '')])
-  if (format === 'tsv') return [head, ...rows].map((r) => r.map((c) => c.replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n') + '\n'
+  if (format === 'tsv') return [head, ...rows].map((r) => r.map(tsvCell).join('\t')).join('\n') + '\n'
   const md = (r: string[]): string => `| ${r.map((c) => c.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\s+/g, ' ')).join(' | ')} |`
   return [md(head), `|${head.map(() => '---').join('|')}|`, ...rows.map(md)].join('\n') + '\n'
 }
