@@ -16,10 +16,13 @@ import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/e
 import { workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir, isOpenableDirectory } from '../../../domain/guards'
 import { friendlyError } from '../../../domain/errors'
+import { findProjectConfig } from '../../outbound/projectConfigFile'
+import type { FoundProjectConfig } from '../../../../shared/projectConfig'
 import pkg from '../../../../../package.json'
 
 export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--per-workbook] [--range A1:F40] [--formulas]
           [--front-matter] [--chunk N] [--keep-del] [--keep-empty] [--no-escape] [--no-title] [--no-clobber]
+          [--no-config]   (mặc định dùng x2m.json tìm từ thư mục -o lên trên; cờ dòng lệnh áp lên trên nó)
      cli md2xlsx <file.md|thư mục...> -o <file.xlsx> [--overwrite]
      cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)
      cli ddl <file.md|thư mục|file.xlsx...> [--dialect generic|postgres|mysql|oracle|sqlserver]
@@ -63,16 +66,19 @@ export interface CliArgs {
   perWorkbook: boolean
   /** Bỏ qua workbook có đầu ra đã tồn tại (mặc định ghi đè, giữ tương thích) */
   noClobber: boolean
+  /** Bỏ qua x2m.json */
+  noConfig: boolean
   options: ConvertOptions
 }
 
-/** Ném Error (thông báo tiếng Việt) khi đối số sai. */
-export function parseArgs(argv: string[]): CliArgs {
-  const options: ConvertOptions = { ...DEFAULT_OPTIONS }
+/** Ném Error (thông báo tiếng Việt) khi đối số sai. `base`: tùy chọn xuất phát (mặc định + x2m.json); cờ áp lên trên. */
+export function parseArgs(argv: string[], base: ConvertOptions = DEFAULT_OPTIONS): CliArgs {
+  const options: ConvertOptions = { ...base }
   const files: string[] = []
   let outDir = ''
   let perWorkbook = false
   let noClobber = false
+  let noConfig = false
   const value = (i: number, flag: string): string => {
     if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + flag)
     return argv[i + 1]
@@ -83,6 +89,7 @@ export function parseArgs(argv: string[]): CliArgs {
       case '-o': case '--out': outDir = value(i++, a); break
       case '--per-workbook': perWorkbook = true; break
       case '--no-clobber': noClobber = true; break
+      case '--no-config': noConfig = true; break
       case '--range': options.range = value(i++, a); break
       case '--formulas': options.showFormulas = true; break
       case '--front-matter': options.frontMatter = true; break
@@ -103,7 +110,7 @@ export function parseArgs(argv: string[]): CliArgs {
   }
   if (files.length === 0) throw new Error('Chưa có file Excel nào')
   if (!outDir) throw new Error('Thiếu -o <thư mục>')
-  return { files, outDir, perWorkbook, noClobber, options }
+  return { files, outDir, perWorkbook, noClobber, noConfig, options }
 }
 
 /** Markdown → Excel: gộp các file .md (thư mục → mọi .md bên trong, sắp theo đường dẫn) thành một .xlsx.
@@ -198,11 +205,19 @@ async function runDdl(argv: string[], log: (s: string) => void): Promise<number>
   return 0
 }
 
-/** Chỉ mục 影響調査 của thư mục (mọi .md bên trong, thứ tự như Đọc Markdown). */
+/** Dòng báo cấu hình dự án đang áp dụng (CLI + MCP): `CẤU HÌNH <đường dẫn>` + mỗi cảnh báo một dòng. */
+export function configNote(found: Pick<FoundProjectConfig, 'path' | 'warnings'> | null | undefined): string[] {
+  return found ? [`${CONFIG_PREFIX}${found.path}`, ...found.warnings.map((w) => `${CONFIG_PREFIX}⚠ ${w}`)] : []
+}
+export const CONFIG_PREFIX = 'CẤU HÌNH '
+
+/** Chỉ mục 影響調査 của thư mục (mọi .md bên trong, thứ tự như Đọc Markdown), kèm luật của x2m.json nếu có. */
 export async function loadSpecIndex(root: string): Promise<SpecIndex> {
   if (!(await isOpenableDirectory(root))) throw new Error('Không phải thư mục đang tồn tại: ' + root)
   const { files } = await listMarkdownFiles(root)
-  return buildSpecIndex((await readMarkdownFolder(root, files)) ?? [])
+  const found = await findProjectConfig(root)
+  const project = found ? { path: found.path, warnings: found.warnings, rules: found.config.rules } : undefined
+  return buildSpecIndex((await readMarkdownFolder(root, files)) ?? [], project)
 }
 
 const REASON: Record<string, string> = { definition: 'định nghĩa', reference: 'tham chiếu', transition: '遷移', related: 'liên quan' }
@@ -246,6 +261,7 @@ async function runSpec(cmd: 'impact' | 'lint', argv: string[], log: (s: string) 
     process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
     return 1
   }
+  for (const line of configNote(index.project)) process.stderr.write(line + '\n')
   if (cmd === 'impact') {
     const r = impactOf(index, argv[1])
     process.stdout.write(formatImpact(argv[1], r))
@@ -280,6 +296,7 @@ async function runCrud(argv: string[]): Promise<number> {
     process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
     return 1
   }
+  for (const line of configNote(index.project)) process.stderr.write(line + '\n')
   if (index.screens.length === 0) {
     process.stderr.write('Không tìm thấy màn hình nào (cần meta 画面ID)\n')
     return 1
@@ -346,7 +363,11 @@ export async function runCli(argv: string[], log: (s: string) => void = console.
     process.stdout.write(text)
     return 0
   }
-  const args = parseArgs(argv)
+  // Parse lần đầu để biết -o, rồi parse lại từ tùy chọn của x2m.json (cờ dòng lệnh áp lên trên)
+  const first = parseArgs(argv)
+  const found = first.noConfig ? null : await findProjectConfig(resolve(first.outDir))
+  const args = found ? parseArgs(argv, { ...DEFAULT_OPTIONS, ...found.config.convert }) : first
+  for (const line of configNote(found)) log(line)
   const inputs = await expandExcelInputs(args.files)
   if (inputs.length === 0) throw new Error('Không có file Excel nào trong thư mục đầu vào')
   const root = resolve(args.outDir)
