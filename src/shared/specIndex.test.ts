@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { EMPTY_RULES, type ProjectRules } from './projectConfig'
 import { buildSpecIndex, crudMatrix, crudOpsOf, crudText, erMermaid, impactOf, impactSuggestions, SPEC_MAX_DOCS, SPEC_MAX_NODES, SPEC_MAX_REFS, transitionMermaid, type SpecDoc } from './specIndex'
 
 const root = join(__dirname, '../..')
@@ -338,5 +339,39 @@ describe('用語集 trong chỉ mục', () => {
     const g = '| JA | VI | EN |\n|---|---|---|\n| 顧客 | khách hàng | customer |\n'
     expect(buildSpecIndex([{ rel: 'docs/spec/Glossary.md', text: g }]).glossary?.entries).toHaveLength(1)
     expect(buildSpecIndex([{ rel: 'a/b/c/glossary.md', text: g }]).glossary).toBeNull()
+  })
+})
+
+describe('x2m.json: luật cộng thêm', () => {
+  const rules: ProjectRules = { ...EMPTY_RULES, crudVerbs: { C: [], R: [], U: [], D: [] } }
+  const project = (r: Partial<ProjectRules>) => ({ path: '/p/x2m.json', warnings: [], rules: { ...rules, ...r } })
+  const md = ['## 画面', '- **画面コード**: S01', '- **遷移先**: → S02', '', '名称(仮)は要調整のこと', '', '## 画面2', '- **画面コード**: S02', ''].join('\n')
+
+  it('không truyền project: giữ hành vi cũ, không có khóa project', () => {
+    const idx = buildSpecIndex([{ rel: 'a.md', text: md }])
+    expect(idx.screens).toEqual([])
+    expect('project' in idx).toBe(false)
+  })
+
+  it('nhãn 画面ID / 遷移 của dự án', () => {
+    const idx = buildSpecIndex([{ rel: 'a.md', text: md }], project({ screenIdLabels: ['画面コード'], transitionLabels: ['遷移先'] }))
+    expect(idx.screens.map((s) => s.id)).toEqual(['S01', 'S02'])
+    expect(idx.transitions.map((t) => `${t.from}->${t.to}`)).toEqual(['S01->S02'])
+    expect(idx.project?.path).toBe('/p/x2m.json')
+  })
+
+  it('chữ mơ hồ của dự án khớp nguyên văn, kể cả ký tự đặc biệt của regex', () => {
+    const p = project({ screenIdLabels: ['画面コード'], ambiguousWords: ['(仮)'] })
+    const issues = buildSpecIndex([{ rel: 'a.md', text: md }], p).issues.filter((i) => i.code === 'ambiguous-term')
+    expect(issues.map((i) => `${i.line} ${i.subject}`)).toEqual(['5 (仮)'])
+  })
+
+  it('động từ CRUD của dự án', () => {
+    expect(crudOpsOf('伝票を起票する')).toEqual([])
+    expect(crudOpsOf('伝票を起票する', { C: ['起票'], R: [], U: [], D: [] })).toEqual(['C'])
+    const text = ['## 伝票入力', '- **画面ID**: A001', '', 'TBL_X に起票する', '', '## TBL_X', '', '| No | 物理名 | 型 |', '|---|---|---|', '| 1 | ID | INT |', ''].join('\n')
+    expect(crudMatrix(buildSpecIndex([{ rel: 'a.md', text }])).cells.A001?.TBL_X?.ops).toBe('?')
+    const idx = buildSpecIndex([{ rel: 'a.md', text }], project({ crudVerbs: { C: ['起票'], R: [], U: [], D: [] } }))
+    expect(crudMatrix(idx).cells.A001?.TBL_X?.ops).toBe('C')
   })
 })

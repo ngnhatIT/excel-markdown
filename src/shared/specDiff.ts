@@ -7,6 +7,7 @@
  *   dòng khác (meta bullet, đoạn văn, shape…) so theo dòng, xóa + thêm liền nhau thành "đổi" kèm diff trong dòng.
  * - Dòng trống bỏ qua (không so, không có trong hunks). */
 import { isDelimRow } from './mdLines'
+import { normRule, type ProjectRules } from './projectConfig'
 
 /* --------------------------------- Myers --------------------------------- */
 
@@ -372,6 +373,8 @@ interface Ctx {
   sec: SectionDiff
   hunks: DiffHunk[]
   sum: DiffSummary
+  /** Cột khóa dự án khai trong x2m.json (đã normRule), xét trước ID_PRIORITY */
+  keyColumns: string[]
 }
 
 function hunk(ctx: Ctx, kind: DiffHunk['kind'], o?: Line, n?: Line, moved?: boolean): void {
@@ -426,7 +429,10 @@ function diffTable(ctx: Ctx, a: Table | null, b: Table | null): void {
   }
   const idName =
     a && b && oldRows.length > 0 && newRows.length > 0
-      ? ID_PRIORITY.map((re) => cols.find((c) => re.test(c) && oldNames.includes(c) && newNames.includes(c))).find(
+      ? [
+          ...ctx.keyColumns.map((k) => cols.find((c) => normRule(c) === k && oldNames.includes(c) && newNames.includes(c))),
+          ...ID_PRIORITY.map((re) => cols.find((c) => re.test(c) && oldNames.includes(c) && newNames.includes(c))),
+        ].find(
           (c): c is string => c !== undefined && uniqueIn(oldRec, c) && uniqueIn(newRec, c)
         )
       : undefined
@@ -570,8 +576,9 @@ function bodySimilarity(a: Section, b: Section): number {
 
 const firstLine = (s: Section): number | undefined => s.lines[0]?.n
 
-/** So sánh hai tài liệu Markdown thiết kế (CRLF/LF, BOM như nhau). */
-export function diffSpecMarkdown(oldMd: string, newMd: string): SpecDiff {
+/** So sánh hai tài liệu Markdown thiết kế (CRLF/LF, BOM như nhau). `rules`: cột khóa của dự án (x2m.json). */
+export function diffSpecMarkdown(oldMd: string, newMd: string, rules?: Pick<ProjectRules, 'diffKeyColumns'>): SpecDiff {
+  const keyColumns = rules?.diffKeyColumns ?? []
   const A = splitSections(oldMd)
   const B = splitSections(newMd)
   const sum: DiffSummary = {
@@ -593,7 +600,7 @@ export function diffSpecMarkdown(oldMd: string, newMd: string): SpecDiff {
   const paired = (a: Section, b: Section): void => {
     const sec: SectionDiff = { kind: 'change', path: b.path, oldLine: firstLine(a), newLine: firstLine(b), rows: [], lines: [] }
     if (a.path !== b.path) sec.oldPath = a.path
-    diffSectionBody({ path: b.path, sec, hunks, sum }, a, b)
+    diffSectionBody({ path: b.path, sec, hunks, sum, keyColumns }, a, b)
     if (sec.rows.length || sec.lines.length) {
       sections.push(sec)
       sum.sectionsChanged++

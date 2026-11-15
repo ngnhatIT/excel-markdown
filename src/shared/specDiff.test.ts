@@ -252,3 +252,28 @@ describe('diffSpecMarkdown', () => {
     expect(d2.hunks.length).toBeGreaterThanOrEqual(20000)
   })
 })
+
+describe('diffSpecMarkdown: cột khóa của dự án (x2m.json)', () => {
+  const table = (rows: string[]): string => ['## 項目', '', '| 項目コード | 名称 | 桁 |', '|---|---|---|', ...rows, ''].join('\n')
+  const OLD = table(['| A01 | 顧客名 | 50 |', '| A02 | 電話 | 15 |', '| A03 | 住所 | 100 |'])
+  const NEW = table(['| A09 | FAX | 15 |', '| A01 | 顧客名 | 50 |', '| A02 | 電話 | 20 |', '| A03 | 住所 | 100 |'])
+
+  it('khớp dòng theo cột khóa khai báo: một dòng thêm + một dòng sửa', () => {
+    const d = diffSpecMarkdown(OLD, NEW, { diffKeyColumns: ['項目コード'] })
+    expect(d.sections[0].rows.map((r) => [r.kind, r.key]).sort()).toEqual([
+      ['add', '項目コード=A09'],
+      ['change', '項目コード=A02'],
+    ])
+  })
+
+  it('không khai báo: giữ cách khớp cũ (không có khóa theo 項目コード)', () => {
+    const d = diffSpecMarkdown(OLD, NEW)
+    expect(d.sections[0].rows.some((r) => r.key.startsWith('項目コード='))).toBe(false)
+  })
+
+  it('cột khai báo không duy nhất → như không khai báo', () => {
+    const dup = table(['| A01 | 顧客名 | 50 |', '| A01 | 電話 | 15 |'])
+    const dup2 = table(['| A01 | 顧客名 | 50 |', '| A01 | 電話 | 20 |'])
+    expect(diffSpecMarkdown(dup, dup2, { diffKeyColumns: ['項目コード'] })).toEqual(diffSpecMarkdown(dup, dup2))
+  })
+})
