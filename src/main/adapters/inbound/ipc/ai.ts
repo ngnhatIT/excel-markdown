@@ -109,13 +109,13 @@ export function registerAiIpc(): void {
       const terms = termsIn(text, projectGlossary(), MAX_PROMPT_TERMS)
       const key = `${provider}|${model}|${target}|${JSON.stringify(terms)}|${text}`
       const hit = translateCache.get(key)
-      if (hit !== undefined) return { ok: true, data: hit }
+      if (hit !== undefined) return { ok: true, data: { text: hit, terms } }
       const { system, question } = translatePrompt(text.trim(), target, terms)
       const res = await askLlm(provider, { apiKey: rawKey, model, question, contextText: '', history: [], availableCitations: [], signal: controller.signal, system })
       const out = res.answer.trim()
       if (translateCache.size >= 200) translateCache.delete(translateCache.keys().next().value as string)
       translateCache.set(key, out)
-      return { ok: true, data: out }
+      return { ok: true, data: { text: out, terms } }
     } catch (err) {
       const safeMsg = redactApiKey(errText(err), rawKey)
       if (!controller.signal.aborted) void logError('ai:translate', new Error(safeMsg))

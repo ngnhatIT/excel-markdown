@@ -37,7 +37,7 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
 /** Quá số file Excel này trong một thư mục thì từ chối (chọn nhầm ổ đĩa không chạy mãi). */
 export const EXCEL_DIR_LIMIT = 2000
 
-/** Mở rộng đối số đầu vào: thư mục → mọi file Excel bên trong (walkFiles: đệ quy, không theo symlink, bỏ thư mục ẩn,
+/** Mở rộng đối số đầu vào: thư mục → mọi file Excel bên trong (walkFiles: đệ quy, không theo symlink, bỏ .git / .vscode...,
  * node_modules, thư mục con không đọc được; ở đây bỏ thêm `~$*`), sắp theo đường dẫn. `relDir` là thư mục con (phân cách
  * `/`) để giữ cấu trúc ở đầu ra. Đối số không phải thư mục giữ nguyên (lỗi đọc báo theo từng file như trước). */
 export async function expandExcelInputs(inputs: string[]): Promise<{ file: string; relDir: string }[]> {
@@ -244,6 +244,7 @@ const ISSUE_TEXT: Record<SpecIssue['code'], (i: SpecIssue) => string> = {
   'dangling-transition': (i) => `画面遷移 tới màn hình chưa định nghĩa: ${i.subject}`,
   'ambiguous-term': (i) => `Cách viết mơ hồ cần chốt: 「${i.subject}」`,
   'column-mismatch': (i) => `Cột cùng tên khác kiểu / 桁数: ${i.subject} ${i.detail ?? ''} (đã định nghĩa ở ${i.other?.rel}:${i.other?.line})`,
+  'item-length': (i) => `Hạng mục màn hình dài hơn cột DB: ${i.subject} 桁数 ${i.detail ?? ''} (cột ở ${i.other?.rel}:${i.other?.line})`,
 }
 
 /** Một dòng mỗi lỗi: `file:dòng: error|warning: nội dung` (dạng trình biên dịch, CI đọc được). */

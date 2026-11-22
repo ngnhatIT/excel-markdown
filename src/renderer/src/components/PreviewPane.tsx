@@ -7,6 +7,8 @@ import { sanitizeHtml } from '../lib/sanitize'
 import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { SelectionTranslate } from './SelectionTranslate'
+import { TranslateDialog } from './TranslateDialog'
+import { sectionMarkdown } from '../../../shared/translate'
 import { DdlPopover, ErDialog } from './TableDefTools'
 import { TestDesignDialog } from './TestDesignTools'
 import { buildTestDesign } from '../../../shared/testDesign'
@@ -274,6 +276,7 @@ export function PreviewPane({
   // テスト観点表: nút 観点表 khi tài liệu có bảng 項目定義 thuộc một 画面
   const testTables = useMemo(() => buildTestDesign(md).tables, [md])
   const [testOpen, setTestOpen] = useState(false)
+  const [trTarget, setTrTarget] = useState<{ source: string; label: string } | null>(null)
   const closeTest = useCallback(() => setTestOpen(false), [])
   useEffect(() => {
     setDdl(null)
@@ -358,16 +361,18 @@ export function PreviewPane({
 
   return (
     <>
-      <div className="x2m-preview-bar flex min-h-10 flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-3 py-1">
-        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-lg border border-line-subtle bg-canvas p-0.5">
+      {/* @container: nhãn nút ẩn (chỉ còn icon + tooltip) khi khung xem hẹp, để thanh công cụ giữ một hàng */}
+      <div className="x2m-preview-bar @container flex min-h-10 flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-3 py-1">
+        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-md border border-line-subtle bg-canvas p-0.5">
           <button
             className={cn(
               'x2m-tab inline-flex items-center gap-1.5 rounded-md px-2.5 py-[3px] text-xs font-medium text-dim transition-colors duration-300 ease-spring hover:text-ink',
               tab === 'rendered' && 'active seg-on'
             )}
             onClick={() => setTab('rendered')}
+            title={t('preview.tab.rendered')}
           >
-            <IconEye size={15} /> {t('preview.tab.rendered')}
+            <IconEye size={15} /> <span className="sr-only @4xl:not-sr-only">{t('preview.tab.rendered')}</span>
           </button>
           <button
             className={cn(
@@ -377,7 +382,7 @@ export function PreviewPane({
             onClick={() => setTab('split')}
             title={t('preview.tab.splitTitle')}
           >
-            <IconSplit size={15} /> {t('preview.tab.split')}
+            <IconSplit size={15} /> <span className="sr-only @4xl:not-sr-only">{t('preview.tab.split')}</span>
           </button>
           <button
             className={cn(
@@ -385,12 +390,13 @@ export function PreviewPane({
               tab === 'source' && 'active seg-on'
             )}
             onClick={() => setTab('source')}
+            title={t('preview.tab.source')}
           >
-            <IconMarkdown size={15} /> {t('preview.tab.source')}
+            <IconMarkdown size={15} /> <span className="sr-only @4xl:not-sr-only">{t('preview.tab.source')}</span>
           </button>
         </div>
         {/* flex-wrap: cửa sổ hẹp thì xuống dòng, không đẩy nút Lùi/Tiến + tên file tràn ra mép trái */}
-        <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[28rem] flex-wrap items-center justify-end gap-1 text-xs">
+        <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[20rem] flex-wrap items-center justify-end gap-1 text-xs">
           {leading}
           {title ? (
             <span className="x2m-meta-stats dim mr-auto min-w-24 flex-1 basis-0 truncate pl-1 text-dim" title={title}>
@@ -412,7 +418,7 @@ export function PreviewPane({
               title={t(wrapTables ? 'preview.wrapOnTitle' : 'preview.wrapOffTitle')}
               aria-pressed={wrapTables}
             >
-              <IconWrap size={14} /> {t(wrapTables ? 'preview.wrapOn' : 'preview.wrapOff')}
+              <IconWrap size={14} /> <span className="sr-only @4xl:not-sr-only">{t(wrapTables ? 'preview.wrapOn' : 'preview.wrapOff')}</span>
             </button>
           )}
           {hasOutlineBar && tab !== 'source' && (
@@ -436,7 +442,7 @@ export function PreviewPane({
             </button>
           )}
           <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title={t('preview.copyTitle')}>
-            <IconCopy size={14} /> {t('common.copy')}
+            <IconCopy size={14} /> <span className="sr-only @4xl:not-sr-only">{t('common.copy')}</span>
           </button>
           <button
             className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
@@ -461,7 +467,7 @@ export function PreviewPane({
         <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label={t('preview.outlineAria')}>
           <div className="x2m-outline-items flex w-max items-center gap-1.5">
             {outline.map((item, idx) => (
-              <div key={idx} className={cn('x2m-outline-chip glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-full text-xs', item.kind === 'table' && 'is-table')}>
+              <div key={idx} className={cn('x2m-outline-chip glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-md text-xs', item.kind === 'table' && 'is-table')}>
                 <button
                   className="x2m-outline-jump inline-flex items-center gap-1 px-2.5 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
                   onClick={() => jumpToItem(item)}
@@ -478,6 +484,15 @@ export function PreviewPane({
                       {item.rowCount}×{item.colCount}
                     </span>
                   )}
+                </button>
+                <button
+                  className="x2m-outline-tr border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                  onClick={() => setTrTarget({ label: item.label, source: item.kind === 'table' ? (item.mdBlock ?? '') : sectionMarkdown(md, item.domIndex) })}
+                  title={t('tr.section')}
+                  aria-label={`${t('tr.section')}: ${item.label}`}
+                  lang="ja"
+                >
+                  訳
                 </button>
                 {item.kind === 'table' && item.tsvBlock && (
                   <button
@@ -579,6 +594,7 @@ export function PreviewPane({
       <SelectionTranslate containerRef={previewRef} />
       {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
       {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {trTarget && trTarget.source && <TranslateDialog source={trTarget.source} label={trTarget.label} onClose={() => setTrTarget(null)} />}
       {testOpen && <TestDesignDialog md={md} title={title} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>
   )

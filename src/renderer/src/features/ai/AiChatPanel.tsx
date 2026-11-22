@@ -19,6 +19,7 @@ import { cn, copyText, toast, uid } from '../../lib/utils'
 import { btnGhost, btnPrimary, btnSm, cx } from '../../lib/ui'
 import { SidePanel } from '../../components/SidePanel'
 import { IconCopy } from '../../components/icons'
+import { TranslateHistory } from '../../components/TranslateHistory'
 import { LOCALES, t as tr, useLang, useT } from '../../i18n'
 
 /** Câu trả lời đã render. memo: gõ vào ô hỏi không parse lại Markdown của mọi câu trả lời cũ. */
@@ -59,9 +60,9 @@ interface Props {
 
 /** Câu hỏi nhanh: nhãn `ai.quick.<id>`, câu lệnh gửi AI `ai.quick.<id>Prompt` (theo ngôn ngữ giao diện
  * để AI trả lời bằng ngôn ngữ của người dùng). */
-const QUICK_PROMPTS: Array<{ id: 'summary' | 'translate' | 'review' | 'tests' | 'cross'; scope: 'folder' | 'active' }> = [
+// Không còn nút "Dịch sang tiếng Việt": dịch dùng nút 訳 trên mục / bảng (giữ bảng, có lịch sử ở tab Dịch)
+const QUICK_PROMPTS: Array<{ id: 'summary' | 'review' | 'tests' | 'cross'; scope: 'folder' | 'active' }> = [
   { id: 'summary', scope: 'active' },
-  { id: 'translate', scope: 'active' },
   { id: 'review', scope: 'active' },
   { id: 'tests', scope: 'active' },
   { id: 'cross', scope: 'folder' },
@@ -91,6 +92,8 @@ export function AiChatPanel({
   })
   const providerInfo = AI_PROVIDERS[config.provider]
   const [showKeyBox, setShowKeyBox] = useState(false)
+  /** Tab cột phải: hỏi đáp AI hoặc lịch sử dịch (state chat giữ nguyên khi đổi tab) */
+  const [view, setView] = useState<'ai' | 'tr'>('ai')
   const [models, setModels] = useState<string[]>(AI_PROVIDERS[DEFAULT_AI_PROVIDER].suggested)
   const [streamText, setStreamText] = useState('')
   const [apiKeyInput, setApiKeyInput] = useState('')
@@ -324,7 +327,23 @@ export function AiChatPanel({
       collapsed={collapsed}
       onToggle={onToggleCollapsed}
       width={width}
+      heading={
+        <span className="flex items-center gap-0.5 rounded-md border border-line bg-soft p-0.5" role="tablist" aria-label={t('ai.title')}>
+          {(['ai', 'tr'] as const).map((v) => (
+            <button
+              key={v}
+              role="tab"
+              aria-selected={view === v}
+              className={cn('rounded px-2 py-0.5 text-[11.5px] font-medium text-dim hover:text-ink', view === v && 'seg-on')}
+              onClick={() => setView(v)}
+            >
+              {t(v === 'ai' ? 'tr.tabAi' : 'tr.tabHistory')}
+            </button>
+          ))}
+        </span>
+      }
       actions={
+        view === 'tr' ? null : (
         <div className="x2m-ai-head-btns">
           <button
             className={cn('btn btn-sm btn-ghost', showKeyBox && 'active-pill')}
@@ -350,8 +369,12 @@ export function AiChatPanel({
             </button>
           )}
         </div>
+        )
       }
     >
+      {view === 'tr' ? (
+        <TranslateHistory />
+      ) : (
       <div className="x2m-ai-panel flex min-h-0 flex-1 flex-col">
         {showKeyBox && (
           <div className="x2m-ai-keybox flex flex-col gap-2 border-b border-line bg-raised/50 p-3">
@@ -362,7 +385,7 @@ export function AiChatPanel({
                   role="radio"
                   aria-checked={config.provider === p}
                   className={cn(
-                    'x2m-ai-scope-btn flex-1 text-center rounded-md py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
+                    'x2m-ai-scope-btn flex-1 whitespace-nowrap text-center rounded-md px-1 py-1 text-xs font-medium text-dim transition-colors hover:text-ink',
                     config.provider === p && 'active seg-on'
                   )}
                   onClick={() => void changeProvider(p)}
@@ -427,10 +450,11 @@ export function AiChatPanel({
                 ))}
               </select>
             </div>
-            <div className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
+            <details className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
+              <summary className="cursor-pointer select-none text-dim hover:text-ink">{t('ai.keyNoteSummary')}</summary>
               {t('ai.keyNote', { site: providerInfo.site })}
               {!config.hasKey && ` ${t('ai.keyNoteModels')}`}
-            </div>
+            </details>
           </div>
         )}
 
@@ -476,7 +500,7 @@ export function AiChatPanel({
 
         <div ref={listRef} className="x2m-ai-messages flex-1 overflow-y-auto p-3 flex flex-col gap-3">
           {entries.length === 0 ? (
-            <div className="x2m-ai-empty flex flex-col items-center justify-center gap-2 p-6 text-center text-dim text-xs">
+            <div className="x2m-ai-empty flex flex-col items-center justify-center gap-2 p-6 text-center text-dim text-xs [text-wrap:balance]">
               <strong className="text-ink font-semibold">{t('ai.empty.title')}</strong>
               <p className="text-faint text-[11.5px] leading-relaxed">
                 {t('ai.empty.body')}
@@ -486,18 +510,18 @@ export function AiChatPanel({
             entries.map((entry) => (
               <div key={entry.id} className={cn('x2m-ai-msg flex flex-col', entry.role === 'user' ? 'is-user items-end' : 'is-model items-start')}>
                 {entry.role === 'user' ? (
-                  <div className="x2m-ai-bubble-user self-end rounded-2xl rounded-tr-xs bg-accent px-3 py-2 text-xs text-white max-w-[85%] whitespace-pre-wrap shadow-xs">
+                  <div className="x2m-ai-bubble-user self-end rounded-lg rounded-tr-xs bg-accent px-3 py-2 text-xs text-white max-w-[85%] whitespace-pre-wrap shadow-xs">
                     {entry.text}
                   </div>
                 ) : (
-                  <div className="x2m-ai-bubble-model self-start rounded-2xl rounded-tl-xs border border-line bg-raised/70 p-3 text-xs text-ink max-w-[95%] shadow-xs">
+                  <div className="x2m-ai-bubble-model self-stretch rounded-lg rounded-tl-xs border border-line bg-[var(--sheet)] p-3 text-xs text-ink">
                     <AnswerHtml text={entry.text} />
                     {entry.citations && entry.citations.length > 0 && (
                       <div className="x2m-ai-citations mt-2 flex flex-wrap gap-1.5">
                         {entry.citations.map((c, idx) => (
                           <button
                             key={idx}
-                            className="x2m-ai-citation-chip inline-flex items-center gap-1 rounded-md border border-accent-line/40 bg-accent-soft px-2 py-0.5 text-[11px] text-accent-ink hover:brightness-110 transition-colors"
+                            className="x2m-ai-citation-chip block max-w-full truncate rounded-md border border-accent-line/40 bg-accent-soft px-2 py-0.5 text-left text-[11px] text-accent-ink hover:brightness-110 transition-colors"
                             onClick={() => onJumpToCitation(c)}
                             title={t('ai.citationTitle', { path: c.relPath, section: c.sectionTitle })}
                           >
@@ -548,7 +572,7 @@ export function AiChatPanel({
           )}
           {busy && streamText && (
             <div className="x2m-ai-msg is-model flex flex-col items-start">
-              <div className="x2m-ai-bubble-model self-start rounded-2xl rounded-tl-xs border border-line bg-raised/70 p-3 text-xs text-ink max-w-[95%] shadow-xs" aria-live="polite">
+              <div className="x2m-ai-bubble-model self-stretch rounded-lg rounded-tl-xs border border-line bg-[var(--sheet)] p-3 text-xs text-ink" aria-live="polite">
                 <AnswerHtml text={streamText} />
                 <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-[11px] text-faint border-t border-line/40 pt-1.5">
                   <span>{t('ai.writing')}</span>
@@ -564,7 +588,7 @@ export function AiChatPanel({
             </div>
           )}
           {busy && !streamText && (
-            <div className="x2m-ai-loading self-start flex items-center gap-3 rounded-2xl rounded-tl-xs border border-line bg-raised/70 px-3.5 py-2.5 text-xs text-dim shadow-xs">
+            <div className="x2m-ai-loading self-start flex items-center gap-3 rounded-lg rounded-tl-xs border border-line bg-raised/70 px-3.5 py-2.5 text-xs text-dim shadow-xs">
               <div className="flex items-center gap-1.5 py-1 px-0.5" aria-label={t('ai.answering')}>
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.4s]" />
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.2s]" />
@@ -607,6 +631,7 @@ export function AiChatPanel({
           </button>
         </div>
       </div>
+      )}
     </SidePanel>
   )
 }

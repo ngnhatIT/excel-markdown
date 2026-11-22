@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { detectTextLang, resolveTarget, translatePrompt } from './translate'
+import { detectTextLang, resolveTarget, sectionMarkdown, translatePrompt } from './translate'
 
 describe('translate', () => {
   it('nhận diện ngôn ngữ đoạn chọn', () => {
@@ -37,5 +37,27 @@ describe('translate', () => {
     expect(p.question).toBe('<source>\n顧客の受注\n</source>')
     const many = Array.from({ length: 60 }, (_, i) => ({ ja: `用語${i}`, vi: `t${i}`, en: '', note: '' }))
     expect(translatePrompt('x', 'en', many).system.split('\n').filter((l) => l.startsWith('- ja:'))).toHaveLength(40)
+  })
+
+  it('sectionMarkdown: mục thứ n tới heading cùng cấp / cao hơn, bỏ qua `#` trong khối code, giữ bảng', () => {
+    const md = [
+      '# Tài liệu',
+      '## 【項目定義】',
+      '| No | 項目名 |',
+      '|---|---|',
+      '| 1 | 顧客名 |',
+      '```bash',
+      '# không phải heading',
+      '```',
+      '### chi tiết',
+      'nội dung con',
+      '## 【処理】',
+      'xử lý',
+    ].join('\n')
+    expect(sectionMarkdown(md, 1)).toBe(md.split('\n').slice(1, 10).join('\n'))
+    expect(sectionMarkdown(md, 2)).toBe('### chi tiết\nnội dung con')
+    expect(sectionMarkdown(md, 3)).toBe('## 【処理】\nxử lý')
+    expect(sectionMarkdown(md, 0)).toBe(md)
+    expect(sectionMarkdown(md, 9)).toBe('')
   })
 })

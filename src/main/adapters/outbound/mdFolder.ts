@@ -14,8 +14,13 @@ export const MD_READ_MAX_BYTES = 20 * 1024 * 1024
 /** Quá số thư mục này thì dừng quét: `limit` chỉ đếm file khớp, ổ đĩa ít file .md vẫn bị duyệt hết nếu không chặn. */
 export const WALK_DIR_LIMIT = 20_000
 
-/** Thư mục không quét: thư viện cài đặt, thư mục ẩn (.git, .vscode...). */
-const SKIP_DIRS = new Set(['node_modules', 'bower_components', '$RECYCLE.BIN', 'System Volume Information'])
+/** Thư mục không quét: thư viện cài đặt, thư mục của công cụ / VCS / IDE. Thư mục chấm khác (`.review`, `.docs`...)
+ * vẫn quét vì người dùng hay để tài liệu ở đó. */
+const SKIP_DIRS = new Set([
+  'node_modules', 'bower_components', '$RECYCLE.BIN', 'System Volume Information',
+  '.git', '.svn', '.hg', '.vscode', '.idea', '.vs', '.venv', '.tox', '.cache', '.next', '.nuxt',
+  '.yarn', '.pnpm-store', '.npm', '.gradle', '.terraform', '.Trash', '.Trashes', '.Spotlight-V100', '.fseventsd'
+])
 
 /** mtime (ms) của từng file trong `files` (tương đối so với `root`); file stat lỗi thì không có khóa. */
 async function statMtimes(root: string, files: string[]): Promise<Record<string, number>> {
@@ -34,7 +39,7 @@ async function statMtimes(root: string, files: string[]): Promise<Record<string,
   return mtimes
 }
 
-/** Mọi file dưới `root` có tên thỏa `test` (đệ quy theo chiều rộng, không theo symlink, bỏ thư mục ẩn và SKIP_DIRS),
+/** Mọi file dưới `root` có tên thỏa `test` (đệ quy theo chiều rộng, không theo symlink, bỏ SKIP_DIRS),
  * đường dẫn tương đối phân cách `/`. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw.
  * Quá `limit` file thì dừng, `truncated: true`. Dùng chung cho Đọc Markdown và đầu vào thư mục của CLI / MCP. */
 export async function walkFiles(
@@ -57,7 +62,7 @@ export async function walkFiles(
     for (const e of entries) {
       const childRel = rel ? `${rel}/${e.name}` : e.name
       if (e.isDirectory()) {
-        if (!e.name.startsWith('.') && !SKIP_DIRS.has(e.name)) queue.push(childRel)
+        if (!SKIP_DIRS.has(e.name)) queue.push(childRel)
       } else if (e.isFile() && test(e.name)) {
         if (files.length >= limit) return { files, truncated: true }
         files.push(childRel)

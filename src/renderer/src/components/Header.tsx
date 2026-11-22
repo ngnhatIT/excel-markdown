@@ -1,8 +1,8 @@
 import type { AppMode } from '../../../shared/types'
 import { cn } from '../lib/utils'
 import { LANGS, useLang, useT, type Lang } from '../i18n'
-import { btnGhost, btnSm, cx } from '../lib/ui'
-import { IconFolder, IconMarkdown, IconMoon, IconPlus, IconSun } from './icons'
+import { cx } from '../lib/ui'
+import { IconBook, IconCompare, IconFolder, IconMarkdown, IconMdToSheet, IconMoon, IconPlus, IconSheetToMd, IconSun } from './icons'
 
 interface Props {
   theme: 'dark' | 'light'
@@ -14,47 +14,66 @@ interface Props {
 }
 
 const MODES: AppMode[] = ['excel2md', 'md2excel', 'mdview', 'compare']
+const MODE_ICON: Record<AppMode, (p: { size?: number }) => React.ReactElement> = {
+  excel2md: IconSheetToMd,
+  md2excel: IconMdToSheet,
+  mdview: IconBook,
+  compare: IconCompare,
+}
 /** Chữ trên nút chọn ngôn ngữ (giữ nguyên ở mọi ngôn ngữ) */
 const LANG_SHORT: Record<Lang, string> = { vi: 'VI', en: 'EN', ja: '日本語' }
 
-/** Thanh tiêu đề kiểu IDE: thương hiệu, tab chế độ (gạch chân trượt), ngôn ngữ, thao tác chính. */
-export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange, onLangChange }: Props): React.ReactElement {
+/** Thanh chế độ dọc bên trái (nền chàm 藍): logo, 4 chế độ (icon + tên), đổi sáng / tối ở đáy. */
+export function ModeRail({ mode, onModeChange, theme, onToggleTheme }: Pick<Props, 'mode' | 'onModeChange' | 'theme' | 'onToggleTheme'>): React.ReactElement {
   const t = useT()
-  const lang = useLang()
   const themeLabel = t(theme === 'dark' ? 'header.theme.toLight' : 'header.theme.toDark')
+  const railBtn =
+    'relative flex w-full flex-col items-center gap-1 rounded-md px-1 py-2 text-[10.5px] font-medium leading-tight text-white/65 transition-colors duration-200 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-white/70'
   return (
-    <header className="x2m-header flex h-12 shrink-0 items-center gap-4 border-b border-line-subtle pl-3 pr-2">
-      <div className="x2m-brand flex items-center gap-2.5" title={t('header.brandTitle')}>
-        <span className="x2m-logo seg-on flex size-7 shrink-0 items-center justify-center rounded-lg text-accent-ink">
-          <IconMarkdown size={17} />
-        </span>
-        <span className="x2m-title text-[13.5px] font-semibold tracking-[-0.01em]">ExcelToMarkdown</span>
-      </div>
-      <span className="h-5 w-px bg-line" aria-hidden="true" />
-      <nav className="x2m-mode flex h-full items-stretch" role="group" aria-label={t('header.modes')}>
-        {MODES.map((m) => (
+    <nav className="x2m-rail flex w-[76px] shrink-0 flex-col items-center gap-1 bg-[var(--rail-bg)] px-1.5 pb-2 pt-3" aria-label={t('header.modes')}>
+      <span className="x2m-brand mb-3 flex size-9 items-center justify-center rounded-md bg-white/12 text-white" title={t('header.brandTitle')} aria-label="ExcelToMarkdown">
+        <IconMarkdown size={19} />
+      </span>
+      {MODES.map((m) => {
+        const Icon = MODE_ICON[m]
+        const on = mode === m
+        return (
           <button
             key={m}
             className={cn(
-              'x2m-mode-btn relative cursor-pointer whitespace-nowrap px-3 text-[12.5px] font-medium',
-              'transition-colors duration-300 ease-spring focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-accent',
-              'after:absolute after:inset-x-3 after:-bottom-px after:h-0.5 after:rounded-full after:bg-accent after:transition-transform after:duration-500 after:ease-spring',
-              mode === m ? 'active text-ink after:scale-x-100' : 'text-dim after:scale-x-0 hover:text-ink'
+              'x2m-mode-btn',
+              railBtn,
+              on && 'active bg-white/12 !text-white before:absolute before:inset-y-2 before:-left-1.5 before:w-[3px] before:rounded-r before:bg-[#9db7f0]'
             )}
             onClick={() => onModeChange(m)}
-            aria-pressed={mode === m}
+            aria-pressed={on}
           >
-            {t(`header.mode.${m}`)}
+            <Icon size={21} />
+            <span className="text-center">{t(`header.mode.${m}`)}</span>
           </button>
-        ))}
-      </nav>
-      <div className="x2m-header-actions ml-auto flex items-center gap-1.5">
-        <div className="x2m-lang flex items-center gap-0.5 rounded-lg border border-line-subtle bg-canvas p-0.5" role="group" aria-label={t('lang.label')}>
+        )
+      })}
+      <button className={cn(railBtn, 'mt-auto')} onClick={onToggleTheme} title={themeLabel} aria-label={themeLabel}>
+        {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+      </button>
+    </nav>
+  )
+}
+
+/** Thanh trên của vùng làm việc: tên chế độ đang dùng, ngôn ngữ, thao tác chính. */
+export function Header({ onPickFiles, mode, onLangChange }: Pick<Props, 'onPickFiles' | 'mode' | 'onLangChange'>): React.ReactElement {
+  const t = useT()
+  const lang = useLang()
+  return (
+    <header className="x2m-header flex h-12 shrink-0 items-center gap-4 border-b border-line bg-[var(--glass)] pl-5 pr-3">
+      <h1 className="x2m-title m-0 text-[15px] font-semibold tracking-[-0.01em] text-ink">{t(`header.mode.${mode}`)}</h1>
+      <div className="x2m-header-actions ml-auto flex items-center gap-2">
+        <div className="x2m-lang flex items-center gap-0.5 rounded-md border border-line bg-soft p-0.5" role="group" aria-label={t('lang.label')}>
           {LANGS.map((l) => (
             <button
               key={l}
               className={cn(
-                'x2m-lang-btn rounded-md px-2 py-0.5 text-[11.5px] font-medium transition-colors duration-300 ease-spring focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+                'x2m-lang-btn rounded px-2 py-0.5 text-[11.5px] font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
                 lang === l ? 'active seg-on' : 'text-dim hover:text-ink'
               )}
               onClick={() => onLangChange(l)}
@@ -66,20 +85,15 @@ export function Header({ theme, onToggleTheme, onPickFiles, mode, onModeChange, 
             </button>
           ))}
         </div>
-        <button className={cx('btn btn-ghost btn-sm', btnGhost, btnSm)} onClick={onToggleTheme} title={themeLabel} aria-label={themeLabel}>
-          {theme === 'dark' ? <IconSun size={16} /> : <IconMoon size={16} />}
-        </button>
         <button
           className={cx(
-            'btn btn-primary group inline-flex items-center gap-2 rounded-full border border-white/20 bg-accent py-1 pl-1 pr-3.5 text-[12.5px] font-semibold text-white',
-            'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-8px_var(--accent)] transition-[filter,transform] duration-300 ease-spring hover:brightness-110 active:scale-[0.98]',
+            'btn btn-primary inline-flex items-center gap-1.5 rounded-md border border-transparent bg-accent px-3 py-1.5 text-[12.5px] font-semibold text-white',
+            'transition-[filter,transform] duration-200 hover:brightness-110 active:scale-[0.98]',
             'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
           )}
           onClick={onPickFiles}
         >
-          <span className={cn('flex size-6 items-center justify-center rounded-full bg-white/20 transition-transform duration-300 ease-spring group-hover:scale-105', mode !== 'mdview' && 'group-hover:rotate-90')}>
-            {mode === 'mdview' ? <IconFolder size={14} /> : <IconPlus size={14} />}
-          </span>
+          {mode === 'mdview' ? <IconFolder size={15} /> : <IconPlus size={15} />}
           {mode === 'mdview' ? t('common.openFolder') : t(`header.pick.${mode}`)}
         </button>
       </div>

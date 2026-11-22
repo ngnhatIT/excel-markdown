@@ -67,7 +67,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
       ref={ref}
       role="dialog"
       aria-label={t('td.title', { name: def.tableName })}
-      className="x2m-ddl-pop glass fixed z-50 flex max-h-[min(460px,70vh)] flex-col rounded-xl text-ink"
+      className="x2m-ddl-pop glass fixed z-50 flex max-h-[min(460px,70vh)] flex-col rounded-lg text-ink"
       style={{ left, top: y, width: `min(${POP_W}px, calc(100vw - 16px))` }}
     >
       <div className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
@@ -139,7 +139,7 @@ export function ErDialog({ defs, onClose, onCopy }: { defs: TableDef[]; onClose:
         role="dialog"
         aria-modal="true"
         aria-label={t('td.erHeading', { n: defs.length })}
-        className="x2m-er-dialog glass flex max-h-[80vh] w-[min(960px,92vw)] flex-col overflow-hidden rounded-xl border border-line bg-canvas shadow-lg"
+        className="x2m-er-dialog glass flex max-h-[80vh] w-[min(960px,92vw)] flex-col overflow-hidden rounded-lg border border-line bg-canvas shadow-lg"
       >
         <div className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
           <span className="text-xs font-semibold">{t('td.erHeading', { n: defs.length })}</span>

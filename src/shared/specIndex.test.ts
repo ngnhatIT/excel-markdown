@@ -251,8 +251,38 @@ describe('CRUD図', () => {
     ])
     // dòng 21 có cả TBL_CUSTOMER và TBL_CUSTOMER.CUST_CD
     expect(m.cells.SCR010.TBL_CUSTOMER.evidence.filter((e) => e.line === 21)).toHaveLength(1)
-    // ô bảng 項目定義 không có động từ (heading 【項目定義】 cũng không) -> ?
-    expect(m.cells.SCR010.TBL_CUSTOMER.evidence.find((e) => e.line === 17)?.ops).toBe('?')
+    // ô bảng 項目定義 không có động từ (heading 【項目定義】 cũng không) -> suy từ tên 顧客検索画面: r (chữ thường)
+    expect(m.cells.SCR010.TBL_CUSTOMER.evidence.find((e) => e.line === 17)?.ops).toBe('r')
+  })
+
+  it('suy từ tên màn hình khi dòng và heading không có động từ: chữ thường, chữ hoa (bằng chứng) thắng', () => {
+    const md = (name: string, extra = ''): string =>
+      [
+        '## 画面',
+        '- **画面ID**: A001',
+        name ? `- **画面名**: ${name}` : '',
+        '### 【項目定義】',
+        '| No | 項目名 | 区分 |',
+        '|---|---|---|',
+        '| 1 | 顧客名 | 入力 |',
+        extra,
+        '## TBL_X',
+        '| 論理名 | 物理名 | 型 |',
+        '|---|---|---|',
+        '| 顧客名 | CUST_NAME | VARCHAR |',
+        '| 顧客区分 | CUST_KBN | CHAR |',
+      ].join('\n')
+    const cell = (text: string) => crudMatrix(buildSpecIndex([{ rel: 'a.md', text }])).cells.A001?.TBL_X
+    expect(cell(md('顧客登録画面'))?.ops).toBe('c')
+    expect(cell(md('顧客登録画面'))?.evidence.map((e) => e.ops)).toEqual(['c'])
+    expect(cell(md('顧客登録・更新画面'))?.ops).toBe('cu')
+    // tên không có động từ: vẫn '?' (không đoán)
+    expect(cell(md('顧客メンテナンス'))?.ops).toBe('?')
+    expect(cell(md(''))?.ops).toBe('?')
+    // dòng có động từ 表示 -> R có bằng chứng; ô khác suy c -> `cR`
+    const mixed = cell(md('顧客登録画面', '| 2 | 顧客区分 | 表示 |'))
+    expect(mixed?.ops).toBe('cR')
+    expect(crudText({ screens: [{ id: 'A001', name: '' }], tables: ['TBL_X'], cells: { A001: { TBL_X: mixed! } } }, 'tsv')).toContain('A001\tcR\n')
   })
 
   it('heading làm ngữ cảnh khi dòng không có động từ; tên của chính tham chiếu (論理名 登録日) không tính', () => {
@@ -293,6 +323,41 @@ describe('CRUD図', () => {
     expect(md).toContain('| SCR001 ログイン画面 |  |  |')
     const x = crudText({ screens: [{ id: 'A|1', name: '' }], tables: ['T'], cells: {} }, 'md')
     expect(x).toContain('| A\\|1 |  |')
+  })
+})
+
+describe('lint: item-length (画面項目 dài hơn cột DB cùng 論理名)', () => {
+  const screen = (rows: string[]): string =>
+    ['## 顧客登録', '- **画面ID**: A001', '- **画面名**: 顧客登録画面', '### 【項目定義】', '| No | 項目名 | 区分 | 桁数 |', '|---|---|---|---|', ...rows, ''].join('\n')
+  const db = [
+    '## TBL_X',
+    '| 論理名 | 物理名 | 型 | 桁数 |',
+    '|---|---|---|---|',
+    '| 顧客名 | CUST_NAME | VARCHAR(40) | |',
+    '| 住所 | ADDR | NVARCHAR2 | 100 |',
+    '| 金額 | AMOUNT | NUMERIC(5) | |',
+    '',
+  ].join('\n')
+  const issues = (rows: string[], extra: SpecDoc[] = []) =>
+    buildSpecIndex([{ rel: 'a.md', text: screen(rows) }, { rel: 'db.md', text: db }, ...extra]).issues.filter((i) => i.code === 'item-length')
+
+  it('nhập dài hơn cột chữ: cảnh báo kèm cột DB; bằng hoặc ngắn hơn thì không', () => {
+    const r = issues(['| 1 | 顧客名 | 入力 | 50 |', '| 2 | 住所 | 入力 | 100 |', '| 3 | 顧客名 | 入力 | 40桁 |'])
+    expect(r.map((i) => `${i.severity} ${i.rel}:${i.line} ${i.subject} ${i.detail} ${i.other?.rel}:${i.other?.line}`)).toEqual([
+      'warning a.md:7 A001 顧客名 50 > TBL_X.CUST_NAME VARCHAR(40) db.md:4',
+    ])
+  })
+
+  it('bỏ qua hạng mục hiển thị / nút, cột không phải kiểu chữ, 桁数 không phải số, bảng ngoài phần 画面ID', () => {
+    expect(issues(['| 1 | 顧客名 | 表示 | 50 |', '| 2 | 金額 | 入力 | 9 |', '| 3 | 住所 | 入力 | 全角100 |'])).toEqual([])
+    const noScreen = { rel: 'b.md', text: '## メモ\n| 項目名 | 桁数 |\n|---|---|\n| 顧客名 | 99 |\n' }
+    expect(issues([], [noScreen])).toEqual([])
+  })
+
+  it('論理名 thuộc nhiều bảng: chỉ báo khi dài hơn mọi cột', () => {
+    const db2 = { rel: 'db2.md', text: '## TBL_Y\n| 論理名 | 物理名 | 型 |\n|---|---|---|\n| 顧客名 | NAME | VARCHAR(60) |\n' }
+    expect(issues(['| 1 | 顧客名 | 入力 | 50 |'], [db2])).toEqual([])
+    expect(issues(['| 1 | 顧客名 | 入力 | 70 |'], [db2])).toHaveLength(1)
   })
 })
 

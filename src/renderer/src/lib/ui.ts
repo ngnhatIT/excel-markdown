@@ -7,18 +7,14 @@ export const cx = (...parts: Array<string | false | null | undefined>): string =
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
 
 export const btn = cx(
-  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-line bg-raised px-3 py-1.5',
-  'text-[13px] font-medium text-ink shadow-[inset_0_1px_0_var(--glass-highlight)]',
-  'transition-[background-color,color,transform,filter,box-shadow] duration-300 ease-spring',
+  'inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-line bg-raised px-3 py-1.5',
+  'text-[13px] font-medium text-ink',
+  'transition-[background-color,color,transform,filter,box-shadow] duration-200',
   'enabled:hover:bg-hover enabled:active:scale-[0.97] disabled:opacity-50',
   focusRing
 )
-// Nút chính: "giọt kính" màu accent, vệt sáng mép trên + bóng cùng tông màu.
-export const btnPrimary = cx(
-  btn,
-  '!border-white/20 !bg-accent font-semibold !text-white enabled:hover:!bg-accent enabled:hover:brightness-110',
-  'shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_6px_18px_-6px_var(--accent)]'
-)
+// Nút chính: nền chàm đặc, không bóng
+export const btnPrimary = cx(btn, '!border-transparent !bg-accent font-semibold !text-white enabled:hover:!bg-accent enabled:hover:brightness-110')
 export const btnGhost = cx(btn, '!border-transparent !bg-transparent !shadow-none !px-2 !py-1 !text-dim enabled:hover:!bg-hover enabled:hover:!text-ink')
 export const btnSm = '!px-2.5 !py-1 !text-xs'
 export const btnMini = '!px-[7px] !py-0.5 !text-[11.5px] !rounded-md'
@@ -30,7 +26,7 @@ export const iconBtn = cx(
 )
 
 export const input = cx(
-  'w-full rounded-lg border border-line bg-canvas px-2.5 py-1.5 text-xs text-ink outline-none',
+  'w-full rounded-md border border-line bg-canvas px-2.5 py-1.5 text-xs text-ink outline-none',
   'placeholder:text-faint transition-[border-color,box-shadow] duration-150',
   'focus:border-accent focus:ring-[3px] focus:ring-accent-soft'
 )
@@ -49,8 +45,8 @@ export const moveBtn =
   'rounded-md px-1.5 py-1 text-[13px] font-bold leading-none text-dim transition-colors duration-150 enabled:hover:bg-hover enabled:hover:text-ink disabled:cursor-default disabled:opacity-35 focus-visible:outline-2 focus-visible:outline-accent'
 export const reloadBtn = 'flex items-center'
 export const fileCard =
-  'glass-chip overflow-hidden rounded-xl transition-[transform,border-color,box-shadow] duration-200 hover:-translate-y-px hover:border-line motion-reduce:transition-none'
-export const fileCardActive = '!border-accent-line !shadow-[inset_0_1px_0_var(--glass-highlight),0_0_0_3px_var(--accent-soft)]'
+  'glass-chip overflow-hidden rounded-md transition-[border-color,box-shadow] duration-200 hover:border-line motion-reduce:transition-none'
+export const fileCardActive = '!border-accent-line !shadow-[0_0_0_3px_var(--accent-soft)]'
 export const fileHead = 'flex items-center gap-1.5 px-2 py-1.5'
 export const fileNameBtn =
   'flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0.5 rounded-sm p-0 text-left text-ink focus-visible:outline-2 focus-visible:outline-accent'

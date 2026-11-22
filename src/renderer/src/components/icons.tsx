@@ -167,3 +167,48 @@ export const IconMap = (p: { size?: number }) => (
     <path d="M9 6.5h6M6 9v3.5h6V15M18 9v3.5h-6" />
   </Svg>
 )
+
+/** Chế độ Excel → Markdown: ô lưới sang trang chữ */
+export const IconSheetToMd = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <rect x="2.5" y="4" width="8" height="10" rx="1" />
+    <path d="M2.5 7.5h8M2.5 10.5h8M6 4v10" />
+    <path d="M14 10h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H14a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" />
+    <path d="M15.5 13.5h3.5M15.5 16.5h2.5M11 17h1.5m-1.5 0 1-1m-1 1 1 1" />
+  </Svg>
+)
+
+/** Chế độ Markdown → Excel: trang chữ sang ô lưới */
+export const IconMdToSheet = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M3.5 4h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
+    <path d="M5 7.5h3.5M5 10.5h2.5" />
+    <rect x="13.5" y="10" width="8" height="10" rx="1" />
+    <path d="M13.5 13.5h8M13.5 16.5h8M17.5 10v10M11 17h1.5m0 0-1-1m1 1-1 1" />
+  </Svg>
+)
+
+/** Chế độ Đọc Markdown: cuốn sách mở */
+export const IconBook = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M12 6.5C10.5 5 8 4.5 3 4.5v13c5 0 7.5.5 9 2 1.5-1.5 4-2 9-2v-13c-5 0-7.5.5-9 2z" />
+    <path d="M12 6.5v13" />
+  </Svg>
+)
+
+/** Chế độ So sánh 新旧: hai cột đối chiếu */
+export const IconCompare = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <rect x="3" y="4" width="7" height="16" rx="1" />
+    <rect x="14" y="4" width="7" height="16" rx="1" />
+    <path d="M5.5 8h2M5.5 11h2M16.5 8h2M16.5 11h2M16.5 14h2" />
+  </Svg>
+)
+
+/** Dịch (訳) */
+export const IconTranslate = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M3 5h9M7.5 3v2M5 5c.5 3 2.5 5.5 5.5 7M10 5c-.7 3.3-2.8 6-6 7.5" />
+    <path d="m12.5 21 4-10 4 10M14 17.5h5" />
+  </Svg>
+)

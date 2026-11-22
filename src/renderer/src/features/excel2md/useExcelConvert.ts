@@ -14,7 +14,6 @@ export function useExcelConvert({
   converting,
   setConverting,
   setResults,
-  onDone,
 }: {
   files: FileItem[]
   options: ConvertOptions
@@ -24,8 +23,6 @@ export function useExcelConvert({
   setConverting: (v: boolean) => void
   /** State kết quả do App giữ (App còn xóa nó khi đổi file/sheet, Esc). */
   setResults: (r: ConvertResultItem[] | null) => void
-  /** Gọi khi convert thành công trọn vẹn (cập nhật thời điểm convert ở thanh dưới). */
-  onDone: () => void
 }) {
   const [progress, setProgress] = useState<ConvertProgress | null>(null)
 
@@ -70,7 +67,6 @@ export function useExcelConvert({
         toast(
           mdCount === 0 ? t('toast.excel.nothing') : t('toast.excel.done', { md: mdCount, n: res.length })
         )
-        onDone()
       } else {
         toast(t('toast.excel.partial', { ok: okCount, n: res.length }), 'err')
       }
@@ -80,7 +76,7 @@ export function useExcelConvert({
       setConverting(false)
       window.setTimeout(() => setProgress(null), 1500)
     }
-  }, [converting, files, options, outputMode, ensureOutDir, setConverting, setResults, onDone])
+  }, [converting, files, options, outputMode, ensureOutDir, setConverting, setResults])
 
   const cancelConvert = useCallback(() => {
     window.api.cancelConvert().catch((err) => toast(errMsg(err), 'err'))

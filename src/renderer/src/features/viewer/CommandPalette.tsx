@@ -58,7 +58,7 @@ export function CommandPalette({ items, onPick, onClose }: Props): React.ReactEl
   return (
     <div className="x2m-palette-backdrop fixed inset-0 z-[90] flex items-start justify-center bg-black/40 pt-[12vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div
-        className="x2m-palette glass flex max-h-[60vh] w-[min(560px,90vw)] flex-col overflow-hidden rounded-xl border border-line bg-canvas shadow-lg"
+        className="x2m-palette glass flex max-h-[60vh] w-[min(560px,90vw)] flex-col overflow-hidden rounded-lg border border-line bg-canvas shadow-lg"
         role="dialog"
         aria-modal="true"
         aria-label={t('palette.aria')}

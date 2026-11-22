@@ -1,10 +1,45 @@
 /* Dịch nhanh đoạn bôi đen (Selection Translation): nhận diện ngôn ngữ, chọn đích, prompt. Thuần, dùng chung main + renderer. */
 import type { GlossaryEntry } from './glossary'
+import { atxHeading, fenceAfter } from './mdLines'
 
 export type TranslateLang = 'vi' | 'en' | 'ja'
 export const TRANSLATE_LANGS: readonly TranslateLang[] = ['vi', 'en', 'ja']
-/** Đoạn chọn dài hơn thì từ chối (dịch cả tài liệu dùng khung Trợ lý AI). */
-export const MAX_TRANSLATE_CHARS = 4000
+/** Đoạn gửi dịch (đoạn bôi đen, một mục, một bảng) dài hơn thì từ chối: cả tài liệu dùng khung Trợ lý AI.
+ * ~12 000 ký tự Nhật vẫn vừa giới hạn đầu ra của các model khi dịch sang tiếng Việt. */
+export const MAX_TRANSLATE_CHARS = 12_000
+
+/** Kết quả dịch: bản dịch + các mục 用語集 của dự án đã ép model dùng (để hiện cho người đọc biết). */
+export interface TranslateResult {
+  text: string
+  terms: GlossaryEntry[]
+}
+
+/** Markdown của mục thứ `index` (đếm heading `#`–`####` ngoài khối code, như thanh mục lục của bản xem): từ heading
+ * đó tới trước heading kế tiếp cùng cấp hoặc cao hơn. '' nếu không có. */
+export function sectionMarkdown(md: string, index: number): string {
+  const lines = md.split('\n')
+  let fence = ''
+  let seen = -1
+  let start = -1
+  let level = 0
+  for (let i = 0; i < lines.length; i++) {
+    const nf = fenceAfter(fence, lines[i])
+    if (nf !== undefined) {
+      fence = nf
+      continue
+    }
+    if (fence) continue
+    const h = atxHeading(lines[i])
+    if (!h) continue
+    if (start >= 0 && h.level <= level) return lines.slice(start, i).join('\n').trim()
+    // Đếm đúng như extractOutline (`# chữ` ở đầu dòng, cấp 1–4) để chỉ số khớp chip mục lục
+    if (start < 0 && /^#{1,4}\s+\S/.test(lines[i]) && ++seen === index) {
+      start = i
+      level = h.level
+    }
+  }
+  return start >= 0 ? lines.slice(start).join('\n').trim() : ''
+}
 
 const LANG_NAME: Record<TranslateLang, string> = { vi: 'Vietnamese', en: 'English', ja: 'Japanese' }
 

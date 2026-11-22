@@ -6,14 +6,14 @@ import { btnGhost, btnSm, cx, input } from '../../lib/ui'
 import { useT } from '../../i18n'
 
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
-const segGroup = 'grid grid-cols-3 gap-1 rounded-xl border border-line-subtle bg-canvas p-[3px]'
+const segGroup = 'grid grid-cols-3 gap-1 rounded-lg border border-line-subtle bg-canvas p-[3px]'
 const segBtn = cx(
   'cursor-pointer rounded-lg px-1 py-1.5 text-center text-[11.5px] font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50',
   focusRing
 )
 const segState = (on: boolean): string => (on ? 'active seg-on' : 'text-dim hover:bg-hover hover:text-ink')
 const optRow = 'flex cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] [&_.dim]:mt-px [&_.dim]:block [&_.dim]:text-[11px] [&_.dim]:text-dim'
-const optGroup = 'glass-chip flex flex-col gap-2 rounded-xl p-3'
+const optGroup = 'glass-chip flex flex-col gap-2 rounded-lg p-3'
 const chk = 'chk size-3.5 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed disabled:opacity-50'
 const fieldCls = 'flex flex-col gap-1 mt-1 text-xs text-dim'
 
@@ -52,14 +52,13 @@ export function OptionsPanel({
   const vMerge: VerticalMergeMode = options.verticalMerge ?? 'repeat'
   const alignTables = options.alignTables === true
 
+  // Hai mục đích khác nhau thật sự: người đọc (mặc định) và AI / RAG. Tổ hợp khác = tùy chỉnh
   const activePreset =
-    options.frontMatter && options.chunkRows > 0
+    options.frontMatter && options.chunkRows > 0 && options.detectTwoColTables && vMerge === 'repeat'
       ? 'rag'
-      : options.detectTwoColTables && vMerge === 'empty' && alignTables
-        ? 'grid'
-        : !options.detectTwoColTables && vMerge === 'repeat' && !alignTables && !options.frontMatter && options.chunkRows === 0
-          ? 'spec'
-          : null
+      : !options.detectTwoColTables && vMerge === 'repeat' && !alignTables && !options.frontMatter && options.chunkRows === 0
+        ? 'spec'
+        : null
 
   const applyPreset = (patch: Partial<ConvertOptions>): void => {
     if (onApplyPreset) {
@@ -111,59 +110,30 @@ export function OptionsPanel({
         )}
         <div className={`x2m-opt-group ${optGroup}`}>
           <div className="x2m-opt-label text-[12.5px] font-semibold tracking-[-0.005em] text-ink">{t('opts.preset')}</div>
-          <div className={`x2m-presets ${segGroup}`} role="group" aria-label={t('opts.presetAria')}>
+          <div className={`x2m-presets ${segGroup} !grid-cols-2`} role="group" aria-label={t('opts.presetAria')}>
             <button
               type="button"
               disabled={locked.size > 0}
+              aria-pressed={activePreset === 'spec'}
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'spec'), activePreset === 'spec' && 'active')}
-              onClick={() =>
-                applyPreset({
-                  detectTwoColTables: false,
-                  verticalMerge: 'repeat',
-                  alignTables: false,
-                  frontMatter: false,
-                  chunkRows: 0,
-                })
-              }
-              title={t('opts.preset.specTitle')}
+              onClick={() => applyPreset({ detectTwoColTables: false, verticalMerge: 'repeat', alignTables: false, frontMatter: false, chunkRows: 0 })}
             >
               {t('opts.preset.spec')}
             </button>
             <button
               type="button"
               disabled={locked.size > 0}
-              className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'grid'), activePreset === 'grid' && 'active')}
-              onClick={() =>
-                applyPreset({
-                  detectTwoColTables: true,
-                  verticalMerge: 'empty',
-                  alignTables: true,
-                  frontMatter: false,
-                  chunkRows: 0,
-                })
-              }
-              title={t('opts.preset.gridTitle')}
-            >
-              {t('opts.preset.grid')}
-            </button>
-            <button
-              type="button"
-              disabled={locked.size > 0}
+              aria-pressed={activePreset === 'rag'}
               className={cn('x2m-preset-btn', segBtn, segState(activePreset === 'rag'), activePreset === 'rag' && 'active')}
-              onClick={() =>
-                applyPreset({
-                  detectTwoColTables: true,
-                  verticalMerge: 'repeat',
-                  alignTables: false,
-                  frontMatter: true,
-                  chunkRows: 50,
-                })
-              }
-              title={t('opts.preset.ragTitle')}
+              onClick={() => applyPreset({ detectTwoColTables: true, verticalMerge: 'repeat', alignTables: false, frontMatter: true, chunkRows: 50 })}
             >
               {t('opts.preset.rag')}
             </button>
           </div>
+          {/* Ghi rõ preset đang chọn làm gì (trước chỉ có tooltip nên 3 nút trông như nhau) */}
+          <p className="x2m-preset-desc m-0 text-[11.5px] leading-relaxed text-dim">
+            {t(activePreset === 'rag' ? 'opts.preset.ragDesc' : activePreset === 'spec' ? 'opts.preset.specDesc' : 'opts.preset.customDesc')}
+          </p>
         </div>
 
         <div className={`x2m-opt-group ${optGroup}`}>

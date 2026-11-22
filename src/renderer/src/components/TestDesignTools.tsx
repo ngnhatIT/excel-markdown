@@ -70,7 +70,7 @@ export function TestDesignDialog({ md, title, onClose, onCopy }: { md: string; t
         role="dialog"
         aria-modal="true"
         aria-label={t('tsd.heading', { n: design.rows.length })}
-        className="x2m-testdesign glass flex max-h-[86vh] w-[min(1200px,94vw)] flex-col overflow-hidden rounded-xl border border-line bg-canvas text-ink shadow-lg"
+        className="x2m-testdesign glass flex max-h-[86vh] w-[min(1200px,94vw)] flex-col overflow-hidden rounded-lg border border-line bg-canvas text-ink shadow-lg"
       >
         <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-3 py-2 text-xs">
           <span className="font-semibold">{t('tsd.heading', { n: design.rows.length })}</span>

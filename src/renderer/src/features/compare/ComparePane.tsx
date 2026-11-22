@@ -210,7 +210,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
     }
     return (
       <section
-        className="x2m-compare-slot glass-chip rounded-xl p-2.5"
+        className="x2m-compare-slot glass-chip rounded-lg p-2.5"
         aria-label={t(side === 'old' ? 'compare.old' : 'compare.new')}
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}

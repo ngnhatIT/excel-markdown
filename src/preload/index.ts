@@ -16,6 +16,7 @@ import type {
   OutputMode,
 } from '../shared/types'
 import type { SpecIndex } from '../shared/specIndex'
+import type { TranslateResult } from '../shared/translate'
 import type { FoundProjectConfig } from '../shared/projectConfig'
 
 interface SheetListItem {
@@ -135,9 +136,10 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('ai:delta', h)
     return () => ipcRenderer.removeListener('ai:delta', h)
   },
-  /** Dịch nhanh đoạn bôi đen bằng nhà cung cấp AI đã cấu hình. Lỗi 'NO_KEY' = chưa có API Key. */
-  aiTranslate: (text: string, target: string): Promise<string> =>
-    unwrap(ipcRenderer.invoke('ai:translate', text, target) as Promise<ApiResult<string>>),
+  /** Dịch đoạn bôi đen / một mục / một bảng bằng nhà cung cấp AI đã cấu hình, kèm thuật ngữ 用語集 đã áp dụng.
+   * Lỗi 'NO_KEY' = chưa có API Key. */
+  aiTranslate: (text: string, target: string): Promise<TranslateResult> =>
+    unwrap(ipcRenderer.invoke('ai:translate', text, target) as Promise<ApiResult<TranslateResult>>),
   aiCancel: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('ai:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 })

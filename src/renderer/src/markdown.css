@@ -136,9 +136,8 @@
   top: -20px;
   z-index: 2;
   box-shadow: 0 1px 0 var(--border);
-  /* Header dính phía trên các dòng đang cuộn: kính mờ để chữ bên dưới không lẫn vào */
-  background: var(--glass);
-  backdrop-filter: blur(18px) saturate(170%);
+  /* Header dính phía trên các dòng đang cuộn: nền đặc để chữ bên dưới không lẫn vào */
+  background: var(--sheet);
 }
 
 .md-body tbody tr:nth-child(even) td {

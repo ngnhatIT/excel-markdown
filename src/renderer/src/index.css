@@ -36,179 +36,160 @@
 }
 
 /* ============================== Theme vars ==============================
- * Liquid glass: bề mặt trong suốt nằm trên nền "ambient" (--backdrop). Chỉ các
- * khung lớn (class `glass`) mới làm mờ nền; phần bên trong dùng màu bán trong suốt. */
+ * "Bản vẽ 設計書": mặt giấy phẳng (không kính mờ), mực 墨 cho chữ, chàm 藍 cho thao tác, đỏ con dấu 朱 chỉ cho
+ * lỗi / xóa / cảnh báo nặng. Vùng làm việc trải lưới 方眼紙 rất nhạt (đúng loại giấy kẻ ô mà tài liệu Excel
+ * gốc vẽ trên đó); tài liệu đang đọc là một tờ giấy đặt trên lưới. Tên biến cũ (--glass, --bg-soft...) giữ
+ * nguyên để mọi component đổi theo mà không phải sửa. Mặc định: tối ("bản in xanh đêm"). */
 :root {
-  --backdrop-base: #0a0f17;
-  --backdrop:
-    radial-gradient(60vw 55vh at 8% 0%, rgba(79, 134, 223, 0.3), transparent 70%),
-    radial-gradient(55vw 60vh at 100% 100%, rgba(45, 168, 160, 0.22), transparent 70%),
-    radial-gradient(40vw 40vh at 70% 20%, rgba(120, 140, 180, 0.14), transparent 70%),
-    radial-gradient(35vw 45vh at 30% 95%, rgba(230, 170, 120, 0.08), transparent 70%);
-  --glass: rgba(18, 25, 36, 0.46);
-  --glass-border: rgba(255, 255, 255, 0.09);
-  --glass-highlight: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 18px 50px -18px rgba(2, 8, 20, 0.75), 0 2px 6px -2px rgba(2, 8, 20, 0.4);
-  /* Ánh sáng chiếu từ góc trên-trái: mép trên-trái sáng, mép dưới-phải tối */
-  --rim-hi: rgba(255, 255, 255, 0.16);
-  --rim-lo: rgba(255, 255, 255, 0.03);
-  --sheen: rgba(255, 255, 255, 0.07);
-  --glass-glow: rgba(140, 180, 255, 0.04);
-  --pill-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
-  --pill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 4px 12px -4px rgba(0, 0, 0, 0.55);
-  --bg: rgba(6, 10, 16, 0.38);
-  --bg-soft: rgba(255, 255, 255, 0.045);
-  --bg-raised: rgba(255, 255, 255, 0.07);
-  --bg-hover: rgba(255, 255, 255, 0.1);
-  --border: rgba(255, 255, 255, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --text: #e8edf4;
-  --text-dim: #98a6b8;
-  --text-faint: #7d8b9e;
-  /* chữ trắng trên nền accent ≥ 4.5:1 (WCAG AA) */
-  --accent: #3b6fc4;
-  --accent-soft: rgba(79, 134, 223, 0.16);
-  --accent-border: rgba(79, 134, 223, 0.4);
-  --accent-text: #7cb3ff;
-  --success: #34c769;
-  --success-soft: rgba(52, 199, 105, 0.14);
-  --warning: #e5a93b;
-  --warning-soft: rgba(229, 169, 59, 0.14);
-  --danger: #ef5350;
-  --danger-soft: rgba(239, 83, 80, 0.14);
-  --code-bg: rgba(4, 7, 12, 0.62);
-  --shadow: 0 14px 40px -10px rgba(2, 8, 20, 0.65);
-  --radius: 12px;
-  /* Khung ngoài của workbench (viền kép: khay nhôm + tấm kính) */
-  --shell-bg: rgba(255, 255, 255, 0.035);
-  --shell-ring: rgba(255, 255, 255, 0.08);
-  --editor-bg: rgba(4, 7, 12, 0.32);
+  --backdrop-base: #0f151e;
+  --grid-minor: rgba(140, 170, 230, 0.045);
+  --grid-major: rgba(140, 170, 230, 0.085);
+  --sheet: #161d28;
+  --glass: #131a24;
+  --glass-border: #243042;
+  --glass-highlight: transparent;
+  --glass-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  --pill-bg: #233047;
+  --pill-shadow: inset 0 0 0 1px #33425c;
+  --bg: #121924;
+  --bg-soft: rgba(255, 255, 255, 0.035);
+  --bg-raised: #1a2230;
+  --bg-hover: rgba(160, 185, 235, 0.08);
+  --border: #263244;
+  --border-subtle: #1e2836;
+  --text: #e3e7ed;
+  --text-dim: #a2adbc;
+  --text-faint: #8b97a8;
+  /* chàm 藍: chữ trắng trên nền accent ≥ 4.5:1 */
+  --accent: #3a5fae;
+  --accent-soft: rgba(111, 147, 224, 0.14);
+  --accent-border: rgba(111, 147, 224, 0.42);
+  --accent-text: #9db7f0;
+  --success: #4cc47f;
+  --success-soft: rgba(76, 196, 127, 0.12);
+  --warning: #e2ac4a;
+  --warning-soft: rgba(226, 172, 74, 0.12);
+  /* 朱 (đỏ con dấu) */
+  --danger: #f07a62;
+  --danger-soft: rgba(240, 122, 98, 0.13);
+  --code-bg: #0d131b;
+  --shadow: 0 16px 40px -14px rgba(0, 0, 0, 0.7), 0 0 0 1px #2a374b;
+  --radius: 8px;
+  --editor-bg: #0f151e;
+  --rail-bg: #0c1118;
 }
 
 [data-theme='light'] {
-  --backdrop-base: #e9eef5;
-  --backdrop:
-    radial-gradient(60vw 55vh at 8% 0%, rgba(96, 150, 235, 0.32), transparent 70%),
-    radial-gradient(55vw 60vh at 100% 100%, rgba(110, 200, 190, 0.26), transparent 70%),
-    radial-gradient(40vw 40vh at 70% 15%, rgba(245, 214, 190, 0.35), transparent 70%);
-  --glass: rgba(255, 255, 255, 0.5);
-  --glass-border: rgba(255, 255, 255, 0.75);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-shadow: 0 18px 44px -18px rgba(30, 55, 95, 0.35), 0 2px 6px -2px rgba(30, 55, 95, 0.12);
-  --rim-hi: rgba(255, 255, 255, 0.95);
-  --rim-lo: rgba(30, 55, 95, 0.06);
-  --sheen: rgba(255, 255, 255, 0.55);
-  --glass-glow: rgba(255, 255, 255, 0.35);
-  --pill-bg: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.82));
-  --pill-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(30, 55, 95, 0.12), 0 4px 12px -4px rgba(30, 55, 95, 0.25);
-  --bg: rgba(255, 255, 255, 0.55);
-  --bg-soft: rgba(255, 255, 255, 0.5);
-  --bg-raised: rgba(255, 255, 255, 0.72);
-  --bg-hover: rgba(30, 55, 95, 0.07);
-  --border: rgba(30, 55, 95, 0.12);
-  --border-subtle: rgba(30, 55, 95, 0.07);
-  --text: #161f2c;
-  --text-dim: #526175;
-  /* ≥ 4.5:1 trên nền kính sáng (đo trên nền ghép thực tế, không chỉ nền trắng) */
-  --text-faint: #566477;
-  --accent: #1d5bd6;
-  --accent-soft: rgba(29, 91, 214, 0.1);
-  --accent-border: rgba(29, 91, 214, 0.32);
-  --accent-text: #1850c2;
-  --success: #127a40;
-  --success-soft: rgba(22, 138, 74, 0.1);
+  --backdrop-base: #eef1f0;
+  --grid-minor: rgba(35, 70, 143, 0.05);
+  --grid-major: rgba(35, 70, 143, 0.095);
+  --sheet: #ffffff;
+  --glass: #f8f9f9;
+  --glass-border: #d9dee4;
+  --glass-highlight: transparent;
+  --glass-shadow: 0 1px 0 rgba(24, 32, 43, 0.04);
+  --pill-bg: #ffffff;
+  --pill-shadow: inset 0 0 0 1px #c9d1dc, 0 1px 2px rgba(24, 32, 43, 0.08);
+  --bg: #ffffff;
+  --bg-soft: #f3f5f6;
+  --bg-raised: #ffffff;
+  --bg-hover: rgba(35, 70, 143, 0.06);
+  --border: #d9dee4;
+  --border-subtle: #e6e9ed;
+  /* 墨 */
+  --text: #18202b;
+  --text-dim: #4f5a69;
+  --text-faint: #5b6676;
+  --accent: #23468f;
+  --accent-soft: rgba(35, 70, 143, 0.08);
+  --accent-border: rgba(35, 70, 143, 0.3);
+  --accent-text: #1f3f84;
+  --success: #17703e;
+  --success-soft: rgba(23, 112, 62, 0.09);
   --warning: #8a5a00;
   --warning-soft: rgba(184, 122, 17, 0.1);
-  --danger: #b42525;
-  --danger-soft: rgba(209, 56, 56, 0.1);
-  --code-bg: rgba(243, 246, 250, 0.82);
-  --shadow: 0 12px 32px -10px rgba(30, 55, 95, 0.25);
-  --shell-bg: rgba(255, 255, 255, 0.4);
-  --shell-ring: rgba(30, 55, 95, 0.08);
-  --editor-bg: rgba(255, 255, 255, 0.5);
+  --danger: #b8321f;
+  --danger-soft: rgba(184, 50, 31, 0.08);
+  --code-bg: #f5f7f9;
+  --shadow: 0 14px 34px -14px rgba(24, 32, 43, 0.28), 0 0 0 1px #d9dee4;
+  --editor-bg: #eef1f0;
+  --rail-bg: #18233a;
 }
 
-/* Khung kính: làm mờ + tăng bão hòa nền phía sau. Viền sáng/tối theo một hướng ánh sáng
- * (trên-trái), vệt bóng chéo mép trên và quầng sáng trong để giả khúc xạ của kính dày.
- * Dùng box-shadow inset (không dùng ::before) để khung có thanh cuộn vẫn giữ viền. */
+/* Khung lớn: mặt phẳng có viền (tên `glass` giữ lại cho các component cũ). Không backdrop-filter:
+ * bộ lọc đó biến khung thành containing block của `position: fixed` (popup dịch bị cắt) và tốn GPU. */
 @utility glass {
-  background:
-    linear-gradient(160deg, var(--sheen), transparent 32%),
-    linear-gradient(var(--glass), var(--glass));
+  background: var(--glass);
   border: 1px solid var(--glass-border);
-  box-shadow:
-    inset 1px 1px 0 var(--rim-hi),
-    inset -1px -1px 0 var(--rim-lo),
-    inset 0 0 28px var(--glass-glow),
-    var(--glass-shadow);
-  backdrop-filter: blur(40px) saturate(190%);
+  box-shadow: var(--glass-shadow);
 }
 
-/* Kính lồng trong khung kính (thẻ file, nhóm tùy chọn, chip): không làm mờ thêm cho nhẹ GPU. */
 @utility glass-chip {
   background: var(--bg-soft);
   border: 1px solid var(--border-subtle);
-  box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
 
-/* Ô đang chọn trong nhóm segmented: viên kính nổi */
+/* Ô đang chọn trong nhóm segmented */
 @utility seg-on {
   background: var(--pill-bg);
   color: var(--text);
   box-shadow: var(--pill-shadow);
 }
 
-/* Workbench kiểu IDE: một khay ngoài (shell) ôm một tấm kính duy nhất (core); bên trong
- * các vùng chia bằng hairline thay vì nhiều thẻ nổi rời nhau. Bán kính lồng đồng tâm. */
-.x2m-shell {
-  border-radius: 22px;
-  padding: 5px;
-  background: var(--shell-bg);
-  box-shadow: 0 0 0 1px var(--shell-ring), 0 30px 80px -40px rgba(2, 8, 20, 0.6);
+/* Lưới 方眼紙: ô nhỏ 20px, đường đậm mỗi 5 ô */
+@utility grid-paper {
+  background-color: var(--editor-bg);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px), linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size: 100px 100px, 100px 100px, 20px 20px, 20px 20px;
+  background-position: -1px -1px;
+}
+
+.x2m-shell,
+.x2m-core {
+  border-radius: 0;
 }
 .x2m-core {
-  border-radius: 17px;
+  border: 0;
+  box-shadow: none;
 }
 
-/* Các khung lớn hiện lần lượt khi mở app (một lần, chỉ dùng transform/opacity) */
-@keyframes glass-rise {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.99);
-  }
+/* Vùng đọc: lưới giấy kẻ ô; tài liệu là tờ giấy đặt trên đó */
+.x2m-main {
+  @apply grid-paper;
 }
-.x2m-app > *,
-.x2m-body > * {
-  animation: glass-rise 0.8s var(--ease-spring) both;
-}
-.x2m-body > :nth-child(2) {
-  animation-delay: 60ms;
-}
-.x2m-body > :nth-child(3) {
-  animation-delay: 120ms;
+.x2m-preview > .md-body {
+  background: var(--sheet);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 28px 36px 36px;
+  box-shadow: 0 10px 30px -22px rgba(24, 32, 43, 0.45);
+  /* Bảng rộng hơn khung: tờ giấy giãn theo (cuộn ngang cả tờ), không để bảng lòi ra ngoài mép giấy */
+  min-width: fit-content;
 }
 
-/* Toast / popup dịch / bảng lệnh nổi trên nội dung bất kỳ: kính gần đặc để chữ phía sau không lộ qua (ngoài @layer nên thắng utility glass) */
+/* Toast / popup dịch / bảng lệnh: nền đặc */
 .x2m-toast,
 .x2m-tr-popup,
+.x2m-tr-dialog,
 .x2m-ddl-pop,
 .x2m-er-dialog,
 .x2m-testdesign,
 .x2m-palette {
-  background:
-    linear-gradient(160deg, var(--sheen), transparent 32%),
-    color-mix(in srgb, var(--backdrop-base) 90%, transparent);
+  background: var(--sheet);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
-/* Biểu tượng trạng thái trống đặt trong một ô kính */
+/* Biểu tượng trạng thái trống: ô vuông như một ô lưới được tô */
 .x2m-empty > svg:first-child {
   box-sizing: content-box;
   padding: 14px;
-  border-radius: 18px;
+  border-radius: 6px;
   color: var(--accent-text);
-  background: var(--bg-raised);
-  border: 1px solid var(--border-subtle);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  background: var(--sheet);
+  border: 1px solid var(--border);
   margin-bottom: 6px;
 }
 
@@ -220,17 +201,7 @@
   }
   body {
     @apply overflow-hidden font-sans text-[14px] text-ink antialiased;
-    background: var(--backdrop), var(--backdrop-base);
-  }
-  /* Hạt nhiễu rất nhẹ để nền kính không bị phẳng "kỹ thuật số" */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background: var(--backdrop-base);
   }
   #root {
     position: relative;
@@ -301,6 +272,86 @@
 }
 
 @import './markdown.css';
+
+/* Trợ lý AI: câu trả lời luôn vừa bề ngang cột. Bảng / khối code rộng thì cuộn ngang bên trong chính nó;
+ * định danh, đường dẫn, URL dài không có chỗ ngắt thì ngắt ở bất kỳ ký tự nào. */
+.x2m-ai-messages > *,
+.x2m-ai-bubble-user,
+.x2m-ai-bubble-model {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.x2m-ai-bubble-user {
+  max-width: 85%;
+}
+.md-body.x2m-ai-md {
+  max-width: 100%;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.x2m-ai-md > :first-child {
+  margin-top: 0;
+}
+.x2m-ai-md h1,
+.x2m-ai-md h2,
+.x2m-ai-md h3,
+.x2m-ai-md h4 {
+  font-size: 13.5px;
+  margin: 12px 0 6px;
+  padding: 0;
+  border: 0;
+}
+.x2m-ai-md table {
+  display: block;
+  width: max-content;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 12px;
+}
+.x2m-ai-md th,
+.x2m-ai-md td {
+  overflow-wrap: normal;
+}
+.x2m-ai-md thead th {
+  position: static;
+}
+.x2m-ai-md pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.x2m-ai-md pre code {
+  overflow-wrap: normal;
+}
+
+/* So sánh: bảng mã hai cột cần nền đặc, lưới làm rối chữ đơn cách */
+.x2m-main.x2m-compare {
+  background-image: none;
+  background-color: var(--sheet);
+}
+
+/* Bản đồ thiết kế: mỗi tab là một tờ giấy trên nền lưới (chữ không nằm đè lên dòng kẻ) */
+.x2m-specmap-sheet {
+  margin: 16px;
+  background: var(--sheet);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.x2m-specmap-diagram .mmd {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.x2m-specmap-sheet.is-fit .x2m-specmap-diagram .mmd {
+  overflow-x: hidden;
+}
+/* Vừa khung: chỉ thu nhỏ sơ đồ rộng hơn khung, không phóng to sơ đồ nhỏ */
+.x2m-specmap-sheet.is-fit .x2m-specmap-diagram .mmd svg {
+  max-width: 100% !important;
+}
 
 /* Bản đồ thiết kế: sơ đồ giữ cỡ chữ tự nhiên (Mermaid mặc định co cả sơ đồ cho vừa khung -> chữ ~8px),
  * sơ đồ rộng hơn khung thì cuộn ngang */

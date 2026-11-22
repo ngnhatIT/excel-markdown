@@ -14,6 +14,7 @@ import type {
   OutputMode,
 } from '../../../shared/types'
 import type { SpecIndex } from '../../../shared/specIndex'
+import type { TranslateResult } from '../../../shared/translate'
 import type { FoundProjectConfig } from '../../../shared/projectConfig'
 import { errCodeText } from '../i18n'
 
@@ -67,7 +68,7 @@ export interface WindowApi {
   aiAsk(req: AiAskRequest): Promise<AiAskResponse>
   aiListModels(provider?: AiProvider): Promise<string[]>
   onAiDelta(cb: (text: string) => void): () => void
-  aiTranslate(text: string, target: string): Promise<string>
+  aiTranslate(text: string, target: string): Promise<TranslateResult>
   aiCancel(): Promise<void>
 }
 

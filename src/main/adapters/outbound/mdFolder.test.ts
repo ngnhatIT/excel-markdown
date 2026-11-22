@@ -6,17 +6,17 @@ import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, searchMarkdown
 
 function makeTree(): string {
   const root = mkdtempSync(join(tmpdir(), 'x2m-mdv-'))
-  for (const d of ['docs/sub', 'node_modules/pkg', '.git', 'img']) mkdirSync(join(root, d), { recursive: true })
-  for (const f of ['README.md', 'docs/a.md', 'docs/sub/b.MARKDOWN', 'node_modules/pkg/x.md', '.git/y.md', 'img/p.png', 'note.txt'])
+  for (const d of ['docs/sub', 'node_modules/pkg', '.git', '.review', 'img']) mkdirSync(join(root, d), { recursive: true })
+  for (const f of ['README.md', 'docs/a.md', 'docs/sub/b.MARKDOWN', 'node_modules/pkg/x.md', '.git/y.md', '.review/r.md', 'img/p.png', 'note.txt'])
     writeFileSync(join(root, f), '# x\n')
   return root
 }
 
 describe('listMarkdownFiles', () => {
-  it('đệ quy, chỉ .md/.markdown, bỏ node_modules và thư mục ẩn, đường dẫn tương đối dấu /', async () => {
+  it('đệ quy, chỉ .md/.markdown, bỏ node_modules và .git nhưng đọc thư mục chấm khác (.review), đường dẫn tương đối dấu /', async () => {
     const res = await listMarkdownFiles(makeTree())
     expect(res.truncated).toBe(false)
-    expect(res.files.sort()).toEqual(['README.md', 'docs/a.md', 'docs/sub/b.MARKDOWN'])
+    expect(res.files.sort()).toEqual(['.review/r.md', 'README.md', 'docs/a.md', 'docs/sub/b.MARKDOWN'])
   })
 
   it('trả mtimeMs của từng file', async () => {
@@ -89,7 +89,7 @@ describe('walkFiles', () => {
     chmodSync(join(root, 'locked'), 0o000)
     try {
       const res = await walkFiles(root, (n) => n.endsWith('.md'), 100)
-      expect(res.files.sort()).toEqual(['README.md', 'docs/a.md'])
+      expect(res.files.sort()).toEqual(['.review/r.md', 'README.md', 'docs/a.md'])
     } finally {
       chmodSync(join(root, 'locked'), 0o755)
     }

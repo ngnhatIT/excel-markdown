@@ -10,6 +10,39 @@ Minor: tính năng mới. Không có `x2m.json` thì mọi kết quả giữ ngu
   dùng chung luật nhận diện. `convert`: tùy chọn Excel → Markdown (trong app bị khóa theo file, CLI / MCP làm mặc định).
   `rules`: nhãn 画面ID / 画面遷移, chữ mơ hồ, động từ CRUD và cột khóa khi so sánh 新旧 của riêng dự án, cộng thêm vào
   luật có sẵn. App, CLI, MCP báo file đang áp dụng và cảnh báo khi file sai. CLI thêm cờ `--no-config`.
+- Giao diện mới "Bản vẽ 設計書": bỏ hiệu ứng kính mờ; mặt phẳng màu giấy, chàm 藍 cho thao tác, đỏ 朱 cho lỗi / xóa;
+  vùng đọc trải lưới 方眼紙 và tài liệu hiện như một tờ giấy. Bốn chế độ chuyển sang **thanh dọc bên trái** (nút sáng /
+  tối ở đáy), thanh trên chỉ còn tên chế độ, ngôn ngữ và nút chính. Ghi chú về API key thu vào một dòng mở rộng.
+- Dịch: sửa popup Dịch nhanh bị cắt mất nửa phải (khung kính giam `position: fixed`); popup ghi chiều dịch và các
+  thuật ngữ 用語集 đã áp dụng. Thêm nút **訳** trên chip mục / bảng của thanh mục lục: dịch cả mục hoặc bảng, giữ cấu
+  trúc Markdown, hộp hai cột Bản gốc | Bản dịch, Copy Markdown / Lưu .md. Tab **Dịch** ở cột phải (Đọc Markdown) giữ
+  lịch sử dịch trong phiên. Giới hạn mỗi lần dịch tăng từ 4 000 lên 12 000 ký tự; IPC `ai:translate` trả
+  `{ text, terms }`.
+- Excel → Markdown: preset gộp còn 2 (**Cho người đọc**, **Cho AI / RAG**); bỏ "Bảng dữ liệu" vì khác "Chuẩn tài
+  liệu" chủ yếu ở khoảng trắng trong mã nguồn (các tùy chọn đó vẫn chỉnh riêng được). Dòng mô tả preset đang chọn hiện
+  ngay dưới nút (trước chỉ ở tooltip); tổ hợp khác thì báo "Tùy chỉnh". Kết quả convert mặc định không đổi.
+- Bản đồ thiết kế: tab **Cách viết tài liệu**: 5 thứ bản đồ cần (画面ID, 画面遷移, テーブル定義, tham chiếu bảng / cột,
+  用語集) với trạng thái đã có / chưa có của thư mục đang mở và ví dụ cách viết; bảng nhận diện từng file (file không
+  nhận ra gì đứng cuối); tài liệu mẫu để copy / lưu (`src/shared/specGuide.ts`, có test chạy bằng chính bộ nhận diện).
+  Màn trống có nút dẫn tới tab này. "Vừa khung" chỉ thu nhỏ, không phóng to sơ đồ nhỏ. Chỉ mục có thêm `rels`.
+- Trợ lý AI: câu trả lời không còn tràn khỏi cột (bảng / khối code cuộn ngang bên trong, định danh và URL dài tự
+  ngắt, chip trích dẫn rút gọn bằng "…").
+- Bỏ phần trùng lặp: thanh trạng thái dưới cùng (số sheet đã có trên nút Convert, phiên bản ở menu Giới thiệu, phím
+  tắt ở tooltip); nút "Dịch sang tiếng Việt" của Trợ lý AI (thay bằng nút 訳 trên mục / bảng và tab Dịch); nút mở thư
+  mục trên cây file ở Đọc Markdown (đã có nút chính ở thanh trên).
+- Giao diện: thanh công cụ xem trước về một hàng (khung hẹp thì nhãn nút thu thành icon + tooltip); màn So sánh nền
+  đặc thay vì lưới; nút chính ở thanh dưới phẳng cùng kiểu với nút khác; bo góc nút / thẻ / hộp thoại thống nhất
+  6–8px, bỏ bóng "kính" còn sót; nút chọn nhà cung cấp AI không còn xuống dòng.
+- Bản đồ thiết kế: mỗi tab là một tờ giấy trên nền lưới (chữ không đè lên dòng kẻ); thanh tab, chip thống kê và nút làm
+  mới / đóng chung một hàng (chip không vừa thì ẩn trọn, số vấn đề luôn đứng đầu); sơ đồ có nút **Vừa khung / Cỡ thật**;
+  câu báo 整合性チェック xuống dòng thay vì bị cắt.
+- Bản đồ thiết kế: **CRUD図** suy thao tác từ tên màn hình khi dòng không có động từ (ô 項目定義 `入力`…), ghi chữ thường
+  (`顧客検索画面` → `r`, `顧客登録画面` → `c`) để tách khỏi thao tác có bằng chứng; trước đây các ô này đều là `?`.
+- 整合性チェック thêm cảnh báo `item-length`: hạng mục nhập trong 【項目定義】 có 桁数 lớn hơn cột chữ (CHAR / VARCHAR /
+  文字列…) cùng 論理名 trong テーブル定義 (chỉ báo khi dài hơn mọi cột cùng tên). Cảnh báo, không đổi mã thoát của `lint`.
+- 影響調査 và 整合性チェック trong app có **Copy Markdown / Copy TSV / Lưu .md** (trước chỉ CLI xuất được).
+- Đọc Markdown (và đầu vào thư mục của CLI / MCP) quét cả thư mục bắt đầu bằng dấu chấm (`.review`, `.docs`...); chỉ còn
+  bỏ thư mục của công cụ / VCS / IDE (`.git`, `.svn`, `.vscode`, `.idea`, `.venv`, `.cache`...) và `node_modules`.
 
 ## 2.3.0 — 2026-11-09
 Minor: tính năng mới. Output Excel → Markdown chỉ đổi ở sheet có ảnh / shape / biểu đồ / comment / 入力規則 /

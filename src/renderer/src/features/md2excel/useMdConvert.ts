@@ -14,7 +14,6 @@ export function useMdConvert({
   setConverting,
   setProgress,
   setMdResult,
-  onDone,
 }: {
   mdFiles: MdFileItem[]
   ensureOutDir: () => Promise<string | null>
@@ -24,8 +23,6 @@ export function useMdConvert({
   setProgress: (p: ConvertProgress | null) => void
   /** State kết quả do App giữ (App còn xóa nó khi đổi file, Esc). */
   setMdResult: (r: ConvertResultItem | null) => void
-  /** Gọi khi tạo file Excel xong (cập nhật thời điểm convert ở thanh dưới). */
-  onDone: () => void
 }) {
   /** Tên file Excel người dùng gõ; null = chưa sửa (dùng tên mặc định theo danh sách file) */
   const [mdName, setMdName] = useState<string | null>(null)
@@ -75,7 +72,6 @@ export function useMdConvert({
         const name = baseName(res.outPath)
         toast(t('toast.md.created', { name, n: res.sheets.length }))
         setMdResult({ fileName: name, ok: true, filesWritten: res.sheets })
-        onDone()
       } else if (res.status === 'cancelled') {
         toast(t('toast.md.cancelled'), 'err')
       }
@@ -85,7 +81,7 @@ export function useMdConvert({
     } finally {
       setConverting(false)
     }
-  }, [converting, mdFiles, mdSheetCount, mdName, mdDefaultName, ensureOutDir, setConverting, setProgress, setMdResult, onDone])
+  }, [converting, mdFiles, mdSheetCount, mdName, mdDefaultName, ensureOutDir, setConverting, setProgress, setMdResult])
 
   return { mdName, setMdName, mdDefaultName, mdSheetCount, mdCanConvert, doMdConvert }
 }

@@ -8,6 +8,7 @@ import {
   erMermaid,
   impactOf,
   impactSuggestions,
+  tableText,
   transitionMermaid,
   type ImpactResult,
   type SpecIndex,
@@ -15,14 +16,15 @@ import {
 } from '../../../../shared/specIndex'
 import { glossaryMarkdown, suggestGlossary } from '../../../../shared/glossary'
 import { renderMermaidIn } from '../../lib/mermaid'
+import { SpecGuide } from './SpecGuide'
 import { errMsg } from '../../lib/api'
 import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, input } from '../../lib/ui'
 import { cn, copyText, toast } from '../../lib/utils'
 import { IconMap, IconRefresh, IconX } from '../../components/icons'
 import { t as tr, useT } from '../../i18n'
 
-type Tab = 'flow' | 'er' | 'crud' | 'impact' | 'lint' | 'glossary'
-const TABS: Tab[] = ['flow', 'er', 'crud', 'impact', 'lint', 'glossary']
+type Tab = 'flow' | 'er' | 'crud' | 'impact' | 'lint' | 'glossary' | 'guide'
+const TABS: Tab[] = ['flow', 'er', 'crud', 'impact', 'lint', 'glossary', 'guide']
 
 /** Mở tài liệu `rel` (tương đối thư mục), cuộn tới `heading` rồi tô `text`. */
 export type SpecOpen = (rel: string, heading: string, text: string) => void
@@ -66,9 +68,68 @@ const copyOut = async (src: string, label = tr('sm.copied')): Promise<void> => {
 const issueText = (i: SpecIssue): string =>
   tr(`sm.issue.${i.code}`, { subject: i.subject, other: i.other ? `${i.other.rel}:${i.other.line}` : '', detail: i.detail ?? '' })
 
+/* ------------------------- Xuất báo cáo 影響調査 / 整合性 ------------------------- */
+
+const impactTitle = (r: ImpactResult): string => `${tr('sm.tab.impact')}: ${r.targets.join(', ')} (${tr(`sm.kind.${r.kind as 'table' | 'column' | 'screen'}`)})`
+
+/** Mỗi chỗ một hàng: file, dòng, lý do, nội dung (TSV dán Excel; Markdown trong báo cáo). */
+const impactRows = (r: ImpactResult): string[][] => [
+  [tr('sm.export.file'), tr('sm.export.line'), tr('sm.export.reason'), tr('sm.export.content')],
+  ...r.groups.flatMap((g) => g.hits.map((h) => [g.rel, String(h.line), tr(`sm.reason.${h.reason}`), h.snippet])),
+]
+
+function impactMarkdown(r: ImpactResult): string {
+  const screens = r.screens.map((s) => `- ${s.relation === 'direct' ? '●' : '○'} ${s.id}${s.name ? ' ' + s.name : ''} (${tr(s.relation === 'direct' ? 'sm.screens.direct' : 'sm.screens.related')})`)
+  const scr = screens.length > 0 ? [`## ${tr('sm.export.screens')}`, '', ...screens, ''] : []
+  return [`# ${impactTitle(r)}`, '', ...scr, `## ${tr('sm.export.detail')}`, '', tableText(impactRows(r), 'md')].join('\n')
+}
+
+/** Lỗi trước cảnh báo (như danh sách trên màn hình). */
+const sortIssues = (issues: SpecIssue[]): SpecIssue[] => [...issues].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
+
+const lintSummary = (issues: SpecIssue[]): string => {
+  const errors = issues.filter((i) => i.severity === 'error').length
+  return tr('sm.lint.summary', { errors, warnings: issues.length - errors })
+}
+
+const lintRows = (issues: SpecIssue[]): string[][] => [
+  [tr('sm.export.severity'), tr('sm.export.content'), tr('sm.export.file'), tr('sm.export.line')],
+  ...sortIssues(issues).map((i) => [tr(i.severity === 'error' ? 'sm.lint.error' : 'sm.lint.warning'), issueText(i), i.rel, String(i.line)]),
+]
+
+const lintMarkdown = (issues: SpecIssue[]): string => [`# ${tr('sm.tab.lint')}`, '', lintSummary(issues), '', tableText(lintRows(issues), 'md')].join('\n')
+
+/** Copy Markdown / Copy TSV / Lưu .md cho một báo cáo. */
+function ExportBar({ md, tsv, name, label }: { md: () => string; tsv: () => string; name: string; label: string }): React.ReactElement {
+  const t = useT()
+  const save = async (): Promise<void> => {
+    try {
+      const saved = await window.api.saveMarkdown(name, md())
+      if (saved) toast(t('sm.export.saved', { path: saved }), 'ok')
+    } catch (err) {
+      toast(t('sm.export.saveFailed', { err: errMsg(err) }), 'err')
+    }
+  }
+  return (
+    <span className="x2m-specmap-export ml-auto flex shrink-0 items-center gap-1">
+      <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(md(), label)}>
+        {t('sm.export.copyMd')}
+      </button>
+      <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(tsv(), label)}>
+        {t('sm.export.copyTsv')}
+      </button>
+      <button className={cx(btnGhost, btnSm)} onClick={() => void save()} title={t('sm.export.saveTitle')}>
+        {t('sm.export.save')}
+      </button>
+    </span>
+  )
+}
+
 export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElement {
   const t = useT()
   const [tab, setTab] = useState<Tab>('flow')
+  /** Sơ đồ co vừa khung (nhìn toàn cảnh) hay cỡ chữ thật (đọc rõ, cuộn ngang) */
+  const [fit, setFit] = useState(false)
   const [index, setIndex] = useState<SpecIndex | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -152,8 +213,8 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
 
   return (
     <main className="x2m-main x2m-specmap flex min-w-0 flex-1 flex-col overflow-hidden bg-editor" aria-label={t('sm.button')}>
-      <div className="x2m-specmap-bar flex flex-wrap items-center gap-2 border-b border-line-subtle px-3 py-1.5">
-        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-lg border border-line-subtle bg-canvas p-0.5" role="tablist" aria-label={t('sm.tabs')} onKeyDown={tabKeys}>
+      <div className="x2m-specmap-bar flex items-center gap-2 border-b border-line-subtle px-3 py-1.5">
+        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-md border border-line-subtle bg-canvas p-0.5" role="tablist" aria-label={t('sm.tabs')} onKeyDown={tabKeys}>
           {TABS.map((k) => (
             <button
               key={k}
@@ -172,17 +233,18 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           ))}
         </div>
         {index && !empty && (
-          <span className="x2m-specmap-chips flex flex-wrap items-center gap-1.5 text-[11.5px] font-medium tabular-nums">
+          // Một hàng cao cố định: chip không vừa rơi xuống hàng 2 (bị ẩn trọn, không cắt giữa chữ); số vấn đề đứng đầu nên luôn thấy
+          <span className="x2m-specmap-chips flex h-[22px] min-w-0 flex-wrap items-center gap-x-1.5 gap-y-2 overflow-hidden text-[11.5px] font-medium tabular-nums [&>span]:shrink-0">
+            <span className={cn('rounded-md px-1.5 py-0.5', errors > 0 ? 'bg-danger-soft text-danger' : index.issues.length > 0 ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success')}>
+              {t('sm.chip.issues', { n: index.issues.length })}
+            </span>
             <span className={chip}>{t('sm.chip.screens', { n: index.screens.length })}</span>
             <span className={chip}>{t('sm.chip.transitions', { n: index.transitions.length })}</span>
             <span className={chip}>{t('sm.chip.tables', { n: index.tables.length })}</span>
             <span className={chip}>{t('sm.chip.columns', { n: columns })}</span>
-            <span className={cn('rounded-md px-1.5 py-0.5', errors > 0 ? 'bg-danger-soft text-danger' : index.issues.length > 0 ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success')}>
-              {t('sm.chip.issues', { n: index.issues.length })}
-            </span>
           </span>
         )}
-        <span className="ml-auto flex items-center gap-1">
+        <span className="ml-auto flex shrink-0 items-center gap-1">
           <button className={cx(btnGhost)} onClick={() => void load()} disabled={loading} title={t('sm.refresh')} aria-label={t('sm.refresh')}>
             <IconRefresh size={14} />
           </button>
@@ -209,32 +271,42 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           <div className="x2m-error m-4 rounded-lg border border-danger/30 bg-danger-soft p-4 text-sm text-danger">{error}</div>
         ) : !index ? (
           <div className={cx('x2m-loading h-full', emptyBox)}>{t('sm.loading')}</div>
-        ) : empty ? (
+        ) : empty && tab !== 'guide' ? (
           <div className={cx('x2m-empty h-full', emptyBox)}>
             <IconMap size={36} />
             <p className={cx(emptyP, 'font-semibold !text-ink')}>{t('sm.empty.title')}</p>
             <p className={cx(emptyHint, 'max-w-[60ch] leading-relaxed')}>{t('sm.empty.desc')}</p>
+            <button className={cx(btn, btnSm, 'mt-2')} onClick={() => setTab('guide')}>
+              {t('sm.empty.guide')}
+            </button>
           </div>
+        ) : tab === 'guide' ? (
+          <SpecGuide index={index} onOpen={(rel) => onOpen(rel, '', '')} />
         ) : tab === 'flow' || tab === 'er' ? (
           (() => {
             const src = tab === 'flow' ? flow?.source ?? '' : er?.source ?? ''
             const has = tab === 'flow' ? index.transitions.length > 0 || index.screens.length > 0 : index.tables.length > 0
             if (!has) return <p className={cx(emptyP, 'p-6')}>{t(tab === 'flow' ? 'sm.flow.none' : 'sm.er.none')}</p>
             return (
-              <>
-                <div className="flex flex-wrap items-center gap-2 px-4 pt-3 text-[11.5px] text-faint">
+              <div className={cn('x2m-specmap-sheet', fit && 'is-fit')}>
+                <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-2 text-[11.5px] text-faint">
                   {tab === 'flow' && <span>{t('sm.flow.hint')}</span>}
                   {(tab === 'flow' ? flow?.truncated : er?.truncated) && <span className="text-warning">{t('sm.truncated.diagram')}</span>}
-                  <button className={cx(btnGhost, btnSm, 'ml-auto')} onClick={() => void copyOut(src)}>
-                    {t('sm.copyMermaid')}
-                  </button>
+                  <span className="ml-auto flex items-center gap-1">
+                    <button className={cx(btnGhost, btnSm)} onClick={() => setFit((f) => !f)} aria-pressed={fit} title={t('sm.fitTitle')}>
+                      {t(fit ? 'sm.actualSize' : 'sm.fit')}
+                    </button>
+                    <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(src)}>
+                      {t('sm.copyMermaid')}
+                    </button>
+                  </span>
                 </div>
                 <MermaidBox key={tab} source={src} label={t(tab === 'flow' ? 'sm.flow.aria' : 'sm.er.aria')} onReady={tab === 'flow' ? wireFlow : undefined} />
-              </>
+              </div>
             )
           })()
         ) : tab === 'crud' && crud ? (
-          <div className="x2m-specmap-crud flex flex-col gap-3 p-4">
+          <div className="x2m-specmap-crud x2m-specmap-sheet flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
               <span className="max-w-[80ch]">{t('sm.crud.hint')}</span>
               <span className="ml-auto flex items-center gap-1">
@@ -300,7 +372,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
               </div>
             )}
             {crudSel && selCell ? (
-              <section className="x2m-specmap-group glass-chip rounded-xl p-2" aria-live="polite">
+              <section className="x2m-specmap-group glass-chip rounded-lg p-2" aria-live="polite">
                 <h3 className="m-0 px-2 pb-1 text-[12px] font-semibold text-ink">{t('sm.crud.cell', { screen: crudSel.id, table: crudSel.table, ops: selCell.ops })}</h3>
                 {selCell.evidence.map((e) => (
                   <button key={`${e.rel}:${e.line}`} className={locBtn} onClick={() => onOpen(e.rel, e.heading, e.term)} title={t('sm.openAt', { rel: e.rel, line: e.line })}>
@@ -317,7 +389,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
             )}
           </div>
         ) : tab === 'glossary' ? (
-          <div className="x2m-specmap-glossary flex flex-col gap-3 p-4">
+          <div className="x2m-specmap-glossary x2m-specmap-sheet flex flex-col gap-3 p-4">
             <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
               <span className="max-w-[80ch]">{index.glossary ? t('sm.gl.file', { rel: index.glossary.rel, n: index.glossary.entries.length }) : t('sm.gl.none')}</span>
               <span className="ml-auto flex items-center gap-1">
@@ -361,7 +433,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
             )}
           </div>
         ) : tab === 'impact' ? (
-          <div className="x2m-specmap-impact flex flex-col gap-3 p-4">
+          <div className="x2m-specmap-impact x2m-specmap-sheet flex flex-col gap-3 p-4">
             <form
               className="flex items-center gap-2"
               onSubmit={(e) => {
@@ -396,14 +468,22 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
               </p>
             ) : (
               <div className="flex flex-col gap-3" aria-live="polite">
-                <p className="x2m-specmap-summary m-0 text-[12.5px] font-semibold text-ink">
-                  {t('sm.impact.summary', {
-                    kind: t(`sm.kind.${impact.r.kind as 'table' | 'column' | 'screen'}`),
-                    targets: impact.r.targets.join(', '),
-                    docs: impact.r.groups.length,
-                    hits: impact.r.groups.reduce((n, g) => n + g.hits.length, 0),
-                  })}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="x2m-specmap-summary m-0 text-[12.5px] font-semibold text-ink">
+                    {t('sm.impact.summary', {
+                      kind: t(`sm.kind.${impact.r.kind as 'table' | 'column' | 'screen'}`),
+                      targets: impact.r.targets.join(', '),
+                      docs: impact.r.groups.length,
+                      hits: impact.r.groups.reduce((n, g) => n + g.hits.length, 0),
+                    })}
+                  </p>
+                  <ExportBar
+                    md={() => impactMarkdown(impact.r)}
+                    tsv={() => tableText(impactRows(impact.r), 'tsv')}
+                    name={`影響調査_${impact.r.targets.join('_')}`}
+                    label={t('sm.tab.impact')}
+                  />
+                </div>
                 {impact.r.screens.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
                     {impact.r.screens.map((s) => {
@@ -423,7 +503,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
                   </div>
                 )}
                 {impact.r.groups.map((g) => (
-                  <section key={g.rel} className="x2m-specmap-group glass-chip rounded-xl p-2">
+                  <section key={g.rel} className="x2m-specmap-group glass-chip rounded-lg p-2">
                     <h3 className="m-0 truncate px-2 pb-1 text-[12px] font-semibold text-ink" title={g.rel}>
                       {g.rel}
                     </h3>
@@ -442,24 +522,26 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
             )}
           </div>
         ) : (
-          <div className="x2m-specmap-lint flex flex-col gap-1 p-4">
+          <div className="x2m-specmap-lint x2m-specmap-sheet flex flex-col gap-1 p-4">
             {index.issues.length === 0 ? (
               <p className={cx(emptyP, 'm-0')}>{t('sm.lint.ok')}</p>
             ) : (
-              [...index.issues]
-                .sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'error' ? -1 : 1))
-                .map((i, k) => (
-                  <button key={k} className={locBtn} onClick={() => onOpen(i.rel, i.heading, i.subject)} title={t('sm.openAt', { rel: i.rel, line: i.line })}>
-                    <span className={cn('shrink-0 rounded px-1 text-[10.5px] font-semibold', i.severity === 'error' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning')}>
-                      {t(i.severity === 'error' ? 'sm.lint.error' : 'sm.lint.warning')}
-                    </span>
-                    <span className="min-w-0 flex-1 truncate text-ink">{issueText(i)}</span>
-                    <span className="shrink-0 tabular-nums text-faint">
-                      {i.rel}:{i.line}
-                    </span>
-                  </button>
-                ))
+              <div className="mb-2 flex flex-wrap items-center gap-2">
+                <p className="m-0 text-[12.5px] font-semibold text-ink">{lintSummary(index.issues)}</p>
+                <ExportBar md={() => lintMarkdown(index.issues)} tsv={() => tableText(lintRows(index.issues), 'tsv')} name="整合性チェック" label={t('sm.tab.lint')} />
+              </div>
             )}
+            {sortIssues(index.issues).map((i, k) => (
+              <button key={k} className={locBtn} onClick={() => onOpen(i.rel, i.heading, i.subject)} title={t('sm.openAt', { rel: i.rel, line: i.line })}>
+                <span className={cn('shrink-0 rounded px-1 text-[10.5px] font-semibold', i.severity === 'error' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning')}>
+                  {t(i.severity === 'error' ? 'sm.lint.error' : 'sm.lint.warning')}
+                </span>
+                <span className="min-w-0 flex-1 text-ink [overflow-wrap:anywhere]">{issueText(i)}</span>
+                <span className="shrink-0 tabular-nums text-faint">
+                  {i.rel}:{i.line}
+                </span>
+              </button>
+            ))}
           </div>
         )}
       </div>

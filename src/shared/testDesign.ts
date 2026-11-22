@@ -4,7 +4,7 @@
  * Mỗi quy tắc một dòng: 必須 / 桁数 (biên) / 形式 / 初期値 / 選択肢 / 表示 / ボタン / 遷移. Thuần, dùng chung. */
 import { atxHeading, fenceAfter, isDelimRow, normLabel, tsvCell } from './mdLines'
 import { splitTableRow } from './specDiff'
-import { buildSpecIndex, type SpecScreen } from './specIndex'
+import { buildSpecIndex, ITEM_FIELD_OF as FIELD_OF, type ItemField as Field, type SpecScreen } from './specIndex'
 
 export type TestLang = 'ja' | 'vi' | 'en'
 export const TEST_LANGS: readonly TestLang[] = ['ja', 'vi', 'en']
@@ -164,18 +164,6 @@ const TEXT = {
 
 /* ---------------------------------- Nhận diện ---------------------------------- */
 
-type Field = 'item' | 'required' | 'length' | 'type' | 'kind' | 'default' | 'note' | 'check'
-const ALIASES: Record<Field, string[]> = {
-  item: ['項目名', '項目', '項目名称', 'item', 'itemname', 'tênhạngmục', 'hạngmục'],
-  required: ['必須', '必須区分', 'required', 'bắtbuộc'],
-  length: ['桁数', '桁', '長さ', '最大桁数', 'length', 'maxlength', 'độdài'],
-  type: ['型', 'データ型', '属性', 'type', 'datatype', 'kiểu'],
-  kind: ['区分', '入出力', '項目区分', 'i/o', 'io', 'loại'],
-  default: ['初期値', '初期表示', 'default', 'defaultvalue', 'giátrịmặcđịnh', 'giátrịbanđầu'],
-  note: ['備考', 'note', 'notes', 'remarks', 'ghichú'],
-  check: ['入力チェック', 'チェック', 'チェック内容', 'validation', 'kiểmtra'],
-}
-const FIELD_OF = new Map<string, Field>(Object.entries(ALIASES).flatMap(([f, list]) => list.map((a) => [a, f as Field])))
 
 /** Ô bảng → chữ thuần: bỏ `<br>`, link, `**`, `` ` ``. Ký tự escape (`\]`, `` \` ``) tạm đổi sang vùng riêng (U+E000+)
  * để regex định dạng không bắt nhầm, rồi trả lại chữ gốc. */

@@ -163,7 +163,7 @@ export const MCP_TOOLS = [
   {
     name: 'crud',
     description:
-      'CRUD図 (ma trận 画面 × テーブル) của thư mục tài liệu Markdown đã convert, chạy cục bộ, không AI: tham chiếu bảng / TBL.COL trong phần của mỗi 画面ID, thao tác C/R/U/D đọc từ động từ trong dòng (登録/表示/更新/削除..., Việt / Anh cũng được); "?" = có tham chiếu nhưng không rõ thao tác. Trả về bảng Markdown + bằng chứng (file:dòng) cho từng ô.',
+      'CRUD図 (ma trận 画面 × テーブル) của thư mục tài liệu Markdown đã convert, chạy cục bộ, không AI: tham chiếu bảng / TBL.COL trong phần của mỗi 画面ID, thao tác C/R/U/D đọc từ động từ trong dòng (登録/表示/更新/削除..., Việt / Anh cũng được); chữ thường (c/r/u/d) = dòng không nói thao tác, suy từ tên màn hình (検索画面 -> r); "?" = có tham chiếu nhưng không rõ thao tác. Trả về bảng Markdown + bằng chứng (file:dòng) cho từng ô.',
     inputSchema: {
       type: 'object',
       properties: {

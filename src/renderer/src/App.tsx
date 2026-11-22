@@ -16,7 +16,7 @@ import { iconBtn } from './lib/ui'
 import { AiChatPanel } from './features/ai/AiChatPanel'
 import { FileList } from './features/excel2md/FileList'
 import { Footer } from './components/Footer'
-import { Header } from './components/Header'
+import { Header, ModeRail } from './components/Header'
 import { MdFileList } from './features/md2excel/MdFileList'
 import { MdOptionsPanel } from './features/md2excel/MdOptionsPanel'
 import { MdTreeList } from './features/viewer/MdTreeList'
@@ -36,16 +36,11 @@ import { SpecMapPane } from './features/viewer/SpecMapPane'
 import { useCompare } from './features/compare/useCompare'
 import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
-import { detectLang, getLocale, isLang, setLang, t as tr, useT, type Lang } from './i18n'
+import { detectLang, isLang, setLang, t as tr, useT, type Lang } from './i18n'
 
 /** Gợi ý khi thả nhầm loại file so với chế độ đang chọn (không tự chuyển chế độ). */
 const hintExcelFile = (): string => tr('app.hint.excelFile')
 const hintMdFile = (): string => tr('app.hint.mdFile')
-
-/** Thời điểm convert hiện ở thanh dưới. */
-function timeLabel(): string {
-  return new Date().toLocaleString(getLocale(), { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
-}
 
 /** `**chữ**` trong câu dịch -> <b>chữ</b> (onboarding). */
 const withBold = (s: string): React.ReactNode[] => s.split('**').map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part))
@@ -97,9 +92,7 @@ export default function App(): React.ReactElement {
   const [converting, setConverting] = useState(false)
   const [results, setResults] = useState<ConvertResultItem[] | null>(null)
   const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
-  const [lastConvertAt, setLastConvertAt] = useState('')
   const [dragOver, setDragOver] = useState(false)
-  const [appVersion, setAppVersion] = useState('')
   const [sheetFilter, setSheetFilter] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [zoom, setZoom] = useState(1)
@@ -267,10 +260,6 @@ export default function App(): React.ReactElement {
   )
 
   useEffect(() => {
-    window.api
-      .getVersion()
-      .then((v) => setAppVersion(v))
-      .catch(() => undefined)
     window.api
       .storeGet<boolean>('onboardingSeen')
       .then((seen) => {
@@ -539,7 +528,6 @@ export default function App(): React.ReactElement {
     }
   }, [outDir, applyOutDir])
 
-  const markConverted = useCallback(() => setLastConvertAt(timeLabel()), [])
 
   const { progress, setProgress, doConvert, cancelConvert } = useExcelConvert({
     files,
@@ -550,7 +538,6 @@ export default function App(): React.ReactElement {
     converting,
     setConverting,
     setResults,
-    onDone: markConverted,
   })
 
   /* ------------------------- Markdown → Excel ------------------------------ */
@@ -561,7 +548,6 @@ export default function App(): React.ReactElement {
     setConverting,
     setProgress,
     setMdResult,
-    onDone: markConverted,
   })
 
   const selectMd = useCallback(
@@ -778,13 +764,11 @@ export default function App(): React.ReactElement {
   // Trạng thái + nút convert ở thanh dưới theo chế độ (chế độ Excel giữ nguyên chữ cũ)
   const footerMode = isMd
     ? {
-        status: t('app.md.status', { files: mdFiles.length, sheets: mdSheetCount }),
         convertLabel: t('app.md.convert', { n: mdSheetCount }),
         canConvert: mdCanConvert,
         onConvert: doMdConvert,
       }
     : {
-        status: t('app.excel.status', { files: files.length, n: checkedCount }),
         convertLabel: checkedCount > 0 ? t('app.excel.convertN', { n: checkedCount }) : t('app.excel.convert'),
         canConvert: files.length > 0 && checkedCount > 0,
         onConvert: doConvert,
@@ -793,7 +777,7 @@ export default function App(): React.ReactElement {
   /* -------------------------------- render --------------------------------- */
   return (
     <div
-      className="x2m-app flex h-screen flex-col p-2 text-ink"
+      className="x2m-app flex h-screen flex-col text-ink"
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
@@ -808,14 +792,12 @@ export default function App(): React.ReactElement {
         dropPaths(paths)
       }}
     >
-      <div className="x2m-shell flex min-h-0 flex-1 flex-col">
-      <div className="x2m-core glass flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="x2m-shell flex min-h-0 flex-1">
+      <ModeRail mode={appMode} onModeChange={changeAppMode} theme={theme} onToggleTheme={toggleTheme} />
+      <div className="x2m-core flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--glass)]">
       <Header
-        theme={theme}
-        onToggleTheme={toggleTheme}
         onPickFiles={isCompare ? pickCompareFile : isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
         mode={appMode}
-        onModeChange={changeAppMode}
         onLangChange={changeLang}
       />
 
@@ -1084,8 +1066,6 @@ export default function App(): React.ReactElement {
           converting={converting}
           progress={progress}
           onCancel={cancelConvert}
-          appVersion={appVersion}
-          lastConvertAt={lastConvertAt}
           outDirPlaceholder={isMd ? t('app.md.noOutDir') : undefined}
           {...footerMode}
         />

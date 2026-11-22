@@ -79,12 +79,12 @@ describe('runCli', () => {
 })
 
 describe('thư mục đầu vào (Excel → Markdown)', () => {
-  it('mở rộng đệ quy, bỏ ~$ / file khác / thư mục ẩn / node_modules, giữ cấu trúc thư mục con', async () => {
+  it('mở rộng đệ quy, bỏ ~$ / file khác / .git / node_modules, giữ cấu trúc thư mục con', async () => {
     const src = join(tmp, 'in')
-    for (const d of ['sub', '.hidden', 'node_modules']) mkdirSync(join(src, d), { recursive: true })
+    for (const d of ['sub', '.git', 'node_modules']) mkdirSync(join(src, d), { recursive: true })
     copyFileSync(fixture, join(src, 'b.xlsx'))
     copyFileSync(fixture, join(src, 'sub', 'a.xlsx'))
-    copyFileSync(fixture, join(src, '.hidden', 'h.xlsx'))
+    copyFileSync(fixture, join(src, '.git', 'h.xlsx'))
     copyFileSync(fixture, join(src, 'node_modules', 'n.xlsx'))
     writeFileSync(join(src, '~$b.xlsx'), 'lock')
     writeFileSync(join(src, 'note.txt'), 'x')

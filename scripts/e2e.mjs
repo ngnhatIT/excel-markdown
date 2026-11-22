@@ -593,7 +593,7 @@ try {
   const cspBeforeMap = await ev(`window.__csp.length`)
   await ev(`document.querySelector('.x2m-specmap-btn')?.click(), 1`)
   check('Bản đồ: 画面遷移図 vẽ SVG, chip 5 màn hình / 2 bảng / 5 vấn đề',
-    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 màn hình.*2 bảng.*5 vấn đề/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
+    (await waitFor(`!!document.querySelector('.x2m-specmap-diagram .mmd svg') && /5 vấn đề.*5 màn hình.*2 bảng/.test(document.querySelector('.x2m-specmap-chips')?.textContent ?? '')`, 10000)) >= 0,
     await ev(`document.querySelector('.x2m-specmap')?.innerText ?? null`))
   check('Bản đồ: nút màn hình bấm được bằng bàn phím (tabindex, role=button), nút treo không',
     await ev(`document.querySelectorAll('.x2m-specmap-diagram g.node[role="button"][tabindex="0"]').length === 4 && document.querySelectorAll('.x2m-specmap-diagram g.node').length === 7`),

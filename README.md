@@ -5,6 +5,8 @@ và hỏi đáp trên tài liệu bằng AI. App hiểu đúng bố cục tài l
 画面ID / 機能ID, bảng 項番, ô merge, ghi chú ※, ảnh và shape trong sheet), nhưng file Excel thường
 cũng convert được.
 
+> Hướng dẫn đầy đủ từng bước: [docs/USER_MANUAL.md](docs/USER_MANUAL.md).
+
 **Bạn muốn làm gì?**
 
 | Việc cần làm | Dùng |
@@ -18,13 +20,19 @@ cũng convert được.
 | Xem thay đổi file Excel ngay trong `git diff` | [textconv](#convert-bằng-dòng-lệnh) |
 | Sửa bảng / cột / màn hình thì ảnh hưởng tới đâu? Sơ đồ 画面遷移, ER cả thư mục | [Bản đồ thiết kế](#3-đọc-markdown) |
 
-Bốn chế độ (Excel → Markdown, Markdown → Excel, Đọc Markdown, So sánh) đổi ở thanh trên cùng; app nhớ
-chế độ dùng lần cuối. Giao diện có **tiếng Việt / English / 日本語** (nút VI · EN · 日本語 ở thanh trên;
-lần đầu theo ngôn ngữ hệ điều hành).
+Bốn chế độ (Excel → Markdown, Markdown → Excel, Đọc Markdown, So sánh) đổi ở thanh dọc bên trái (nút sáng / tối
+ở đáy thanh); app nhớ chế độ dùng lần cuối. Giao diện có **tiếng Việt / English / 日本語** (nút VI · EN · 日本語 ở
+thanh trên; lần đầu theo ngôn ngữ hệ điều hành).
 
-**Dịch nhanh**: bôi đen chữ trong khung xem (mọi chế độ) → nút **訳 Dịch** cạnh vùng chọn (hoặc
-`Ctrl+Shift+T`) → popup bản dịch Việt / Anh / Nhật. Dùng nhà cung cấp AI đã cấu hình ở mục
-[Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu); chỉ gửi đoạn đã chọn, khi bạn bấm. Giữ nguyên mã, ID, tên bảng / cột.
+**Dịch** (dùng nhà cung cấp AI đã cấu hình ở mục [Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu); chỉ gửi khi bạn bấm; giữ
+nguyên mã, ID, tên bảng / cột; theo đúng thuật ngữ trong `用語集.md` nếu có):
+
+- **Đoạn bôi đen**: bôi đen chữ trong khung xem (mọi chế độ) → nút **訳 Dịch** cạnh vùng chọn (hoặc `Ctrl+Shift+T`)
+  → popup ghi rõ chiều dịch (vd Tiếng Nhật → Tiếng Việt), đổi đích Việt / Anh / Nhật, và các thuật ngữ 用語集 đã áp dụng.
+- **Cả một mục hoặc một bảng**: nút **訳** trên chip của mục / bảng ở thanh mục lục → hộp hai cột Bản gốc | Bản dịch,
+  bảng giữ nguyên cấu trúc Markdown; **Copy Markdown** hoặc **Lưu .md**. Tối đa 12 000 ký tự mỗi lần.
+- **Lịch sử**: tab **Dịch** ở cột phải của chế độ Đọc Markdown liệt kê các bản dịch trong phiên (mở lại bản dịch mục
+  không tốn token). Chỉ giữ trong bộ nhớ, đóng app là mất.
 
 ---
 
@@ -61,13 +69,16 @@ npm run dev
 
 ### Cấu hình nhanh (Preset)
 
-Ba nút ở đầu cột Tùy chọn bên phải. Mỗi nút bật/tắt sẵn một nhóm tùy chọn, tùy **ai sẽ đọc** file `.md`:
+Hai nút ở đầu cột Tùy chọn bên phải, chọn theo **ai sẽ đọc** file `.md`; dòng mô tả ngay dưới nút cho biết preset đang
+chọn làm gì:
 
 | Preset | Khi nào dùng | Thay đổi |
 |---|---|---|
-| **Chuẩn tài liệu** | Người đọc tài liệu thiết kế (mặc định) | Giữ đúng cấu trúc 基本設計, không thêm gì |
-| **Bảng dữ liệu** | Sheet chủ yếu là bảng số liệu | Ô gộp dọc để trống như Excel, căn thẳng cột trong mã nguồn, nhận diện bảng 2 cột |
-| **AI / RAG** | File sẽ đưa cho AI: trợ lý trong app, NotebookLM, Claude Projects, ChatGPT, Dify, RAG nội bộ... | Lặp giá trị ô gộp xuống mọi dòng (mỗi dòng tự đủ nghĩa), thêm YAML front-matter (file nguồn, sheet, 画面ID...) để lọc và trích dẫn, tách bảng dài mỗi 50 dòng có lặp header (công cụ RAG cắt nhỏ vẫn giữ tên cột) |
+| **Cho người đọc** | Đọc, review, Git, wiki (mặc định) | Giữ đúng cấu trúc 基本設計, không thêm gì |
+| **Cho AI / RAG** | File sẽ đưa cho AI: trợ lý trong app, NotebookLM, Claude Projects, ChatGPT, Dify, RAG nội bộ... | Lặp giá trị ô gộp xuống mọi dòng (mỗi dòng tự đủ nghĩa), thêm YAML front-matter (file nguồn, sheet, 画面ID...) để lọc và trích dẫn, tách bảng dài mỗi 50 dòng có lặp header (công cụ RAG cắt nhỏ vẫn giữ tên cột), dựng khối 2 cột thành bảng |
+
+Cần ô gộp dọc để trống hay căn thẳng cột trong mã nguồn (cho sheet thuần bảng số liệu) thì chỉnh riêng ở các tùy chọn bên
+dưới.
 
 ### Các tùy chọn khác
 
@@ -185,7 +196,7 @@ Chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
 Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mermaid), chỉ đọc, không sửa file.
 
 - **Mở thư mục** (nút ở thanh trên / `Ctrl+O` / kéo thả thư mục): cột trái là cây mọi file
-  `.md` trong thư mục và thư mục con (bỏ `node_modules`, thư mục ẩn; tối đa 5 000 file), có ô
+  `.md` trong thư mục và thư mục con (kể cả thư mục bắt đầu bằng dấu chấm như `.review`; bỏ `node_modules`, `.git`, `.vscode`…; tối đa 5 000 file), có ô
   lọc, mục **Mới sửa**, sắp xếp theo Tên / Ngày sửa, ↑ / ↓ để chuyển file.
 - **Tìm trong nội dung**: bấm nút **Nội dung** cạnh ô lọc rồi gõ từ khóa (nhiều từ cách nhau bằng
   khoảng trắng = dòng phải chứa đủ các từ, không phân biệt hoa thường). Kết quả theo file và dòng;
@@ -196,16 +207,20 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   `file.md#mục` cuộn đúng tới mục.
 - File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì quay lại cửa sổ app là tự tải lại,
   giữ vị trí cuộn.
-- **Bản đồ thiết kế + 影響調査** (nút bản đồ ở đầu cây file): toàn thư mục, chạy cục bộ, không AI.
+- **Bản đồ thiết kế + 影響調査** (nút bản đồ ở đầu cây file): toàn thư mục, chạy cục bộ, không AI. Tab **Cách viết
+  tài liệu** cho biết thư mục đã có / còn thiếu gì (画面ID, 画面遷移, テーブル定義 có 物理名 + 型, tham chiếu bảng / cột,
+  用語集), file nào không nhận ra gì, kèm tài liệu mẫu để copy / lưu.
   - **画面遷移図**: sơ đồ chuyển màn hình tự dựng từ meta `画面ID` / `画面遷移` và mũi tên `〔矢印〕`; bấm một màn
     hình để mở đúng chỗ định nghĩa. Ô rẽ nhánh (`権限あり？`) vẽ hình thoi; màn hình chưa định nghĩa viền đứt.
   - **ER**: sơ đồ quan hệ của mọi テーブル定義 trong thư mục.
   - **影響調査**: gõ bảng, `TBL.COL` hoặc 画面ID → các tài liệu / màn hình tham chiếu tới nó (và màn hình liên quan qua
-    遷移), bấm để mở và tô sáng.
+    遷移), bấm để mở và tô sáng. **Copy Markdown / Copy TSV / Lưu .md** để làm 影響調査書.
   - **整合性チェック**: 画面ID / bảng trùng, 遷移 tới màn hình chưa định nghĩa, `TBL.COL` không có cột; cảnh báo cách
-    viết mơ hồ (など / 適宜 / 原則 / TBD / 要確認 / 未定…) và cột cùng tên nhưng khác kiểu / độ dài giữa các bảng.
-  - **CRUD図**: ma trận 画面 × テーブル, C / R / U / D suy từ động từ (登録 / 表示 / 更新 / 削除…, cả tiếng Việt / Anh);
-    `?` = không xác định được (không đoán bừa). Bấm ô để xem bằng chứng file:dòng; copy TSV / Markdown.
+    viết mơ hồ (など / 適宜 / 原則 / TBD / 要確認 / 未定…), cột cùng tên nhưng khác kiểu / độ dài giữa các bảng, và hạng
+    mục nhập trong 【項目定義】 có 桁数 lớn hơn cột chữ cùng 論理名 trong テーブル定義. Copy / lưu danh sách như 影響調査.
+  - **CRUD図**: ma trận 画面 × テーブル, C / R / U / D suy từ động từ (登録 / 表示 / 更新 / 削除…, cả tiếng Việt / Anh).
+    Dòng không nói thao tác (ô 項目定義 `入力`…) thì suy từ tên màn hình, ghi **chữ thường** (`顧客検索画面` → `r`,
+    `顧客登録画面` → `c`); `?` = không xác định được (không đoán bừa). Bấm ô để xem bằng chứng file:dòng; copy TSV / Markdown.
   - **用語集**: đặt `用語集.md` (bảng `| 日本語 | Tiếng Việt | English | 備考 |`) ở gốc thư mục — Dịch nhanh và Trợ lý AI
     dùng đúng thuật ngữ dự án; nút **Copy gợi ý 用語集** tạo sẵn bảng từ tên bảng / cột / màn hình để bạn chỉnh.
   - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
@@ -258,7 +273,7 @@ hệ điều hành và chỉ gửi thẳng tới API của nhà cung cấp đó.
 - **Phạm vi**: *Cả thư mục* (tìm trên mọi file đang mở) hoặc *Chỉ file đang xem* (gửi nguyên văn file đó).
 - **Hỏi tiếng Việt vẫn tìm ra tài liệu tiếng Nhật**: app có từ điển Việt ↔ Nhật cho thuật ngữ
   nghiệp vụ (vd "khách hàng" ↔ 顧客, "bắt buộc" ↔ 必須, "kiểm tra" ↔ 入力チェック).
-- **Nút tác vụ nhanh**: Tóm tắt nghiệp vụ, Dịch sang tiếng Việt, Kiểm tra thiếu sót, Sinh test
+- **Nút tác vụ nhanh**: Tóm tắt nghiệp vụ, Kiểm tra thiếu sót, Sinh test
   case (file đang xem), Đối chiếu chéo tên bảng / cột / mã màn hình giữa các file (cả thư mục).
 - Câu trả lời **hiện dần** trong lúc AI đang viết; bấm **Dừng** để huỷ.
 - AI nhớ 6 lượt hỏi đáp gần nhất. **Xóa chat** để bắt đầu lại.

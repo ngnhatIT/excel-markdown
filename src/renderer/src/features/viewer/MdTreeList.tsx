@@ -111,9 +111,7 @@ export function MdTreeList(p: Props): React.ReactElement {
           {p.root ? ` (${p.relFiles.length})` : ''}
         </span>
         <span className="x2m-tree-actions flex items-center gap-1">
-          <button className="x2m-move-btn x2m-reload-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink" onClick={p.onOpenFolder} title={t('viewer.openFolderTitle')} aria-label={t('common.openFolder')}>
-            <IconFolder size={14} />
-          </button>
+          {/* Mở thư mục: nút chính ở thanh trên (trùng nên bỏ ở đây) */}
           <button className="x2m-move-btn x2m-reload-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink" onClick={p.onOpenFiles} title={t('viewer.openFilesTitle')} aria-label={t('viewer.openFiles')}>
             <IconFile size={14} />
           </button>
