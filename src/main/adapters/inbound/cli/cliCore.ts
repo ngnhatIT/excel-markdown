@@ -5,13 +5,16 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { stat, writeFile } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../../shared/types'
-import { parseTableDefs, SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../../shared/tableDef'
+import { parseTableDefs, SQL_DIALECTS, toAlterSql, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../../shared/tableDef'
 import { readWorkbook } from '../../outbound/xlsxFiles'
 import { writeMdFiles } from '../../outbound/mdOutput'
 import { workbookMarkdownForDiff } from '../../outbound/workbookText'
 import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, walkFiles } from '../../outbound/mdFolder'
 import { buildSpecIndex, crudMatrix, crudText, impactOf, type ImpactResult, type SpecIndex, type SpecIssue } from '../../../../shared/specIndex'
 import { handleMdRequest } from '../worker/mdHandler'
+import { buildMockScreens, mockPageHtml } from '../../../../shared/mockScreen'
+import { buildQaRows, QA_LANGS, qaLang, qaTable, type QaLang } from '../../../../shared/qaSheet'
+import { tableText } from '../../../../shared/specIndex'
 import { convertSheetsInWorkbook, listSheetsInWorkbook } from '../../../domain/excel/converter'
 import { workbookMdFiles } from '../../../domain/excel/output'
 import { EXCEL_EXT_RE, isInsideDir, isOpenableDirectory } from '../../../domain/guards'
@@ -27,6 +30,12 @@ export const USAGE = `Dùng: cli <file.xlsx|thư mục...> -o <thư mục> [--pe
      cli textconv <file.xlsx>   (in Markdown ra stdout, dùng làm git diff driver)
      cli ddl <file.md|thư mục|file.xlsx...> [--dialect generic|postgres|mysql|oracle|sqlserver]
           [--format sql|json|mermaid] [-o out.sql]   (テーブル定義書 → DDL / JSON / ER; không -o thì in ra stdout)
+     cli migrate <bản cũ> <bản mới> [--dialect ...] [-o out.sql]   (ALTER TABLE từ テーブル定義 cũ → mới; mỗi bản là
+          file .md / Excel / thư mục; dòng "-- 要確認" cần người quyết)
+     cli mock <file.md|thư mục|file.xlsx...> -o mock.html [--title ...]   (mock màn hình HTML từ 項目定義;
+          mở bằng trình duyệt, không cần app)
+     cli qa <thư mục> [--lang ja|vi|en] [--format tsv|md] [--spec-only] [-o out.tsv]   (質問票: câu hỏi gửi khách
+          từ 整合性チェック, ô CRUD ?, màn hình không có 項目定義; không -o thì in ra stdout)
      cli impact <thư mục> <bảng|TBL.COL|cột|画面ID|画面名>   (影響調査: tài liệu / màn hình bị ảnh hưởng)
      cli lint <thư mục>   (整合性チェック: 画面ID / bảng trùng, 遷移 treo, TBL.COL không có; lỗi -> mã thoát 1;
           cảnh báo: cách viết mơ hồ など/TBD/未定..., cột cùng tên khác kiểu / 桁数)
@@ -157,6 +166,136 @@ export async function collectTableDefs(inputs: string[]): Promise<TableDef[]> {
 /** Kết quả theo định dạng: sql (DDL theo dialect), json, mermaid (erDiagram). */
 export function renderTableDefs(defs: TableDef[], format: TableDefFormat, dialect: SqlDialect): string {
   return format === 'json' ? toJson(defs) : format === 'mermaid' ? toErMermaid(defs) : toDDL(defs, dialect)
+}
+
+/** ALTER TABLE từ テーブル定義 của bản cũ sang bản mới; không có thay đổi thì in chú thích, mã 0. */
+async function runMigrate(argv: string[], log: (s: string) => void): Promise<number> {
+  const inputs: string[] = []
+  let dialect: SqlDialect = 'generic'
+  let outPath = ''
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    const value = (): string => {
+      if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + a)
+      return argv[++i]
+    }
+    if (a === '-o' || a === '--out') outPath = value()
+    else if (a === '--dialect') {
+      const v = value() as SqlDialect
+      if (!SQL_DIALECTS.includes(v)) throw new Error(`--dialect phải là một trong: ${SQL_DIALECTS.join(', ')}`)
+      dialect = v
+    } else if (a.startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + a)
+    else inputs.push(a)
+  }
+  if (inputs.length !== 2) throw new Error('Dùng: cli migrate <bản cũ> <bản mới> [--dialect ...] [-o out.sql]')
+  let oldDefs: TableDef[]
+  let newDefs: TableDef[]
+  try {
+    ;[oldDefs, newDefs] = await Promise.all([collectTableDefs([inputs[0]]), collectTableDefs([inputs[1]])])
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  if (oldDefs.length + newDefs.length === 0) {
+    process.stderr.write('Không tìm thấy テーブル定義 nào ở cả hai bản (cần bảng có cột 物理名 và 型)\n')
+    return 1
+  }
+  const text = toAlterSql(oldDefs, newDefs, dialect) || '-- テーブル定義に変更なし\n'
+  if (!outPath) {
+    process.stdout.write(text)
+    return 0
+  }
+  await writeFile(resolve(outPath), text, 'utf-8')
+  log(`${resolve(outPath)} (bản cũ ${oldDefs.length} bảng, bản mới ${newDefs.length} bảng)`)
+  return 0
+}
+
+/** Mock màn hình: mọi tài liệu đầu vào thành một trang HTML đứng riêng. */
+async function runMock(argv: string[], log: (s: string) => void): Promise<number> {
+  const inputs: string[] = []
+  let outPath = ''
+  let title = ''
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    const value = (): string => {
+      if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + a)
+      return argv[++i]
+    }
+    if (a === '-o' || a === '--out') outPath = value()
+    else if (a === '--title') title = value()
+    else if (a.startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + a)
+    else inputs.push(a)
+  }
+  if (inputs.length === 0 || !outPath) throw new Error('Dùng: cli mock <file.md|thư mục|file.xlsx...> -o mock.html [--title ...]')
+  const docs: { rel: string; text: string }[] = []
+  try {
+    for (const input of inputs) {
+      const abs = resolve(input)
+      if (await stat(abs).then((s) => s.isDirectory(), () => false)) {
+        const { files } = await listMarkdownFiles(abs)
+        docs.push(...((await readMarkdownFolder(abs, files)) ?? []))
+      } else if (EXCEL_EXT_RE.test(abs)) docs.push({ rel: basename(abs), text: workbookMarkdownForDiff(abs) })
+      else if (/\.(md|markdown)$/i.test(abs)) docs.push({ rel: basename(abs), text: await readMarkdownFile(abs) })
+      else throw new Error('Chỉ nhận file .md / Excel hoặc thư mục: ' + input)
+    }
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  const screens = buildMockScreens(docs)
+  if (screens.length === 0) {
+    process.stderr.write('Không tìm thấy màn hình nào (cần dòng meta 画面ID)\n')
+    return 1
+  }
+  await writeFile(resolve(outPath), mockPageHtml(screens, title || basename(resolve(inputs[0])).replace(/\.[^.]+$/, '')), 'utf-8')
+  log(`${resolve(outPath)} (${screens.length} màn hình)`)
+  return 0
+}
+
+/** 質問票 của thư mục: TSV (dán vào mẫu Excel) hoặc Markdown. */
+async function runQa(argv: string[], log: (s: string) => void): Promise<number> {
+  const inputs: string[] = []
+  let lang: QaLang | '' = ''
+  let format: 'tsv' | 'md' = 'tsv'
+  let specOnly = false
+  let outPath = ''
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    const value = (): string => {
+      if (i + 1 >= argv.length) throw new Error('Thiếu giá trị cho ' + a)
+      return argv[++i]
+    }
+    if (a === '-o' || a === '--out') outPath = value()
+    else if (a === '--lang') {
+      const v = value() as QaLang
+      if (!QA_LANGS.includes(v)) throw new Error(`--lang phải là một trong: ${QA_LANGS.join(', ')}`)
+      lang = v
+    } else if (a === '--format') {
+      const v = value()
+      if (v !== 'tsv' && v !== 'md') throw new Error('--format phải là tsv hoặc md')
+      format = v
+    } else if (a === '--spec-only') specOnly = true
+    else if (a.startsWith('-')) throw new Error('Tuỳ chọn không hợp lệ: ' + a)
+    else inputs.push(a)
+  }
+  if (inputs.length !== 1) throw new Error('Dùng: cli qa <thư mục> [--lang ja|vi|en] [--format tsv|md] [--spec-only] [-o out]')
+  let index: SpecIndex
+  try {
+    index = await loadSpecIndex(resolve(inputs[0]))
+  } catch (err) {
+    process.stderr.write('LỖI: ' + friendlyError(err) + '\n')
+    return 1
+  }
+  const l = lang || qaLang(index)
+  const rows = buildQaRows(index, l).filter((r) => !specOnly || r.category === 'spec').map((r, k) => ({ ...r, no: k + 1 }))
+  const text = tableText(qaTable(rows, l), format)
+  if (!outPath) {
+    process.stdout.write(text)
+    return 0
+  }
+  await writeFile(resolve(outPath), format === 'tsv' ? '\uFEFF' + text : text, 'utf-8')
+  log(`${resolve(outPath)} (${rows.length} câu hỏi)`)
+  return 0
 }
 
 async function runDdl(argv: string[], log: (s: string) => void): Promise<number> {
@@ -354,6 +493,9 @@ export async function runCli(
   }
   if (argv[0] === 'md2xlsx') return runMd2Xlsx(argv.slice(1), log)
   if (argv[0] === 'ddl') return runDdl(argv.slice(1), log)
+  if (argv[0] === 'migrate') return runMigrate(argv.slice(1), log)
+  if (argv[0] === 'mock') return runMock(argv.slice(1), log)
+  if (argv[0] === 'qa') return runQa(argv.slice(1), log)
   if (argv[0] === 'impact' || argv[0] === 'lint') return runSpec(argv[0], argv.slice(1), log)
   if (argv[0] === 'crud') return runCrud(argv.slice(1))
   if (argv[0] === 'textconv') {

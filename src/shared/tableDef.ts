@@ -75,8 +75,8 @@ const isTableStart = (line: string, next: string | undefined): boolean =>
   line.trimStart().startsWith('|') && next !== undefined && isDelimRow(next)
 
 const META_RE = /^\s*(?:[-*+]\s+)?(?:\*\*)?([^*:：|]{1,40}?)(?:\*\*)?\s*[:：]\s*(?:\*\*)?\s*(.+?)\s*$/
-const ID_LABELS = new Set(['テーブルid', 'テーブル物理名', '物理名', 'tableid'].map(normLabel))
-const NAME_LABELS = new Set(['テーブル名', '論理名', 'テーブル論理名', 'tablename'].map(normLabel))
+const ID_LABELS = new Set(['テーブルid', 'テーブル物理名', '物理名', 'tableid', 'mã bảng'].map(normLabel))
+const NAME_LABELS = new Set(['テーブル名', '論理名', 'テーブル論理名', 'tablename', 'tên bảng'].map(normLabel))
 const IDENT_RE = /[A-Za-z_][A-Za-z0-9_$#.]*/
 const isIdent = (s: string): boolean => new RegExp(`^${IDENT_RE.source}$`).test(s)
 
@@ -333,6 +333,107 @@ export function toDDL(defs: TableDef[], dialect: SqlDialect = 'generic'): string
       for (const c of cols) if (label(c)) block.push(`COMMENT ON COLUMN ${table}.${quoteIdent(c.name.trim(), d)} IS ${sqlString(label(c), d)};`)
     }
     out.push(block.join('\n'))
+  }
+  return out.length > 0 ? out.join('\n\n') + '\n' : ''
+}
+
+/* ------------------------------ ALTER TABLE ------------------------------ */
+
+/** Kiểu SQL của cột để so và để ghi (kiểu lạ không chuẩn hóa được thì giữ chữ gốc + 桁数). */
+const colType = (c: TableColumn, d: SqlDialect): string => sqlType(c, d) ?? `${d === 'oracle' ? 'VARCHAR2' : 'VARCHAR'}(${num(c.length) || 255})`
+const colKey = (c: TableColumn): string => c.name.trim().toUpperCase()
+const sameType = (a: TableColumn, b: TableColumn, d: SqlDialect): boolean =>
+  (sqlType(a, d) ?? `${a.type}|${a.length}|${a.scale}`).toUpperCase() === (sqlType(b, d) ?? `${b.type}|${b.length}|${b.scale}`).toUpperCase()
+const notNullOf = (c: TableColumn): boolean => c.notNull || c.pk
+
+/** Định nghĩa đầy đủ một cột (dùng cho ADD và MODIFY của MySQL). */
+function columnDef(c: TableColumn, d: SqlDialect): string {
+  const parts = [quoteIdent(c.name.trim(), d), colType(c, d)]
+  if (c.default) parts.push('DEFAULT ' + sqlDefault(c.default, d))
+  if (notNullOf(c)) parts.push('NOT NULL')
+  return parts.join(' ')
+}
+
+/** Câu lệnh đưa CSDL từ thiết kế cũ sang thiết kế mới, khớp bảng / cột theo tên vật lý (không phân biệt hoa thường).
+ * Bảng mới: CREATE TABLE. Bảng / cột bị bỏ: DROP kèm cảnh báo mất dữ liệu. Đổi kiểu / NULL / 既定値: ALTER theo dialect.
+ * Những gì không chắc (đổi khóa chính, có thể là đổi tên cột, 既定値 của SQL Server) ghi thành chú thích `-- 要確認`
+ * để người đọc tự quyết, không đoán câu lệnh. '' nếu hai bản giống nhau về cấu trúc. */
+export function toAlterSql(oldDefs: TableDef[], newDefs: TableDef[], dialect: SqlDialect = 'generic'): string {
+  const d = SQL_DIALECTS.includes(dialect) ? dialect : 'generic'
+  const byName = (defs: TableDef[]): Map<string, TableDef> => {
+    const m = new Map<string, TableDef>()
+    for (const t of defs) if (t.tableName.trim() && !m.has(t.tableName.trim().toUpperCase())) m.set(t.tableName.trim().toUpperCase(), t)
+    return m
+  }
+  const olds = byName(oldDefs)
+  const news = byName(newDefs)
+  const out: string[] = []
+  const alter = (t: string, body: string): string => `ALTER TABLE ${t} ${body};`
+
+  for (const [key, nt] of news) {
+    const ot = olds.get(key)
+    if (!ot) {
+      const ddl = toDDL([nt], d).trim()
+      if (ddl) out.push(`-- 新規テーブル: ${nt.tableName}\n${ddl}`)
+      continue
+    }
+    const t = quoteIdent(nt.tableName.trim(), d)
+    const oc = new Map(ot.columns.filter((c) => c.name.trim()).map((c) => [colKey(c), c]))
+    const nc = new Map(nt.columns.filter((c) => c.name.trim()).map((c) => [colKey(c), c]))
+    const lines: string[] = []
+    const added = [...nc.values()].filter((c) => !oc.has(colKey(c)))
+    const removed = [...oc.values()].filter((c) => !nc.has(colKey(c)))
+    for (const c of added) {
+      // Cột mới cùng 論理名 với cột bị bỏ: nhiều khả năng là đổi tên, ADD + DROP sẽ mất dữ liệu
+      const twin = c.logical.trim() ? removed.find((r) => r.logical.trim() === c.logical.trim()) : undefined
+      if (twin) lines.push(`-- 要確認: 論理名「${oneLine(c.logical)}」が同じ。列名変更 ${twin.name} → ${c.name} なら ADD / DROP ではなく RENAME COLUMN を使う`)
+      if (notNullOf(c) && !c.default) lines.push(`-- 要確認: ${c.name} は NOT NULL で既定値なし。既存データがあると失敗する`)
+      const def = columnDef(c, d)
+      lines.push(alter(t, d === 'oracle' ? `ADD (${def})` : d === 'sqlserver' ? `ADD ${def}` : `ADD COLUMN ${def}`))
+    }
+    for (const c of removed) {
+      lines.push(`-- 要確認: ${c.name} のデータは削除される`)
+      lines.push(alter(t, `DROP COLUMN ${quoteIdent(c.name.trim(), d)}`))
+    }
+    for (const [k, n] of nc) {
+      const o = oc.get(k)
+      if (!o) continue
+      const col = quoteIdent(n.name.trim(), d)
+      const typeChanged = !sameType(o, n, d)
+      const nullChanged = notNullOf(o) !== notNullOf(n)
+      const defChanged = oneLine(o.default) !== oneLine(n.default)
+      if (!typeChanged && !nullChanged && !defChanged) continue
+      const what = [typeChanged && `${colType(o, d)} → ${colType(n, d)}`, nullChanged && (notNullOf(n) ? 'NULL → NOT NULL' : 'NOT NULL → NULL'), defChanged && `DEFAULT ${o.default || '-'} → ${n.default || '-'}`]
+        .filter(Boolean)
+        .join(', ')
+      lines.push(`-- ${n.name}: ${what}`)
+      if (d === 'mysql') {
+        // MODIFY phải ghi lại đủ định nghĩa cột
+        lines.push(alter(t, `MODIFY COLUMN ${columnDef(n, d)}`))
+        continue
+      }
+      if (d === 'oracle') {
+        const parts = [typeChanged && colType(n, d), defChanged && `DEFAULT ${n.default ? sqlDefault(n.default, d) : 'NULL'}`, nullChanged && (notNullOf(n) ? 'NOT NULL' : 'NULL')].filter(Boolean)
+        lines.push(alter(t, `MODIFY (${col} ${parts.join(' ')})`))
+        continue
+      }
+      if (d === 'sqlserver') {
+        if (typeChanged || nullChanged) lines.push(alter(t, `ALTER COLUMN ${col} ${colType(n, d)} ${notNullOf(n) ? 'NOT NULL' : 'NULL'}`))
+        if (defChanged) lines.push(`-- 要確認: SQL Server の既定値は制約名つきで変更する（DROP CONSTRAINT / ADD DEFAULT ${n.default ? sqlDefault(n.default, d) : ''} FOR ${col}）`)
+        continue
+      }
+      // generic / postgres
+      if (typeChanged) lines.push(alter(t, `ALTER COLUMN ${col} TYPE ${colType(n, d)}`))
+      if (nullChanged) lines.push(alter(t, `ALTER COLUMN ${col} ${notNullOf(n) ? 'SET' : 'DROP'} NOT NULL`))
+      if (defChanged) lines.push(alter(t, n.default ? `ALTER COLUMN ${col} SET DEFAULT ${sqlDefault(n.default, d)}` : `ALTER COLUMN ${col} DROP DEFAULT`))
+    }
+    const pk = (cols: Map<string, TableColumn>): string => [...cols.values()].filter((c) => c.pk).map((c) => c.name.trim()).join(', ')
+    if (pk(oc).toUpperCase() !== pk(nc).toUpperCase()) lines.push(`-- 要確認: 主キー変更 (${pk(oc) || '-'}) → (${pk(nc) || '-'})。制約名を確認して DROP / ADD PRIMARY KEY を行う`)
+    if (lines.length > 0) out.push([`-- ${nt.tableName}${nt.logicalName ? ` (${oneLine(nt.logicalName)})` : ''}`, ...lines].join('\n'))
+  }
+  for (const [key, ot] of olds) {
+    if (news.has(key)) continue
+    out.push(`-- 要確認: テーブル ${ot.tableName} が新しい設計書にない（データは削除される）\nDROP TABLE ${quoteIdent(ot.tableName.trim(), d)};`)
   }
   return out.length > 0 ? out.join('\n\n') + '\n' : ''
 }

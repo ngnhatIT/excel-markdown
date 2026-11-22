@@ -8,6 +8,8 @@ import { inlineMermaid, renderMermaidIn } from '../lib/mermaid'
 import { findTextRanges, setSearchHighlight } from '../lib/highlight'
 import { SelectionTranslate } from './SelectionTranslate'
 import { TranslateDialog } from './TranslateDialog'
+import { MockDialog } from './MockDialog'
+import { buildMockScreens } from '../../../shared/mockScreen'
 import { sectionMarkdown } from '../../../shared/translate'
 import { DdlPopover, ErDialog } from './TableDefTools'
 import { TestDesignDialog } from './TestDesignTools'
@@ -17,7 +19,7 @@ import { fenceAfter } from '../../../shared/mdLines'
 import { cn, copyText, matchHeadingText, toast } from '../lib/utils'
 import { btnGhost, btnSm, cx } from '../lib/ui'
 import { getLocale, LOCALES, t as tr, useLang, useT } from '../i18n'
-import { IconCopy, IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
+import { IconEye, IconList, IconMarkdown, IconSplit, IconTable, IconWrap } from './icons'
 
 /** Preview dài hơn số dòng này thì cắt, bấm "Hiện thêm" để xem hết. */
 const PREVIEW_LINE_LIMIT = 300
@@ -153,6 +155,65 @@ export interface ScrollTarget {
 }
 
 /** Thanh tab + vùng xem trước (Markdown đã render, Song song, hoặc Mã nguồn). */
+/** Nút "Xuất ▾" mở danh sách thao tác; Esc / bấm ra ngoài thì đóng, phím ↑ ↓ đi giữa các mục. */
+function ExportMenu({ items, disabled }: { items: { label: string; title: string; run: () => void }[]; disabled: boolean }): React.ReactElement {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        setOpen(false)
+        ref.current?.querySelector<HTMLButtonElement>('button')?.focus()
+      }
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey, true)
+    ref.current?.querySelector<HTMLButtonElement>('[role=menuitem]')?.focus()
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [open])
+  const move = (e: React.KeyboardEvent): void => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+    e.preventDefault()
+    const list = Array.from(ref.current?.querySelectorAll<HTMLButtonElement>('[role=menuitem]') ?? [])
+    const i = list.indexOf(document.activeElement as HTMLButtonElement)
+    list[(i + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]?.focus()
+  }
+  return (
+    <div ref={ref} className="x2m-export-menu relative">
+      <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} disabled={disabled} aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {t('preview.export')} <span aria-hidden="true">▾</span>
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 top-full z-30 mt-1 flex min-w-44 flex-col rounded-md border border-line bg-[var(--sheet)] p-1 shadow-pop" onKeyDown={move}>
+          {items.map((it) => (
+            <button
+              key={it.label}
+              role="menuitem"
+              className="rounded px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-hover focus-visible:bg-hover focus-visible:outline-none"
+              title={it.title}
+              onClick={() => {
+                setOpen(false)
+                it.run()
+              }}
+            >
+              {it.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function PreviewPane({
   title,
   md,
@@ -277,6 +338,7 @@ export function PreviewPane({
   const testTables = useMemo(() => buildTestDesign(md).tables, [md])
   const [testOpen, setTestOpen] = useState(false)
   const [trTarget, setTrTarget] = useState<{ source: string; label: string } | null>(null)
+  const [mockOpen, setMockOpen] = useState(false)
   const closeTest = useCallback(() => setTestOpen(false), [])
   useEffect(() => {
     setDdl(null)
@@ -437,29 +499,24 @@ export function PreviewPane({
             </button>
           )}
           {testTables > 0 && !loading && (
+            <button className={cx('x2m-mock-btn-open btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => setMockOpen(true)} title={t('mock.buttonTitle')}>
+              {t('mock.button')}
+            </button>
+          )}
+          {testTables > 0 && !loading && (
             <button className={cx('x2m-testdesign-btn btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => setTestOpen(true)} title={t('tsd.btnTitle', { n: testTables })}>
               {t('tsd.btn')}
             </button>
           )}
-          <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={copy} disabled={!md || loading} title={t('preview.copyTitle')}>
-            <IconCopy size={14} /> <span className="sr-only @4xl:not-sr-only">{t('common.copy')}</span>
-          </button>
-          <button
-            className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
-            onClick={() => void exportHtml()}
+          {/* Copy / Xuất HTML / In gom vào một menu: thanh công cụ giữ một hàng ở cửa sổ hẹp */}
+          <ExportMenu
             disabled={!md || loading}
-            title={t('preview.exportHtmlTitle')}
-          >
-            {t('preview.exportHtml')}
-          </button>
-          <button
-            className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)}
-            onClick={() => window.print()}
-            disabled={!md || loading}
-            title={t('preview.printTitle')}
-          >
-            {t('preview.print')}
-          </button>
+            items={[
+              { label: t('common.copy'), title: t('preview.copyTitle'), run: () => void copy() },
+              { label: t('preview.exportHtml'), title: t('preview.exportHtmlTitle'), run: () => void exportHtml() },
+              { label: t('preview.print'), title: t('preview.printTitle'), run: () => window.print() },
+            ]}
+          />
         </div>
       </div>
 
@@ -594,6 +651,7 @@ export function PreviewPane({
       <SelectionTranslate containerRef={previewRef} />
       {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
       {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {mockOpen && <MockDialog screens={buildMockScreens([{ rel: title ?? 'document.md', text: md }])} title={title} onClose={() => setMockOpen(false)} />}
       {trTarget && trTarget.source && <TranslateDialog source={trTarget.source} label={trTarget.label} onClose={() => setTrTarget(null)} />}
       {testOpen && <TestDesignDialog md={md} title={title} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>

@@ -207,6 +207,7 @@ export const en: Dict = {
   'preview.outlineAria': 'Quick outline',
   'preview.copyTitle': 'Copy all Markdown',
   'preview.exportHtmlTitle': 'Export a standalone HTML page with a table of contents (guide notes)',
+  'preview.export': 'Export',
   'preview.exportHtml': 'Export HTML',
   'preview.printTitle': "Print or save as PDF (choose 'Save as PDF')",
   'preview.print': 'Print / PDF',

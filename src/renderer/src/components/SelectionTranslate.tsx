@@ -61,10 +61,11 @@ export function SelectionTranslate({ containerRef }: { containerRef: React.RefOb
   useEffect(() => {
     const onUp = (e: Event): void => {
       if (popupRef.current?.contains(e.target as Node)) return
-      requestAnimationFrame(() => {
+      // Chờ trình duyệt chốt vùng chọn. setTimeout thay vì requestAnimationFrame: rAF bị dừng khi cửa sổ bị che / chạy nền
+      setTimeout(() => {
         if (open) return
         setAnchor(selectionIn(containerRef.current))
-      })
+      }, 0)
     }
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === 'Escape' && (open || anchor)) {

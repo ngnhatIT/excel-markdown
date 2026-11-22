@@ -16,6 +16,7 @@ import type {
   OutputMode,
 } from '../shared/types'
 import type { SpecIndex } from '../shared/specIndex'
+import type { MockScreen } from '../shared/mockScreen'
 import type { TranslateResult } from '../shared/translate'
 import type { FoundProjectConfig } from '../shared/projectConfig'
 
@@ -120,6 +121,8 @@ contextBridge.exposeInMainWorld('api', {
     unwrap(ipcRenderer.invoke('config:open', path) as Promise<ApiResult<null>>).then(() => undefined),
   /** Bản đồ thiết kế + 影響調査 của thư mục đã mở. */
   specIndex: (root: string): Promise<SpecIndex> => unwrap(ipcRenderer.invoke('mdv:specIndex', root) as Promise<ApiResult<SpecIndex>>),
+  /** Mock màn hình (項目定義) của mọi file trong thư mục đang mở */
+  mockScreens: (root: string): Promise<MockScreen[]> => unwrap(ipcRenderer.invoke('mdv:mockScreens', root) as Promise<ApiResult<MockScreen[]>>),
 
   // Trợ lý AI (RAG: Gemini / Claude / OpenAI)
   aiGetConfig: (): Promise<AiConfigInfo> =>

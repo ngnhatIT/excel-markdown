@@ -8,6 +8,7 @@ import { errorCode } from '../../../domain/errors'
 import { imageMime, isInsideDir, isMarkdownPath, isOpenableDirectory } from '../../../domain/guards'
 import { listMarkdownFiles, readMarkdownFile, readMarkdownFolder, searchMarkdownFolder } from '../../outbound/mdFolder'
 import { buildSpecIndex, type SpecIndex } from '../../../../shared/specIndex'
+import { buildMockScreens } from '../../../../shared/mockScreen'
 import { findGlossaryRel, parseGlossary } from '../../../../shared/glossary'
 import { setProjectGlossary } from '../../../domain/rag/glossary'
 import { logError } from '../../outbound/store'
@@ -103,6 +104,18 @@ export function registerViewerIpc(): void {
       return { ok: true, data: index }
     } catch (err) {
       void logError('mdv:specIndex', err)
+      return { ok: false, error: errorCode(err) }
+    }
+  })
+
+  /** Mock màn hình của cả thư mục đang mở (link 画面遷移 giữa các file bấm được). */
+  ipcMain.handle('mdv:mockScreens', async (_e, root: unknown) => {
+    if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'E_SEARCH_NOT_OPENED' }
+    try {
+      const { files } = await listMarkdownFiles(root)
+      return { ok: true, data: buildMockScreens((await readMarkdownFolder(root, files)) ?? []) }
+    } catch (err) {
+      void logError('mdv:mockScreens', err)
       return { ok: false, error: errorCode(err) }
     }
   })

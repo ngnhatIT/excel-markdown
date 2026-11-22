@@ -18,6 +18,28 @@ Minor: tính năng mới. Không có `x2m.json` thì mọi kết quả giữ ngu
   trúc Markdown, hộp hai cột Bản gốc | Bản dịch, Copy Markdown / Lưu .md. Tab **Dịch** ở cột phải (Đọc Markdown) giữ
   lịch sử dịch trong phiên. Giới hạn mỗi lần dịch tăng từ 4 000 lên 12 000 ký tự; IPC `ai:translate` trả
   `{ text, terms }`.
+- Tính năng: tab **Hoàn thiện (完成度)** của Bản đồ thiết kế: % hoàn thiện cả thư mục, từng màn hình theo 6 tiêu chí và từng
+  bảng theo 3 tiêu chí, yếu nhất trước, bấm để mở, Copy TSV / Markdown (`shared/completeness.ts`).
+- Trải nghiệm ở cửa sổ hẹp (laptop): cột phải (Tùy chọn / Trợ lý AI) tự thu gọn khi cửa sổ < 1200px (bấm dải bên phải để mở,
+  không ghi vào cài đặt); Copy / Xuất HTML / In gom vào menu **Xuất ▾** (dùng được bằng bàn phím) để thanh xem trước giữ một
+  hàng; thanh tab Bản đồ thiết kế cuộn ngang, mờ dần ở mép bị cắt, nút Mock / Làm mới / Đóng luôn hiện; bảng 質問票 giữ
+  cột Câu hỏi đủ rộng.
+- Tính năng: **質問票** (tab của Bản đồ thiết kế): câu hỏi gửi khách sinh từ 整合性チェック, ô CRUD `?` và màn hình không có
+  項目定義; phân loại 仕様確認 / 記載不備, câu hỏi tiếng Nhật / Việt / Anh, vị trí file:dòng bấm được, Copy TSV / Markdown /
+  Lưu .md (`shared/qaSheet.ts`). CLI `qa <thư mục> [--lang] [--spec-only] [--format] [-o]` (TSV có BOM). Chỉ mục thêm
+  `itemScreens`; cảnh báo chữ mơ hồ kèm câu gốc. Tab "Cách viết tài liệu" đổi tên thành "Hướng dẫn".
+- Mock / Bản đồ thiết kế đọc được tài liệu tiếng Việt: nhãn `Mã màn hình` / `Tên màn hình` / `Chuyển màn hình`, `Mã bảng` /
+  `Tên bảng`; từ khóa loại ô tiếng Việt (Chọn, Danh sách, Nút chọn, Hộp kiểm, Ngày, Số, Nhiều dòng, điện thoại, mật khẩu…);
+  lựa chọn viết ở cột Ghi chú (`A / B`); chữ trên mock và font theo ngôn ngữ tài liệu (vi / ja / en). Sửa: `ラジオボタン`
+  bị hiểu là nút bấm.
+- Sửa: nút Dịch đôi khi không hiện khi cửa sổ app bị che / chạy nền (requestAnimationFrame bị dừng) -> dùng setTimeout;
+  bước e2e Dịch hết chập chờn.
+- Tính năng: **ALTER TABLE từ So sánh 新旧**: nút ALTER TABLE khi hai bản có テーブル定義; CREATE / DROP TABLE, ADD / DROP
+  COLUMN, đổi kiểu / NULL / 既定値 theo 5 dialect, chỗ cần người quyết ghi `-- 要確認` (`toAlterSql` trong
+  `shared/tableDef.ts`). CLI `migrate <cũ> <mới> [--dialect] [-o]`.
+- Tính năng: **Mock màn hình từ 項目定義**: form bấm được theo 区分 / 型 / 桁数 / 必須 / 初期値, 〔入力規則〕 thành lựa chọn, nút
+  và link 画面遷移; xem trong app (một tài liệu hoặc cả thư mục từ Bản đồ thiết kế) và Lưu HTML đứng riêng không JavaScript
+  (`shared/mockScreen.ts`, CSS dùng chung `shared/mockScreen.css`). CLI `mock <đầu vào...> -o mock.html`. IPC `mdv:mockScreens`.
 - Excel → Markdown: preset gộp còn 2 (**Cho người đọc**, **Cho AI / RAG**); bỏ "Bảng dữ liệu" vì khác "Chuẩn tài
   liệu" chủ yếu ở khoảng trắng trong mã nguồn (các tùy chọn đó vẫn chỉnh riêng được). Dòng mô tả preset đang chọn hiện
   ngay dưới nút (trước chỉ ở tooltip); tổ hợp khác thì báo "Tùy chỉnh". Kết quả convert mặc định không đổi.

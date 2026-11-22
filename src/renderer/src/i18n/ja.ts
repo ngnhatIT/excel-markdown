@@ -207,6 +207,7 @@ export const ja: Dict = {
   'preview.outlineAria': 'クイック目次',
   'preview.copyTitle': 'Markdown 全体をコピー',
   'preview.exportHtmlTitle': '目次付きの単体 HTML ページを書き出し（手順書・メモ向け）',
+  'preview.export': '出力',
   'preview.exportHtml': 'HTML 書き出し',
   'preview.printTitle': '印刷または PDF 保存（「PDF として保存」を選択）',
   'preview.print': '印刷 / PDF',

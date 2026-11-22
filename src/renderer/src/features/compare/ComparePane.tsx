@@ -7,6 +7,8 @@ import { baseName, cn, copyText, toast } from '../../lib/utils'
 import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, filesAside, iconBtn, paneTitle } from '../../lib/ui'
 import { IconCopy, IconFile, IconRefresh, IconSplit, IconX } from '../../components/icons'
 import { SelectionTranslate } from '../../components/SelectionTranslate'
+import { AlterDialog } from '../../components/TableDefTools'
+import { parseTableDefs } from '../../../../shared/tableDef'
 import { changeStarts, compareRows } from './compareView'
 import { isComparable, type CompareState, type Side } from './useCompare'
 
@@ -141,6 +143,10 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
   const [cursor, setCursor] = useState(-1)
   const [showRev, setShowRev] = useState(false)
+  const [showAlter, setShowAlter] = useState(false)
+  // テーブル定義 hai bản: có bảng ở ít nhất một bên thì hiện nút ALTER TABLE
+  const oldDefs = useMemo(() => parseTableDefs(slots.old.text ?? '', baseName(slots.old.path ?? '')), [slots.old.text, slots.old.path])
+  const newDefs = useMemo(() => parseTableDefs(slots.new.text ?? '', baseName(slots.new.path ?? '')), [slots.new.text, slots.new.path])
   const listRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -344,6 +350,11 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                 >
                   {t('compare.rev.button')}
                 </button>
+                {oldDefs.length + newDefs.length > 0 && (
+                  <button className={cx('x2m-alter-btn', btnGhost, showAlter && '!bg-accent-soft !text-accent-ink')} onClick={() => setShowAlter(true)} title={t('alter.buttonTitle')}>
+                    ALTER TABLE
+                  </button>
+                )}
                 <button className={cx(btnGhost)} onClick={() => void copyReport()} title={t('compare.copy')}>
                   <IconCopy size={14} /> {t('compare.copy')}
                 </button>
@@ -353,6 +364,16 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
               </span>
             </div>
             {showRev && starts.length > 0 && <RevisionPanel diff={diff} onClose={() => setShowRev(false)} />}
+            {showAlter && (
+              <AlterDialog
+                oldDefs={oldDefs}
+                newDefs={newDefs}
+                onClose={() => setShowAlter(false)}
+                onCopy={(text, label) =>
+                  void copyText(text).then((ok) => toast(ok ? t('toast.copied', { label }) : t('common.copyFailed'), ok ? 'ok' : 'err'))
+                }
+              />
+            )}
             {starts.length === 0 ? (
               <div className={cx('x2m-empty flex-1', emptyBox)}>
                 <p className={cx(emptyP, 'font-semibold !text-ink')}>{t('compare.noChanges')}</p>

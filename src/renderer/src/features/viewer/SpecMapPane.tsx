@@ -17,14 +17,19 @@ import {
 import { glossaryMarkdown, suggestGlossary } from '../../../../shared/glossary'
 import { renderMermaidIn } from '../../lib/mermaid'
 import { SpecGuide } from './SpecGuide'
+import { SpecQa } from './SpecQa'
+import { SpecCompleteness } from './SpecCompleteness'
+import { ExportBar } from '../../components/ExportBar'
+import { MockDialog } from '../../components/MockDialog'
+import type { MockScreen } from '../../../../shared/mockScreen'
 import { errMsg } from '../../lib/api'
 import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, input } from '../../lib/ui'
 import { cn, copyText, toast } from '../../lib/utils'
 import { IconMap, IconRefresh, IconX } from '../../components/icons'
 import { t as tr, useT } from '../../i18n'
 
-type Tab = 'flow' | 'er' | 'crud' | 'impact' | 'lint' | 'glossary' | 'guide'
-const TABS: Tab[] = ['flow', 'er', 'crud', 'impact', 'lint', 'glossary', 'guide']
+type Tab = 'flow' | 'er' | 'crud' | 'impact' | 'lint' | 'qa' | 'done' | 'glossary' | 'guide'
+const TABS: Tab[] = ['flow', 'er', 'crud', 'impact', 'lint', 'qa', 'done', 'glossary', 'guide']
 
 /** Mở tài liệu `rel` (tương đối thư mục), cuộn tới `heading` rồi tô `text`. */
 export type SpecOpen = (rel: string, heading: string, text: string) => void
@@ -99,37 +104,22 @@ const lintRows = (issues: SpecIssue[]): string[][] => [
 
 const lintMarkdown = (issues: SpecIssue[]): string => [`# ${tr('sm.tab.lint')}`, '', lintSummary(issues), '', tableText(lintRows(issues), 'md')].join('\n')
 
-/** Copy Markdown / Copy TSV / Lưu .md cho một báo cáo. */
-function ExportBar({ md, tsv, name, label }: { md: () => string; tsv: () => string; name: string; label: string }): React.ReactElement {
-  const t = useT()
-  const save = async (): Promise<void> => {
-    try {
-      const saved = await window.api.saveMarkdown(name, md())
-      if (saved) toast(t('sm.export.saved', { path: saved }), 'ok')
-    } catch (err) {
-      toast(t('sm.export.saveFailed', { err: errMsg(err) }), 'err')
-    }
-  }
-  return (
-    <span className="x2m-specmap-export ml-auto flex shrink-0 items-center gap-1">
-      <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(md(), label)}>
-        {t('sm.export.copyMd')}
-      </button>
-      <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(tsv(), label)}>
-        {t('sm.export.copyTsv')}
-      </button>
-      <button className={cx(btnGhost, btnSm)} onClick={() => void save()} title={t('sm.export.saveTitle')}>
-        {t('sm.export.save')}
-      </button>
-    </span>
-  )
-}
-
 export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElement {
   const t = useT()
   const [tab, setTab] = useState<Tab>('flow')
   /** Sơ đồ co vừa khung (nhìn toàn cảnh) hay cỡ chữ thật (đọc rõ, cuộn ngang) */
   const [fit, setFit] = useState(false)
+  /** Mock màn hình của cả thư mục (đọc lại file ở main khi bấm) */
+  const [mock, setMock] = useState<MockScreen[] | null>(null)
+  const openMock = async (): Promise<void> => {
+    try {
+      const screens = await window.api.mockScreens(root)
+      if (screens.length === 0) toast(t('mock.none'), 'err')
+      else setMock(screens)
+    } catch (err) {
+      toast(errMsg(err), 'err')
+    }
+  }
   const [index, setIndex] = useState<SpecIndex | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -199,6 +189,26 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
     if (index && query.trim()) setImpact({ q: query.trim(), r: impactOf(index, query) })
   }
 
+  // Thanh tab tràn (cửa sổ hẹp): mờ dần mép bị cắt để thấy là cuộn được; tab đang chọn luôn cuộn vào tầm nhìn
+  const tabsRef = useRef<HTMLDivElement | null>(null)
+  const [tabsCut, setTabsCut] = useState({ left: false, right: false })
+  useEffect(() => {
+    const el = tabsRef.current
+    if (!el) return
+    const check = (): void => setTabsCut({ left: el.scrollLeft > 1, right: el.scrollLeft + el.clientWidth < el.scrollWidth - 1 })
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    el.addEventListener('scroll', check)
+    return () => {
+      ro.disconnect()
+      el.removeEventListener('scroll', check)
+    }
+  }, [])
+  useEffect(() => {
+    tabsRef.current?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [tab])
+
   const tabKeys = (e: React.KeyboardEvent): void => {
     const d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
     if (!d) return
@@ -214,7 +224,18 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
   return (
     <main className="x2m-main x2m-specmap flex min-w-0 flex-1 flex-col overflow-hidden bg-editor" aria-label={t('sm.button')}>
       <div className="x2m-specmap-bar flex items-center gap-2 border-b border-line-subtle px-3 py-1.5">
-        <div className="x2m-tabs flex shrink-0 items-center gap-0.5 rounded-md border border-line-subtle bg-canvas p-0.5" role="tablist" aria-label={t('sm.tabs')} onKeyDown={tabKeys}>
+        <div
+          ref={tabsRef}
+          className={cn(
+            'x2m-tabs flex min-w-0 shrink items-center gap-0.5 overflow-x-auto rounded-md border border-line-subtle bg-canvas p-0.5 [scrollbar-width:none] [&>button]:shrink-0 [&>button]:whitespace-nowrap',
+            tabsCut.right && !tabsCut.left && '[mask-image:linear-gradient(90deg,#000_calc(100%-28px),transparent)]',
+            tabsCut.left && !tabsCut.right && '[mask-image:linear-gradient(90deg,transparent,#000_28px)]',
+            tabsCut.left && tabsCut.right && '[mask-image:linear-gradient(90deg,transparent,#000_28px,#000_calc(100%-28px),transparent)]'
+          )}
+          role="tablist"
+          aria-label={t('sm.tabs')}
+          onKeyDown={tabKeys}
+        >
           {TABS.map((k) => (
             <button
               key={k}
@@ -245,6 +266,11 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           </span>
         )}
         <span className="ml-auto flex shrink-0 items-center gap-1">
+          {index && index.screens.length > 0 && (
+            <button className={cx('x2m-specmap-mock', btnGhost, btnSm)} onClick={() => void openMock()} title={t('mock.folderTitle')}>
+              {t('mock.button')}
+            </button>
+          )}
           <button className={cx(btnGhost)} onClick={() => void load()} disabled={loading} title={t('sm.refresh')} aria-label={t('sm.refresh')}>
             <IconRefresh size={14} />
           </button>
@@ -282,6 +308,10 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           </div>
         ) : tab === 'guide' ? (
           <SpecGuide index={index} onOpen={(rel) => onOpen(rel, '', '')} />
+        ) : tab === 'qa' ? (
+          <SpecQa index={index} onOpen={onOpen} />
+        ) : tab === 'done' ? (
+          <SpecCompleteness index={index} onOpen={onOpen} />
         ) : tab === 'flow' || tab === 'er' ? (
           (() => {
             const src = tab === 'flow' ? flow?.source ?? '' : er?.source ?? ''
@@ -545,6 +575,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           </div>
         )}
       </div>
+      {mock && <MockDialog screens={mock} title={root.split(/[\\/]/).filter(Boolean).pop() ?? null} onClose={() => setMock(null)} />}
     </main>
   )
 }

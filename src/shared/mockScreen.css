@@ -1,0 +1,186 @@
+/* Mock màn hình sinh từ 項目定義: một file CSS dùng cho cả trang HTML xuất ra (nhúng inline) và bản xem trong app
+ * (renderer import thẳng). Mọi quy tắc nằm dưới .x2m-mock để không lẫn với giao diện app. Kiểu dáng cố ý giống
+ * một màn hình nghiệp vụ web thông thường (không phải giao diện của app) để khách nhìn ra "màn hình của mình". */
+.x2m-mock {
+  --m-bg: #f4f6f8;
+  --m-panel: #ffffff;
+  --m-ink: #1f2933;
+  --m-dim: #5f6b7a;
+  --m-line: #cfd6de;
+  --m-head: #2f4a6e;
+  --m-accent: #2563a8;
+  --m-req: #c0392b;
+  font-family: Meiryo, 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans JP', system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--m-ink);
+}
+/* Font Nhật (Meiryo...) thiếu dấu tiếng Việt: tài liệu Việt / Anh dùng font hệ thống */
+.x2m-mock:lang(vi),
+.x2m-mock:lang(en) {
+  font-family: system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+.x2m-mock *,
+.x2m-mock *::before,
+.x2m-mock *::after {
+  box-sizing: border-box;
+}
+.x2m-mock-screen {
+  background: var(--m-bg);
+  border: 1px solid var(--m-line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.x2m-mock-head {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--m-head);
+  color: #fff;
+}
+.x2m-mock-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.x2m-mock-id {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.x2m-mock-body {
+  margin: 16px;
+  padding: 16px 20px;
+  background: var(--m-panel);
+  border: 1px solid var(--m-line);
+  border-radius: 4px;
+}
+.x2m-mock-field {
+  display: grid;
+  grid-template-columns: 11em minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px dashed #e4e8ec;
+}
+.x2m-mock-field:last-of-type {
+  border-bottom: 0;
+}
+.x2m-mock-field > label,
+.x2m-mock-field > .x2m-mock-label {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.x2m-mock-req {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--m-req);
+  border-radius: 3px;
+  padding: 0 5px;
+  white-space: nowrap;
+}
+.x2m-mock input[type='text'],
+.x2m-mock input[type='number'],
+.x2m-mock input[type='date'],
+.x2m-mock input[type='datetime-local'],
+.x2m-mock input[type='password'],
+.x2m-mock input[type='email'],
+.x2m-mock input[type='tel'],
+.x2m-mock select,
+.x2m-mock textarea {
+  font: inherit;
+  color: inherit;
+  background: #fff;
+  border: 1px solid #9aa7b5;
+  border-radius: 3px;
+  padding: 4px 8px;
+  max-width: 100%;
+}
+.x2m-mock-field > input,
+.x2m-mock-field > select {
+  justify-self: start;
+}
+.x2m-mock textarea {
+  width: 100%;
+  min-height: 4.5em;
+}
+.x2m-mock input:focus,
+.x2m-mock select:focus,
+.x2m-mock textarea:focus {
+  outline: 2px solid var(--m-accent);
+  outline-offset: 0;
+}
+.x2m-mock-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.x2m-mock-choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 400;
+}
+.x2m-mock-out {
+  min-height: 1.6em;
+  padding: 3px 8px;
+  background: #eef1f4;
+  border-radius: 3px;
+  color: var(--m-dim);
+}
+.x2m-mock-hint {
+  grid-column: 2;
+  font-size: 11.5px;
+  color: var(--m-dim);
+}
+.x2m-mock-actions,
+.x2m-mock-trans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.x2m-mock-actions {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--m-line);
+}
+.x2m-mock-btn {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-block;
+  padding: 5px 16px;
+  border: 1px solid #7d8b9b;
+  border-radius: 3px;
+  background: linear-gradient(#ffffff, #e9edf1);
+  color: var(--m-ink);
+  text-decoration: none;
+  cursor: pointer;
+}
+a.x2m-mock-btn {
+  border-color: var(--m-accent);
+  color: var(--m-accent);
+}
+.x2m-mock-btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+.x2m-mock-trans {
+  margin: 0 16px 12px;
+  font-size: 12.5px;
+  color: var(--m-dim);
+}
+.x2m-mock-empty {
+  color: var(--m-dim);
+  margin: 0;
+}
+.x2m-mock-src {
+  margin: 0 16px 12px;
+  font-size: 11px;
+  color: var(--m-dim);
+}

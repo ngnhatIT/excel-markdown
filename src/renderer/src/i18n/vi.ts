@@ -207,6 +207,7 @@ export const vi = {
   'preview.outlineAria': 'Mục lục nhanh',
   'preview.copyTitle': 'Copy toàn bộ Markdown',
   'preview.exportHtmlTitle': 'Xuất trang HTML đứng riêng có mục lục (ghi chú hướng dẫn)',
+  'preview.export': 'Xuất',
   'preview.exportHtml': 'Xuất HTML',
   'preview.printTitle': "In hoặc lưu PDF (chọn 'Lưu dưới dạng PDF')",
   'preview.print': 'In / PDF',

@@ -1,7 +1,7 @@
 /* テーブル定義書 → DDL / JSON / ER: popover của nút DDL trên chip bảng và hộp thoại sơ đồ ER của cả file. */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { SQL_DIALECTS, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../shared/tableDef'
+import { SQL_DIALECTS, toAlterSql, toDDL, toErMermaid, toJson, type SqlDialect, type TableDef } from '../../../shared/tableDef'
 import { renderMermaidIn } from '../lib/mermaid'
 import { btnGhost, btnSm, cx, input } from '../lib/ui'
 import { useT } from '../i18n'
@@ -154,5 +154,58 @@ export function ErDialog({ defs, onClose, onCopy }: { defs: TableDef[]; onClose:
       </div>
     </div>
     , document.body
+  )
+}
+
+/** ALTER TABLE đưa CSDL từ テーブル定義 của bản cũ sang bản mới (màn hình So sánh 新旧). */
+export function AlterDialog({ oldDefs, newDefs, onClose, onCopy }: { oldDefs: TableDef[]; newDefs: TableDef[]; onClose: () => void; onCopy: Copy }): React.ReactElement {
+  const t = useT()
+  const ref = useRef<HTMLDivElement | null>(null)
+  const [dialect, setDialect] = useState<SqlDialect>(loadDialect)
+  const sql = useMemo(() => toAlterSql(oldDefs, newDefs, dialect), [oldDefs, newDefs, dialect])
+  useDismiss(ref, onClose)
+  useFocusTrap(ref)
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex items-start justify-center bg-black/40 pt-[6vh]">
+      <div ref={ref} role="dialog" aria-modal="true" aria-label={t('alter.title')} className="x2m-alter-dialog x2m-er-dialog flex max-h-[84vh] w-[min(860px,94vw)] flex-col overflow-hidden rounded-lg text-ink">
+        <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-3 py-2 text-xs">
+          <span className="font-semibold">{t('alter.title')}</span>
+          <span className="text-faint">{t('alter.summary', { old: oldDefs.length, new: newDefs.length })}</span>
+          <label className="ml-auto flex items-center gap-1.5 text-dim">
+            {t('td.dialect')}
+            <select
+              className={cx(input, 'x2m-alter-dialect !w-auto !py-1')}
+              value={dialect}
+              onChange={(e) => {
+                const d = e.target.value as SqlDialect
+                setDialect(d)
+                saveDialect(d)
+              }}
+            >
+              {SQL_DIALECTS.map((d) => (
+                <option key={d} value={d}>
+                  {DIALECT_LABEL[d] || t('td.generic')}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button className={cx('x2m-alter-copy', btnGhost, btnSm)} disabled={!sql} onClick={() => onCopy(sql, t('alter.title'))}>
+            {t('alter.copy')}
+          </button>
+          <button className={cx(btnGhost, '!p-1')} onClick={onClose} title={t('td.close')} aria-label={t('td.close')} ref={focusNoScroll}>
+            ✕
+          </button>
+        </div>
+        <p className="m-0 border-b border-line-subtle px-3 py-1.5 text-[11.5px] text-dim">{t('alter.note')}</p>
+        {sql ? (
+          <pre className="x2m-alter-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-[11.5px] leading-relaxed select-text" tabIndex={0}>
+            {sql}
+          </pre>
+        ) : (
+          <p className="m-0 p-4 text-sm text-dim">{t('alter.none')}</p>
+        )}
+      </div>
+    </div>,
+    document.body
   )
 }

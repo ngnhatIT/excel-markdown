@@ -219,6 +219,52 @@ describe('ddl (テーブル定義書 → DDL / JSON / ER)', () => {
     await expect(runCli(['ddl', tableMd, '--format', 'xml'])).rejects.toThrow('--format')
     await expect(runCli(['ddl'])).rejects.toThrow('Chưa có file')
   })
+  it('migrate: Excel cũ -> .md mới ra ALTER TABLE; giống nhau -> chú thích; sai số đối số -> ném', async () => {
+    const newMd = join(tmp, 'migrate-new.md')
+    writeFileSync(
+      newMd,
+      ['## TBL_CUSTOMER', '', '- **テーブルID**: TBL_CUSTOMER', '', '| 論理名 | 物理名 | 型 |', '|---|---|---|', '| 顧客コード | cust_cd | VARCHAR(20) |', '| メール | mail | VARCHAR(255) |', ''].join('\n')
+    )
+    const r = await capture(['migrate', kihon, newMd, '--dialect', 'postgres'])
+    expect(r.code).toBe(0)
+    expect(r.out).toContain('ALTER TABLE TBL_CUSTOMER ALTER COLUMN cust_cd TYPE VARCHAR(20);')
+    expect(r.out).toContain('ALTER TABLE TBL_CUSTOMER ADD COLUMN mail VARCHAR(255);')
+    expect(r.out).toContain('ALTER TABLE TBL_CUSTOMER DROP COLUMN reg_date;')
+    expect((await capture(['migrate', newMd, newMd])).out).toBe('-- テーブル定義に変更なし\n')
+    await expect(runCli(['migrate', newMd])).rejects.toThrow('Dùng: cli migrate')
+  })
+
+  it('mock: thư mục specmap -> một file HTML có mọi màn hình; không có 画面ID -> mã 1', async () => {
+    const specDir = join(__dirname, '../../../../../test/fixtures/specmap')
+    const outFile = join(tmp, 'mock.html')
+    const logs: string[] = []
+    expect(await runCli(['mock', specDir, '-o', outFile, '--title', 'デモ'], (s) => logs.push(s))).toBe(0)
+    const html = readFileSync(outFile, 'utf-8')
+    expect(html).toContain('<title>デモ</title>')
+    expect(html).toContain('SCR010')
+    expect(html).not.toMatch(/<script/i)
+    expect(logs[0]).toContain('màn hình)')
+    const empty = join(tmp, 'nomock.md')
+    writeFileSync(empty, '# x\n')
+    expect((await capture(['mock', empty, '-o', join(tmp, 'x.html')])).code).toBe(1)
+    await expect(runCli(['mock', specDir])).rejects.toThrow('Dùng: cli mock')
+  })
+
+  it('qa: thư mục specmap -> 質問票 TSV tiếng Nhật ra stdout; -o ghi file có BOM; --spec-only bỏ 記載不備; cờ sai -> ném', async () => {
+    const specDir = join(__dirname, '../../../../../test/fixtures/specmap')
+    const r = await capture(['qa', specDir])
+    expect(r.code).toBe(0)
+    const lines = r.out.trimEnd().split('\n')
+    expect(lines[0]).toBe('No\t区分\t画面ID\t画面名\t該当箇所\t質問内容\t回答\t回答者\t回答日')
+    expect(r.out).toContain('仕様確認')
+    expect(r.out).toContain('記載不備')
+    expect((await capture(['qa', specDir, '--spec-only'])).out).not.toContain('記載不備')
+    expect((await capture(['qa', specDir, '--lang', 'vi', '--format', 'md'])).out).toContain('| STT | Phân loại |')
+    const outFile = join(tmp, 'qa.tsv')
+    expect(await runCli(['qa', specDir, '-o', outFile], () => {})).toBe(0)
+    expect(readFileSync(outFile, 'utf-8').startsWith('\uFEFFNo\t')).toBe(true)
+    await expect(runCli(['qa', specDir, '--lang', 'fr'])).rejects.toThrow('--lang')
+  })
 })
 
 describe('impact / lint (Bản đồ thiết kế + 影響調査)', () => {

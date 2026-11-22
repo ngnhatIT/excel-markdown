@@ -272,6 +272,7 @@
 }
 
 @import './markdown.css';
+@import '../../shared/mockScreen.css';
 
 /* Trợ lý AI: câu trả lời luôn vừa bề ngang cột. Bảng / khối code rộng thì cuộn ngang bên trong chính nó;
  * định danh, đường dẫn, URL dài không có chỗ ngắt thì ngắt ở bất kỳ ký tự nào. */

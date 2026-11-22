@@ -96,6 +96,8 @@ export interface SpecIndex {
   docCount: number
   /** Đường dẫn các tài liệu đã đọc (theo thứ tự), để báo file nào không nhận ra được gì */
   rels: string[]
+  /** 画面ID có bảng 項目定義 trong phần của nó */
+  itemScreens: string[]
   screens: SpecScreen[]
   nodes: SpecNode[]
   transitions: SpecTransition[]
@@ -148,9 +150,10 @@ const normName = (s: string): string => s.normalize('NFKC').replace(/\s+/g, '').
 const up = (s: string): string => s.normalize('NFKC').toUpperCase()
 
 const META_RE = /^\s*[-*+]\s+(?:\*\*)?([^*:：|]{1,40}?)(?:\*\*)?\s*[:：]\s*(.*?)\s*$/
-const SCREEN_ID_LABELS = new Set(['画面id', '画面番号', 'screenid'])
-const SCREEN_NAME_LABELS = new Set(['画面名', '画面名称', 'screenname'])
-const TRANSITION_LABELS = new Set(['画面遷移', 'screentransition'])
+// Nhãn tiếng Việt cho tài liệu viết bằng tiếng Việt (vd `- **Mã màn hình**: CHECKOUT`)
+const SCREEN_ID_LABELS = new Set(['画面id', '画面番号', 'screenid', 'mã màn hình', 'id màn hình'].map(normLabel))
+const SCREEN_NAME_LABELS = new Set(['画面名', '画面名称', 'screenname', 'tên màn hình'].map(normLabel))
+const TRANSITION_LABELS = new Set(['画面遷移', 'screentransition', 'chuyển màn hình', 'luồng màn hình'].map(normLabel))
 const ARROW_SPLIT = /\s*(→|->|⇒|=>|⟶|➡|↔|<->)\s*/
 const ID_LIKE = /^[A-Za-z][A-Za-z0-9]*\d[A-Za-z0-9_-]*$/
 /** Định danh ASCII (có thể có `.` / `-`): bảng, cột, `TBL.COL`, 画面ID */
@@ -480,7 +483,8 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
       const subject = AMBIGUOUS_RE.exec(text)?.[0] ?? (extraAmbiguous.length > 0 ? extraAmbiguous.find((w) => normRule(text).includes(w)) : undefined)
       if (!subject) continue
       ambiguous++
-      issues.push({ rel: doc.rel, line: i + 1, heading: info.heading[i], severity: 'warning', code: 'ambiguous-term', subject })
+      // detail: chính dòng đó (để 質問票 trích dẫn ngữ cảnh của chữ mơ hồ)
+      issues.push({ rel: doc.rel, line: i + 1, heading: info.heading[i], severity: 'warning', code: 'ambiguous-term', subject, detail: snippetOf(text, text.indexOf(subject)) })
     }
   }
 
@@ -494,12 +498,14 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
       if (len !== undefined && lg) charCols.set(lg, [...(charCols.get(lg) ?? []), { t, c, len }])
     }
   }
+  /** 画面ID có bảng 項目定義 (màn hình không có thì 質問票 hỏi khách danh sách hạng mục) */
+  const itemScreens = new Set<string>()
   const screensOf = new Map<string, SpecScreen[]>()
   for (const sc of screens) screensOf.set(sc.rel, [...(screensOf.get(sc.rel) ?? []), sc])
   for (const doc of docs) {
     const info = infos.get(doc.rel)
     const own = screensOf.get(doc.rel)
-    if (!info || !own || charCols.size === 0) continue
+    if (!info || !own) continue
     const L = info.lines
     for (let i = 0; i + 1 < L.length; i++) {
       if (!L[i].trimStart().startsWith('|') || !isDelimRow(L[i + 1]) || defLines.get(doc.rel)?.has(i + 1)) continue
@@ -509,6 +515,7 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
         if (f && !cols.has(f)) cols.set(f, k)
       })
       const owner = ownerScreen(own, i + 1)
+      if (owner && cols.has('item') && (cols.has('kind') || cols.has('type') || cols.has('length') || cols.has('required'))) itemScreens.add(owner.id)
       let j = i + 2
       for (; j < L.length && L[j].trimStart().startsWith('|'); j++) {
         const itemIdx = cols.get('item')
@@ -535,6 +542,7 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
   return {
     docCount: docs.length,
     rels: docs.map((d) => d.rel),
+    itemScreens: [...itemScreens],
     screens,
     nodes: [...nodes.values()],
     transitions,
@@ -688,7 +696,7 @@ export function impactOf(index: SpecIndex, query: string): ImpactResult {
 }
 
 /** Screen (cùng file) sở hữu dòng `line`: 画面ID gần nhất phía trên, trong cùng phần `#`/`##`. */
-function ownerScreen(screens: SpecScreen[], line: number): SpecScreen | undefined {
+export function ownerScreen(screens: SpecScreen[], line: number): SpecScreen | undefined {
   let best: SpecScreen | undefined
   for (const s of screens) if (s.line <= line && line <= s.end && (!best || s.line > best.line)) best = s
   return best

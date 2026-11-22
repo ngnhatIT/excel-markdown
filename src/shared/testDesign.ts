@@ -167,7 +167,7 @@ const TEXT = {
 
 /** Ô bảng → chữ thuần: bỏ `<br>`, link, `**`, `` ` ``. Ký tự escape (`\]`, `` \` ``) tạm đổi sang vùng riêng (U+E000+)
  * để regex định dạng không bắt nhầm, rồi trả lại chữ gốc. */
-const plain = (s: string | undefined): string =>
+export const cellText = (s: string | undefined): string =>
   (s ?? '')
     .replace(/\\([\\`*_{}[\]()#+\-.!<>~&|])/g, (_, c: string) => String.fromCharCode(0xe000 + c.charCodeAt(0)))
     .replace(/<br\s*\/?>/gi, ' ')
@@ -178,13 +178,13 @@ const plain = (s: string | undefined): string =>
     .replace(/\s+/g, ' ')
     .trim()
 
-const YES = new Set(['○', '◯', '●', '〇', '◎', '✓', '✔', 'y', 'yes', 'true', '1', '必須', 'required', 'có', 'bắtbuộc', '要'])
-const isYes = (v: string): boolean => YES.has(v.normalize('NFKC').toLowerCase().replace(/[\s*_]/g, ''))
-const isBlank = (v: string): boolean => /^(?:[-－ー―‐]|n\/a|なし|無し|null|<null>|空白|空欄)?$/i.test(v.normalize('NFKC').trim())
-const isOutput = (kind: string): boolean => /出力|表示|output|display|label|ラベル|hiểnthị|hiển thị/i.test(kind)
-const isButton = (item: string, kind: string): boolean => /ボタン|button|nút/i.test(kind) || /ボタン|button|^nút|\bbtn\b/i.test(item)
+export const YES_MARKS = new Set(['○', '◯', '●', '〇', '◎', '✓', '✔', 'y', 'yes', 'true', '1', '必須', 'required', 'có', 'bắtbuộc', '要'])
+export const isYes = (v: string): boolean => YES_MARKS.has(v.normalize('NFKC').toLowerCase().replace(/[\s*_]/g, ''))
+export const isBlank = (v: string): boolean => /^(?:[-－ー―‐]|n\/a|なし|無し|null|<null>|空白|空欄)?$/i.test(v.normalize('NFKC').trim())
+export const isOutput = (kind: string): boolean => /出力|表示|output|display|label|ラベル|hiểnthị|hiển thị/i.test(kind)
+export const isButton = (item: string, kind: string): boolean => /ボタン|button|nút/i.test(kind) || /ボタン|button|^nút|\bbtn\b/i.test(item)
 
-const LIST_RE = /〔入力規則\s*([^〕]*)〕\s*(.+)$/
+export const LIST_RE = /〔入力規則\s*([^〕]*)〕\s*(.+)$/
 
 const fill = (s: string, p: Record<string, string | number>): string => s.replace(/\{(\w+)\}/g, (m, k: string) => (k in p ? String(p[k]) : m))
 const norm = (s: string): string => s.normalize('NFKC').replace(/\s+/g, '').toLowerCase()
@@ -219,8 +219,8 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
     }
     if (fence) continue
     const h = atxHeading(line)
-    if (h) heading = plain(h.text).replace(/[【】]/g, '')
-    const list = LIST_RE.exec(plain(line))
+    if (h) heading = cellText(h.text).replace(/[【】]/g, '')
+    const list = LIST_RE.exec(cellText(line))
     if (list) {
       const sc = screenAt(i + 1)
       const values = list[2].split(/\s+\/\s+/).map((v) => v.trim()).filter(Boolean)
@@ -234,7 +234,7 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
     if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
     const cols = new Map<Field, number>()
     splitTableRow(line).forEach((c, idx) => {
-      const field = FIELD_OF.get(normLabel(plain(c)))
+      const field = FIELD_OF.get(normLabel(cellText(c)))
       if (field && !cols.has(field)) cols.set(field, idx)
     })
     const start = i
@@ -251,7 +251,7 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
     for (const { cells, line: n } of rows) {
       const get = (fl: Field): string => {
         const idx = cols.get(fl)
-        return idx === undefined ? '' : plain(cells[idx])
+        return idx === undefined ? '' : cellText(cells[idx])
       }
       const item = get('item')
       if (!item || isBlank(item)) continue

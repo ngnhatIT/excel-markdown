@@ -152,7 +152,7 @@ Muốn dùng CLI / MCP từ mã nguồn, build trước bằng `npm run build` (
 | **Thanh trên** | Tên chế độ đang dùng, đổi ngôn ngữ giao diện, nút chính (Thêm file / Mở thư mục) |
 | **Cột trái** | File đã thêm, danh sách sheet, cây thư mục `.md`, danh sách mục có thay đổi |
 | **Khung giữa** | Xem trước bản render / mã Markdown / song song; nội dung tài liệu; bảng so sánh |
-| **Cột phải** | Tùy chọn convert (Excel → MD), tên file Excel (MD → Excel), tab Trợ lý AI / Dịch (Đọc Markdown) |
+| **Cột phải** | Tùy chọn convert (Excel → MD), tên file Excel (MD → Excel), tab Trợ lý AI / Dịch (Đọc Markdown). Cửa sổ hẹp hơn 1200px thì tự thu thành dải hẹp, bấm dải để mở |
 | **Thanh dưới** | Chọn thư mục xuất, nút chạy, thanh tiến độ, nút Hủy, nút mở thư mục kết quả |
 
 **Menu Trợ giúp**
@@ -355,6 +355,8 @@ File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì 
 
 ### 7.3. Xuất và in
 
+Các thao tác dưới đây nằm trong menu **Xuất ▾** trên thanh xem (cùng **Copy** Markdown của file đang xem).
+
 - **Xuất HTML**: một trang HTML đứng riêng (mục lục, tìm mục, lọc bảng, sáng / tối, in) để gửi người không cài app.
 - **In / PDF**: in phần nội dung tài liệu.
 
@@ -369,7 +371,7 @@ Mở bằng nút **bản đồ** ở đầu cây file trong chế độ Đọc M
 
 ### 8.0. Tài liệu cần viết thế nào để bản đồ hiện ra
 
-Bản đồ chỉ hiện được những gì nó tìm thấy trong các file `.md`. Tab **Cách viết tài liệu** (tab cuối của bản đồ) cho
+Bản đồ chỉ hiện được những gì nó tìm thấy trong các file `.md`. Tab **Hướng dẫn** (tab cuối của bản đồ) cho
 biết thư mục đang mở đã có / còn thiếu từng thứ dưới đây, file nào không nhận ra gì, và có **tài liệu mẫu** để copy
 hoặc lưu vào thư mục rồi bấm Quét lại. Thư mục chưa có gì thì màn trống có nút dẫn thẳng tới tab này.
 
@@ -450,6 +452,40 @@ Một ô gộp mọi dòng: chữ hoa (có bằng chứng) thắng chữ thườ
 - Bấm một ô để xem bằng chứng `file:dòng`.
 - **Copy TSV** (dán Excel) hoặc **Copy Markdown**.
 
+### 8.5b. 質問票 (câu hỏi gửi khách)
+
+Tab **質問票** của Bản đồ thiết kế biến mọi chỗ thiết kế chưa rõ mà app phát hiện thành câu hỏi lịch sự, theo văn phong
+質問票, mỗi câu kèm màn hình và vị trí `file:dòng` (bấm để mở đúng chỗ).
+
+| Nguồn | Câu hỏi |
+|---|---|
+| 遷移 tới màn hình chưa định nghĩa | Xin mã màn hình và tài liệu của màn hình đích |
+| Chữ mơ hồ (など / TBD / 要確認 / 原則…) | Trích nguyên câu, hỏi điều kiện / giá trị / phạm vi cụ thể |
+| 桁数 màn hình > cột DB | Theo độ dài màn hình hay DB |
+| Cột cùng tên khác kiểu / 桁数 | Có phải cùng hạng mục, kiểu / độ dài đúng |
+| Ô CRUD `?` | Màn hình thực hiện thao tác nào với bảng |
+| Màn hình không có 項目定義 | Xin danh sách hạng mục |
+| 画面ID / bảng trùng, `TBL.COL` không có cột | Xếp loại **記載不備** (lỗi tài liệu, thường tự sửa) |
+
+- Chọn ngôn ngữ câu hỏi **日本語 / VI / EN** (mặc định theo ngôn ngữ tài liệu).
+- **Chỉ câu hỏi đặc tả** bỏ các dòng 記載不備 trước khi gửi.
+- **Copy TSV** rồi dán vào mẫu 質問票 của dự án: cột 回答 / 回答者 / 回答日 để trống cho khách.
+- Dòng lệnh: `x2m qa <thư mục> [--lang ja|vi|en] [--spec-only] [--format tsv|md] [-o qa.tsv]` (file TSV có BOM, mở bằng Excel
+  không lỗi font).
+
+### 8.5c. Hoàn thiện (完成度)
+
+Tab **Hoàn thiện** trả lời câu "thiết kế xong bao nhiêu, màn hình nào còn thiếu gì" mà không phải mở từng file.
+
+- Con số **% hoàn thiện** của cả thư mục, cùng số màn hình / bảng đạt đủ mọi tiêu chí.
+- Bảng màn hình (yếu nhất ở đầu): có 項目定義 · có 遷移 · có dùng bảng · CRUD đã rõ · không còn chữ mơ hồ · không còn vấn đề
+  整合性. `✓` đạt, `✗` chưa đạt (kèm số chỗ), `–` không áp dụng (vd màn hình không dùng bảng thì không xét CRUD).
+- Bảng định nghĩa: có khóa chính · mọi cột có 型 · có màn hình dùng.
+- Bấm tên màn hình / bảng để mở đúng chỗ; **Copy TSV / Markdown / Lưu .md** để báo cáo tiến độ.
+
+Điểm chỉ dựa trên những gì app đọc được, không đánh giá chất lượng nghiệp vụ: 100% nghĩa là "không còn chỗ thiếu mà app phát
+hiện được", không phải "thiết kế đúng".
+
 ### 8.6. 用語集 (thuật ngữ dự án)
 
 Đặt file `用語集.md` ở gốc thư mục, có bảng:
@@ -474,6 +510,62 @@ không dùng AI:
 - **Copy TSV** để dán Excel, hoặc **Lưu `.md`** rồi dùng chế độ Markdown → Excel để ra `.xlsx`.
 
 > **Lưu ý**: đây là **khung** quan điểm kiểm thử. Người kiểm thử vẫn cần bổ sung case nghiệp vụ.
+
+### 8.7b. Mock màn hình (画面モック)
+
+Biến tài liệu thiết kế thành các màn hình bấm được để demo với khách, không cần viết code, không dùng AI.
+
+- **Một tài liệu**: nút **Mock** trên thanh xem (hiện khi tài liệu có bảng 【項目定義】 trong phần có 画面ID).
+- **Cả thư mục**: nút **Mock** ở thanh trên của Bản đồ thiết kế; link 画面遷移 giữa các file bấm được.
+
+Mỗi 画面ID thành một form:
+
+| Trong 【項目定義】 | Trên mock |
+|---|---|
+| 区分 入力, 型 文字列 / 数値 / 日付 / 日時 | Ô nhập đúng loại; độ dài ô theo 桁数, `maxlength` = 桁数 |
+| 桁数 ≥ 200 hoặc 型 テキストエリア | Ô nhiều dòng |
+| 区分 / 型 プルダウン, 選択, ラジオ, チェックボックス | Danh sách thả xuống / nút chọn; lựa chọn lấy từ dòng 〔入力規則〕 của màn hình |
+| 区分 表示 / 出力 | Ô chỉ đọc, hiện 初期値 |
+| 区分 ボタン | Nút; nút có nhãn trùng thao tác 画面遷移 thì bấm được sang màn hình đó |
+| 必須 (cột 必須, hoặc chữ 必須 ở 備考) | Nhãn đỏ 必須 |
+| 画面遷移 / 〔矢印〕 | Hàng nút 遷移 cuối màn hình; màn hình chưa định nghĩa thì mờ |
+
+**Tài liệu viết bằng tiếng Việt** cũng mock được: dùng nhãn `Mã màn hình` / `Tên màn hình` / `Chuyển màn hình` (hoặc `Screen
+ID` / `Screen name` / `Screen transition`) và bảng hạng mục có cột tiếng Việt. Chữ trên mock (Bắt buộc, Chuyển tới…) theo
+ngôn ngữ của tài liệu.
+
+```markdown
+## Thanh toán
+
+- **Mã màn hình**: CHECKOUT
+- **Tên màn hình**: Thanh toán
+- **Chuyển màn hình**: Thanh toán → Đặt hàng thành công（Đặt hàng ngay）
+
+| Hạng mục | Loại | Kiểu | Độ dài | Bắt buộc | Ghi chú |
+|---|---|---|---|---|---|
+| Họ và tên | Nhập | Chuỗi | 50 | ○ | |
+| Tỉnh/TP | Chọn | Danh sách | | ○ | Hà Nội / TP.HCM / Đà Nẵng |
+| Phương thức thanh toán | Nút chọn | | | ○ | COD / VietQR / MoMo |
+| Đặt hàng ngay | Nút | | | | |
+```
+
+| Từ khóa (cột Loại / Kiểu) | Thành |
+|---|---|
+| Chọn, Danh sách, Thả xuống | Danh sách thả xuống |
+| Nút chọn, Radio | Nhóm nút chọn |
+| Hộp kiểm, Ô đánh dấu | Ô đánh dấu |
+| Nhiều dòng, Văn bản dài | Ô nhiều dòng |
+| Ngày / Ngày giờ, Thời gian | Ô chọn ngày / ngày giờ |
+| Số, Số nguyên, Số tiền | Ô số |
+| Hiển thị | Ô chỉ đọc |
+| Nút | Nút bấm |
+| Tên hạng mục có "điện thoại", "mật khẩu", "email" | Ô điện thoại / mật khẩu / email |
+
+Lựa chọn của danh sách / nút chọn viết thẳng ở cột **Ghi chú**, ngăn bằng ` / `.
+
+**Lưu HTML** tạo một file HTML đứng riêng (không JavaScript, không tải gì từ mạng): mở bằng trình duyệt bất kỳ, danh sách màn
+hình bên trái. Mock chỉ là giao diện: không kiểm tra nhập, không xử lý. Dòng lệnh: `x2m mock <thư mục|file.md|file.xlsx> -o
+mock.html [--title …]`.
 
 ### 8.8. DDL / JSON / ER từ テーブル定義書
 
@@ -513,7 +605,25 @@ Dùng khi khách gửi bản thiết kế mới và bạn cần biết chính x�
 - **改訂履歴**: app tự sinh mỗi mục thay đổi một dòng, ví dụ 「行追加 1件（C09）、行変更 1件（C02: 項目名）」. Điền 版数 /
   改訂者, chọn ngôn ngữ, bấm **Copy cho Excel (TSV)** rồi dán vào ô 版数 đầu tiên của bảng 改訂履歴 trong Excel.
 
-### 9.3. Cách app so sánh
+### 9.3. ALTER TABLE từ hai bản thiết kế
+
+Khi bản cũ và bản mới có テーブル定義 (bảng có cột 物理名 + 型), thanh so sánh có nút **ALTER TABLE**. Hộp thoại sinh câu
+lệnh đưa CSDL từ bản cũ sang bản mới; chọn hệ CSDL (Generic / PostgreSQL / MySQL / Oracle / SQL Server), bấm **Copy SQL**.
+
+| Thay đổi trong thiết kế | Câu lệnh sinh ra |
+|---|---|
+| Bảng chỉ có ở bản mới | `CREATE TABLE` đầy đủ |
+| Bảng chỉ có ở bản cũ | `DROP TABLE` kèm `-- 要確認` (mất dữ liệu) |
+| Thêm cột | `ADD COLUMN` (Oracle `ADD (...)`); NOT NULL không có 既定値 thì nhắc dữ liệu cũ |
+| Bỏ cột | `DROP COLUMN` kèm `-- 要確認` |
+| Đổi kiểu / 桁数, NULL ↔ NOT NULL, 既定値 | PostgreSQL `ALTER COLUMN … TYPE / SET NOT NULL / SET DEFAULT`, MySQL `MODIFY COLUMN` (đủ định nghĩa), Oracle `MODIFY (...)`, SQL Server `ALTER COLUMN` |
+| Cột mới cùng 論理名 với cột bị bỏ | `-- 要確認`: có thể là đổi tên, nên dùng `RENAME COLUMN` |
+| Đổi khóa chính, 既定値 trên SQL Server | Chỉ ghi `-- 要確認` (cần tên constraint, không đoán) |
+
+Bảng và cột khớp theo **物理名** (không phân biệt hoa thường). Luôn đọc các dòng `-- 要確認` trước khi chạy trên CSDL thật.
+Dòng lệnh: `x2m migrate <bản cũ> <bản mới> [--dialect postgres] [-o alter.sql]`.
+
+### 9.4. Cách app so sánh
 
 So theo cấu trúc: sheet → mục → dòng bảng. Dòng bảng được khớp theo **cột khóa** (`ID`, `項目ID`, `物理名`, `項目名`…),
 nên chèn một dòng giữa bảng (kể cả khi cột No bị đánh số lại) chỉ báo đúng **một dòng thêm**. Thêm cột khóa riêng của

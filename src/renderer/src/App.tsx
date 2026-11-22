@@ -38,6 +38,9 @@ import { usePreview } from './features/excel2md/usePreview'
 import { useShortcuts } from './hooks/useShortcuts'
 import { detectLang, isLang, setLang, t as tr, useT, type Lang } from './i18n'
 
+/** Cửa sổ hẹp hơn thì cột phải tự thu gọn (px) */
+const NARROW_WINDOW = 1200
+
 /** Gợi ý khi thả nhầm loại file so với chế độ đang chọn (không tự chuyển chế độ). */
 const hintExcelFile = (): string => tr('app.hint.excelFile')
 const hintMdFile = (): string => tr('app.hint.mdFile')
@@ -199,12 +202,33 @@ export default function App(): React.ReactElement {
     })()
   }, [viewerOpenFolder, viewerSelect])
 
+  // Cửa sổ hẹp: cột phải (Tùy chọn / Trợ lý AI) tự thu gọn để khung đọc đủ chỗ. Không ghi vào cài đặt; người dùng mở lại
+  // thì giữ mở cho tới khi cửa sổ đổi cỡ qua ngưỡng lần nữa.
+  const [autoSide, setAutoSide] = useState(() => window.innerWidth < NARROW_WINDOW)
+  useEffect(() => {
+    let wasNarrow = window.innerWidth < NARROW_WINDOW
+    const onResize = (): void => {
+      const n = window.innerWidth < NARROW_WINDOW
+      if (n !== wasNarrow) setAutoSide(n)
+      wasNarrow = n
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+  const sideHidden = sideCollapsed || autoSide
+
   const toggleSide = useCallback(() => {
-    setSideCollapsed((c) => {
-      persist('sideCollapsed', !c)
-      return !c
-    })
-  }, [persist])
+    if (sideHidden) {
+      setAutoSide(false)
+      if (sideCollapsed) {
+        setSideCollapsed(false)
+        persist('sideCollapsed', false)
+      }
+    } else {
+      setSideCollapsed(true)
+      persist('sideCollapsed', true)
+    }
+  }, [persist, sideHidden, sideCollapsed])
 
   const toggleLeft = useCallback(() => {
     setLeftCollapsed((c) => !c)
@@ -900,7 +924,7 @@ export default function App(): React.ReactElement {
             </main>
             )}
 
-            {!sideCollapsed && (
+            {!sideHidden && (
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
@@ -909,7 +933,7 @@ export default function App(): React.ReactElement {
             )}
 
             <AiChatPanel
-              collapsed={sideCollapsed}
+              collapsed={sideHidden}
               onToggleCollapsed={toggleSide}
               width={rightWidth}
               rootDir={viewer.root}
@@ -960,7 +984,7 @@ export default function App(): React.ReactElement {
               )}
             </main>
 
-            {!sideCollapsed && (
+            {!sideHidden && (
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
@@ -972,7 +996,7 @@ export default function App(): React.ReactElement {
               fileName={mdName ?? mdDefaultName}
               defaultName={mdDefaultName}
               onFileNameChange={setMdName}
-              collapsed={sideCollapsed}
+              collapsed={sideHidden}
               onToggleCollapsed={toggleSide}
               width={rightWidth}
             />
@@ -1030,7 +1054,7 @@ export default function App(): React.ReactElement {
               )}
             </main>
 
-            {!sideCollapsed && (
+            {!sideHidden && (
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
@@ -1047,7 +1071,7 @@ export default function App(): React.ReactElement {
               onApplyPreset={applyPreset}
               onSetMode={setMode}
               onReset={resetOptions}
-              collapsed={sideCollapsed}
+              collapsed={sideHidden}
               onToggleCollapsed={toggleSide}
               width={rightWidth}
             />

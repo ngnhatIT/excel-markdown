@@ -207,8 +207,8 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   `file.md#mục` cuộn đúng tới mục.
 - File đang xem bị sửa bên ngoài (convert lại, sửa bằng editor) thì quay lại cửa sổ app là tự tải lại,
   giữ vị trí cuộn.
-- **Bản đồ thiết kế + 影響調査** (nút bản đồ ở đầu cây file): toàn thư mục, chạy cục bộ, không AI. Tab **Cách viết
-  tài liệu** cho biết thư mục đã có / còn thiếu gì (画面ID, 画面遷移, テーブル定義 có 物理名 + 型, tham chiếu bảng / cột,
+- **Bản đồ thiết kế + 影響調査** (nút bản đồ ở đầu cây file): toàn thư mục, chạy cục bộ, không AI. Tab **Hướng dẫn**
+  cho biết thư mục đã có / còn thiếu gì (画面ID, 画面遷移, テーブル定義 có 物理名 + 型, tham chiếu bảng / cột,
   用語集), file nào không nhận ra gì, kèm tài liệu mẫu để copy / lưu.
   - **画面遷移図**: sơ đồ chuyển màn hình tự dựng từ meta `画面ID` / `画面遷移` và mũi tên `〔矢印〕`; bấm một màn
     hình để mở đúng chỗ định nghĩa. Ô rẽ nhánh (`権限あり？`) vẽ hình thoi; màn hình chưa định nghĩa viền đứt.
@@ -221,6 +221,11 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   - **CRUD図**: ma trận 画面 × テーブル, C / R / U / D suy từ động từ (登録 / 表示 / 更新 / 削除…, cả tiếng Việt / Anh).
     Dòng không nói thao tác (ô 項目定義 `入力`…) thì suy từ tên màn hình, ghi **chữ thường** (`顧客検索画面` → `r`,
     `顧客登録画面` → `c`); `?` = không xác định được (không đoán bừa). Bấm ô để xem bằng chứng file:dòng; copy TSV / Markdown.
+  - **質問票**: mọi chỗ chưa rõ (遷移 treo, chữ mơ hồ, 桁数 màn hình > DB, ô CRUD `?`, màn hình không có 項目定義…) thành câu
+    hỏi gửi khách theo văn phong 質問票, kèm màn hình và `file:dòng`; tiếng Nhật / Việt / Anh; Copy TSV dán vào mẫu của dự án.
+    Dòng lệnh: `x2m qa <thư mục> [--lang ja] [--spec-only] -o qa.tsv`.
+  - **Hoàn thiện (完成度)**: % hoàn thiện cả thư mục và từng màn hình / bảng (có 項目定義, 遷移, CRUD rõ, không còn chữ mơ hồ /
+    vấn đề 整合性; bảng có PK, đủ 型, có màn hình dùng), yếu nhất trước; copy TSV / Markdown để báo cáo tiến độ.
   - **用語集**: đặt `用語集.md` (bảng `| 日本語 | Tiếng Việt | English | 備考 |`) ở gốc thư mục — Dịch nhanh và Trợ lý AI
     dùng đúng thuật ngữ dự án; nút **Copy gợi ý 用語集** tạo sẵn bảng từ tên bảng / cột / màn hình để bạn chỉnh.
   - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
@@ -234,6 +239,12 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
   comment theo tên logic), JSON hoặc sơ đồ ER Mermaid. Nút **ER** trên thanh xem vẽ sơ đồ quan hệ của cả file
   (khóa ngoại suy ra từ tên cột). Dòng lệnh: `node out/main/cli.js ddl <file.md|thư mục|file.xlsx> [--dialect postgres]
   [--format sql|json|mermaid] [-o schema.sql]`; MCP: tool `table_ddl`.
+- **Mock màn hình** (nút **Mock** trên thanh xem khi tài liệu có 【項目定義】; nút **Mock** ở Bản đồ thiết kế cho cả thư mục): mỗi
+  画面ID thành một form bấm được: ô nhập theo 型 / 桁数 / 必須 / 初期値, danh sách thả xuống từ 〔入力規則〕, nút và link
+  画面遷移 sang màn hình khác. **Lưu HTML** ra một file đứng riêng (không JavaScript, mở bằng trình duyệt) để demo với khách.
+  Tài liệu tiếng Việt dùng nhãn `Mã màn hình` / `Tên màn hình` / `Chuyển màn hình` và bảng `Hạng mục | Loại | Kiểu | Độ dài |
+  Bắt buộc | Ghi chú` (lựa chọn ghi ở Ghi chú: `A / B / C`); chữ trên mock theo ngôn ngữ tài liệu.
+  Dòng lệnh: `x2m mock <thư mục|file.md|file.xlsx> -o mock.html [--title …]`.
 - **Mở file lẻ** hoặc **Dán Markdown** từ clipboard để xem nhanh.
 - Mỗi lần chọn file đều đọc lại từ đĩa. File > 20 MB không mở.
 - Ảnh đường dẫn tương đối hiện được; ảnh từ mạng không tải. Link tới `.md` khác mở ngay trong app,
@@ -377,6 +388,12 @@ Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đ�
 4. **Xuất báo cáo** (`.md`) hoặc **Copy báo cáo**: bảng `場所 | 項目 | 旧 | 新` để dán vào review / 改訂履歴.
 5. **改訂履歴**: tự sinh mỗi mục thay đổi một dòng (vd 「行追加 1件（C09）、行変更 1件（C02: 項目名）」); điền 版数 /
    改訂者, chọn ngôn ngữ, **Copy cho Excel (TSV)** rồi dán vào ô 版数 đầu tiên của bảng 改訂履歴.
+
+**ALTER TABLE**: khi hai bản có テーブル定義 (bảng có cột 物理名 + 型), nút **ALTER TABLE** ở thanh so sánh sinh câu lệnh đưa
+CSDL từ bản cũ sang bản mới (Generic / PostgreSQL / MySQL / Oracle / SQL Server): bảng mới → `CREATE TABLE`, thêm / bỏ cột,
+đổi kiểu / 桁数, NULL ↔ NOT NULL, 既定値. Khớp theo 物理名; chỗ cần người quyết (xóa dữ liệu, có thể là đổi tên cột, đổi khóa
+chính) ghi `-- 要確認` thay vì đoán. Dòng lệnh: `x2m migrate <bản cũ> <bản mới> [--dialect postgres] [-o alter.sql]` (mỗi bản là
+file .md, file Excel hoặc thư mục).
 
 So theo cấu trúc: sheet → mục → dòng bảng khớp theo cột khóa (`ID`, `項目ID`, `物理名`, `項目名`…), nên
 chèn một dòng giữa bảng (kể cả khi cột No đánh số lại) chỉ báo đúng một dòng thêm. Mọi thứ chạy trên máy,
