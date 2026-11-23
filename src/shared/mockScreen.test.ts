@@ -143,3 +143,68 @@ describe('buildMockScreens', () => {
     expect(mockLang(s)).toBe('ja')
   })
 })
+
+// Bố cục converter xuất từ 画面設計書 Excel thật: 画面ID lặp ở từng sheet, 項目定義 ở phần riêng,
+// header tách khỏi dữ liệu bởi heading nhóm (### 【ヘッダー情報】), dòng dữ liệu đầu bị coi là header.
+const XLSX_MD = [
+  '## 【画面レイアウト】納品予定照会',
+  '',
+  '- **画面ID**: SPOR00401AC',
+  '- **画面名**: 納品予定照会',
+  '',
+  '- **画面遷移**: 1. 発注メニュー/発注依頼入力【納品予定数のアンカー】/発注依頼_納品予定照会',
+  '',
+  '---',
+  '',
+  '## 【画面項目定義】納品予定照会',
+  '',
+  '- **画面ID**: SPOR00401AC',
+  '- **画面名**: 納品予定照会',
+  '',
+  '| No | 画面ラベル | 項目名 | I/O | データ型 | 桁数 | 必須 | 初期値 |',
+  '|---|---|---|---|---|---|---|---|',
+  '',
+  '### 【ヘッダー情報】',
+  '',
+  '| 1 | 拠点 |  | O | ラベル | 10 | - | 受信パラメータ |',
+  '|---|---|---|---|---|---|---|---|',
+  '| 2 | 納品日 |  | I | 日付 | 10 | ○ |  |',
+  '|  | 【テーブル情報】 |  |  |  |  |  |  |',
+  '| 3 | チェック |  | I | チェック | - | - |  |',
+  '| 4 | 閉じる |  | I | ボタン | - | - |  |',
+  '',
+  '---',
+  '',
+  '## 【画面レイアウト】発注依頼入力',
+  '',
+  '- **画面ID**: SPOR00301AC =【画面レイアウト】発注依頼入力!AH3',
+  '- **画面名**: 発注依頼入力 =【画面レイアウト】発注依頼入力!AU3',
+].join('\n')
+
+describe('buildMockScreens: 画面設計書 xuất từ Excel', () => {
+  const screens = buildMockScreens([{ rel: 'a.md', text: XLSX_MD }])
+
+  it('đọc 項目定義 ở phần khác cùng 画面ID, header tách bởi heading nhóm, nhãn cột 画面ラベル', () => {
+    const s = screens.find((x) => x.id === 'SPOR00401AC')
+    expect(s?.items.map((i) => `${i.label}:${i.control}${i.required ? '*' : ''}`)).toEqual(['拠点:output', '納品日:text*', 'チェック:checkbox', '閉じる:button'])
+    expect(s?.items[1].inputType).toBe('date')
+  })
+
+  it('画面ID / 画面名 bỏ phần công thức Excel còn sót (=sheet!AH3)', () => {
+    expect(screens.map((s) => `${s.id}|${s.name}`)).toContain('SPOR00301AC|発注依頼入力')
+  })
+
+  it('画面遷移 dạng đường dẫn menu (A/B/C) thành chuỗi chuyển tới màn hình hiện tại', () => {
+    const t = screens.find((x) => x.id === 'SPOR00401AC')?.transitions
+    expect(t).toEqual([])
+    const from = screens.find((x) => x.id === 'SPOR00301AC')?.transitions
+    expect(from).toEqual([{ label: '納品予定数のアンカー', to: 0, toLabel: 'SPOR00401AC 納品予定照会' }])
+  })
+})
+
+describe('buildMockScreens: carry không lan sang bảng khác', () => {
+  it('bảng イベント sau 項目定義 không thành hạng mục', () => {
+    const md = ['## 画面', '- **画面ID**: S01', '', '| No | 項目名 | 型 |', '|---|---|---|', '| 1 | 氏名 | 文字列 |', '', '| No | イベント | 処理内容 |', '|---|---|---|', '| 1 | 初期表示 | 検索 |'].join('\n')
+    expect(buildMockScreens([{ rel: 'a.md', text: md }])[0].items.map((i) => i.label)).toEqual(['氏名'])
+  })
+})

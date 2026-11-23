@@ -107,6 +107,8 @@ export interface SpecIndex {
   /** 用語集 của dự án (`用語集.md` / `glossary.md` ở gốc hoặc sâu tối đa 2 cấp), null nếu không có */
   glossary: { rel: string; entries: GlossaryEntry[] } | null
   truncated: { docs: boolean; refs: boolean }
+  /** Khối テーブル編集仕様 (テーブルID + 更新種別 + bảng cột): nguồn CRUD / ER khi không có テーブル定義書 */
+  usages: TableUsage[]
   /** Cấu hình dự án x2m.json đã áp dụng (không có file thì không có khóa này) */
   project?: SpecProject
 }
@@ -121,7 +123,7 @@ export interface SpecProject {
 /** Cột của bảng 項目定義 (画面設計書): header so theo alias sau normLabel. Dùng chung với テスト観点表. */
 export type ItemField = 'item' | 'required' | 'length' | 'type' | 'kind' | 'default' | 'note' | 'check'
 const ITEM_ALIASES: Record<ItemField, string[]> = {
-  item: ['項目名', '項目', '項目名称', 'item', 'itemname', 'tênhạngmục', 'hạngmục'],
+  item: ['画面ラベル', '項目名', '項目', '項目名称', 'item', 'itemname', 'tênhạngmục', 'hạngmục'],
   required: ['必須', '必須区分', 'required', 'bắtbuộc'],
   length: ['桁数', '桁', '長さ', '最大桁数', 'length', 'maxlength', 'độdài'],
   type: ['型', 'データ型', '属性', 'type', 'datatype', 'kiểu'],
@@ -149,6 +151,8 @@ const normName = (s: string): string => s.normalize('NFKC').replace(/\s+/g, '').
 /** Khóa so tên vật lý: chữ ASCII không phân biệt hoa thường, CJK giữ nguyên. */
 const up = (s: string): string => s.normalize('NFKC').toUpperCase()
 
+// Ô Excel tham chiếu ô khác: converter để lại `giá trị =Sheet!AH3` -> bỏ phần công thức
+const stripFormula = (s: string): string => s.replace(/\s*=(?:'[^']+'|[^=\s']*)![$A-Z]+[$\d]+$/, '').trim()
 const META_RE = /^\s*[-*+]\s+(?:\*\*)?([^*:：|]{1,40}?)(?:\*\*)?\s*[:：]\s*(.*?)\s*$/
 // Nhãn tiếng Việt cho tài liệu viết bằng tiếng Việt (vd `- **Mã màn hình**: CHECKOUT`)
 const SCREEN_ID_LABELS = new Set(['画面id', '画面番号', 'screenid', 'mã màn hình', 'id màn hình'].map(normLabel))
@@ -205,6 +209,130 @@ function splitLabel(text: string): { text: string; label: string } {
   return m && m[1] ? { text: m[1].trim(), label: m[2].trim() } : { text: text.trim(), label: '' }
 }
 
+/* ---------------------------- テーブル編集仕様 ---------------------------- */
+
+export interface TableUsage extends SpecLoc {
+  table: string
+  logical: string
+  /** Thao tác theo 更新種別 (`R`, `C`, `CU`...), '' nếu không đọc được */
+  ops: string
+  /** 更新種別 nguyên văn */
+  kind: string
+  /** 画面ID của phần, không có thì 機能ID; '' nếu phần không có cả hai */
+  owner: string
+  ownerName: string
+  columns: { name: string; logical: string; line: number }[]
+  /** 入力元情報 của từng cột (tên bảng vật lý / logic chưa giải; ô không phải bảng bị bỏ khi giải) */
+  sources: { column: string; from: string }[]
+}
+
+const FUNC_ID_LABELS = new Set(['機能id', 'functionid', 'mã chức năng'].map(normLabel))
+const FUNC_NAME_LABELS = new Set(['機能名', 'functionname', 'tên chức năng'].map(normLabel))
+const USAGE_ID_LABELS = new Set(['テーブルid', 'tableid', 'mã bảng'].map(normLabel))
+const USAGE_NAME_LABELS = new Set(['テーブル名', 'tablename', 'tên bảng'].map(normLabel))
+const USAGE_KIND_LABELS = new Set(['更新種別', '処理種別', 'アクセス種別', 'crud', 'loại cập nhật'].map(normLabel))
+const USAGE_PHYS = new Set(['項目名', '物理名', 'カラム名', '項目物理名', 'カラム物理名', 'column', 'columnname'].map(normLabel))
+const USAGE_LOGI = new Set(['項目名(日本語)', '論理名', '項目論理名', 'カラム論理名'].map(normLabel))
+const USAGE_SRC = new Set(['入力元情報', '入力元テーブル', 'source', 'nguồn'].map(normLabel))
+const SQL_OPS: Record<CrudOp, RegExp> = { C: /\b(?:INSERT|MERGE|UPSERT)\b/i, R: /\bSELECT\b/i, U: /\b(?:UPDATE|MERGE|UPSERT)\b/i, D: /\b(?:DELETE|TRUNCATE)\b/i }
+const PHYS_RE = /^[A-Za-z_][A-Za-z0-9_$#]*$/
+
+/** Khối テーブル編集仕様 của một tài liệu. Phần ghi 全文削除 (đã xóa khỏi thiết kế) bị bỏ qua. */
+function parseUsages(rel: string, lines: string[], heading: string[], section: number[], extra?: ProjectRules['crudVerbs']): { usages: TableUsage[]; blockLines: Set<number> } {
+  const usages: TableUsage[] = []
+  const blockLines = new Set<number>()
+  // Dấu 全文削除: dòng trích dẫn (`> ...全文削除`) hoặc dòng ngắn chỉ ghi dấu, ngoài code fence, trong phần có テーブルID
+  const deleted = new Set<number>()
+  const usageSec = new Set<number>()
+  let pf = ''
+  lines.forEach((l, i) => {
+    const nf = fenceAfter(pf, l)
+    if (nf !== undefined) pf = nf
+    if (pf || nf !== undefined) return
+    if (/^\s*>.*全文削除/.test(l) || /^\s*[^|\-*+\s>][^|]{0,30}全文削除\s*$/.test(l)) deleted.add(section[i])
+    const m = META_RE.exec(plain(l))
+    if (m && USAGE_ID_LABELS.has(normLabel(m[1]))) usageSec.add(section[i])
+  })
+  for (const s of deleted) if (!usageSec.has(s)) deleted.delete(s)
+  // Phần đã xóa khỏi thiết kế: không tham chiếu, không CRUD
+  section.forEach((s, i) => deleted.has(s) && blockLines.add(i + 1))
+  let screen = { id: '', name: '' }
+  let func = { id: '', name: '' }
+  /** Phần không có 画面ID / 機能ID (vd 【CSV取込項目定義】): thuộc màn hình đầu tiên của tài liệu */
+  let first: { id: string; name: string } | undefined
+  const docOwner = (): { id: string; name: string } => {
+    if (first) return first
+    const meta = lines.map((l) => META_RE.exec(plain(l))).map((m) => (m ? { label: normLabel(m[1]), value: stripFormula(m[2]) } : null))
+    for (const ids of [SCREEN_ID_LABELS, FUNC_ID_LABELS]) {
+      const k = meta.findIndex((m) => m && m.value && ids.has(m.label))
+      if (k < 0) continue
+      const names = ids === SCREEN_ID_LABELS ? SCREEN_NAME_LABELS : FUNC_NAME_LABELS
+      const name = meta.slice(k + 1, k + 6).find((m) => m && m.value && names.has(m.label))?.value ?? ''
+      return (first = { id: (meta[k] as { value: string }).value.normalize('NFKC'), name })
+    }
+    return (first = { id: '', name: '' })
+  }
+  let cur: TableUsage | null = null
+  let fence = ''
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const nf = fenceAfter(fence, line)
+    if (nf !== undefined) fence = nf
+    if (fence || nf !== undefined || line.length > MAX_LINE) continue
+    if (i > 0 && section[i] !== section[i - 1]) {
+      screen = { id: '', name: '' }
+      func = { id: '', name: '' }
+      cur = null
+    }
+    if (cur && line.trimStart().startsWith('|') && isDelimRow(lines[i + 1] ?? '')) {
+      const head = splitTableRow(line).map((c) => normLabel(plain(c)))
+      const phys = head.findIndex((h) => USAGE_PHYS.has(h))
+      const logi = head.findIndex((h) => USAGE_LOGI.has(h))
+      const src = head.findIndex((h) => USAGE_SRC.has(h))
+      const u: TableUsage = cur
+      cur = null
+      if (phys < 0) continue
+      for (let n = i; n <= i + 1; n++) blockLines.add(n + 1)
+      for (i += 2; i < lines.length && lines[i].trimStart().startsWith('|'); i++) {
+        blockLines.add(i + 1)
+        const cells = splitTableRow(lines[i]).map((c) => plain(c).trim())
+        const name = (cells[phys] ?? '').normalize('NFKC')
+        if (!PHYS_RE.test(name)) continue
+        u.columns.push({ name, logical: logi >= 0 ? (cells[logi] ?? '') : '', line: i + 1 })
+        if (src >= 0 && cells[src]) u.sources.push({ column: name, from: cells[src] })
+      }
+      i--
+      continue
+    }
+    const m = META_RE.exec(plain(line))
+    if (!m) continue
+    const label = normLabel(m[1])
+    const value = stripFormula(m[2])
+    if (SCREEN_ID_LABELS.has(label)) screen = { id: value.normalize('NFKC'), name: '' }
+    else if (SCREEN_NAME_LABELS.has(label)) screen.name ||= value
+    else if (FUNC_ID_LABELS.has(label)) func = { id: value.normalize('NFKC'), name: '' }
+    else if (FUNC_NAME_LABELS.has(label)) func.name ||= value
+    else if (USAGE_ID_LABELS.has(label)) {
+      const table = /^[A-Za-z_][A-Za-z0-9_$#.]*/.exec(value.normalize('NFKC'))?.[0] ?? ''
+      cur = null
+      if (!table || deleted.has(section[i])) continue
+      const owner = screen.id ? screen : func.id ? func : docOwner()
+      cur = { rel, line: i + 1, heading: heading[i], table, logical: '', ops: '', kind: '', owner: owner.id, ownerName: owner.name, columns: [], sources: [] }
+      usages.push(cur)
+      blockLines.add(i + 1)
+    } else if (cur && USAGE_NAME_LABELS.has(label)) {
+      cur.logical = value
+      blockLines.add(i + 1)
+    } else if (cur && USAGE_KIND_LABELS.has(label)) {
+      cur.kind = value
+      const sql = CRUD_ORDER.filter((op) => SQL_OPS[op].test(value))
+      cur.ops = (sql.length > 0 ? sql : crudOpsOf(value, extra)).join('')
+      blockLines.add(i + 1)
+    }
+  }
+  return { usages, blockLines }
+}
+
 /* --------------------------------- Chỉ mục -------------------------------- */
 
 interface RawEdge extends SpecLoc {
@@ -223,6 +351,7 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
   const extraAmbiguous = rules?.ambiguousWords ?? []
   const screens: SpecScreen[] = []
   const tables: TableDef[] = []
+  const usages: TableUsage[] = []
   const raw: RawEdge[] = []
   const infos = new Map<string, { lines: string[]; heading: string[]; section: number[] }>()
   /** Phần (rel + section) chứa định nghĩa của screen / bảng: nhắc tên trong chính phần đó không tính tham chiếu */
@@ -252,6 +381,20 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
       }
       chainEnd = prev
     }
+    /** 画面遷移 dạng đường dẫn menu `1. メニュー/画面A【アンカー】/画面này`: đoạn cuối là màn hình hiện tại, `【…】` là nhãn cạnh đi ra */
+    const pushBreadcrumb = (value: string, i: number, current: string): void => {
+      const segs = value
+        .replace(/^\d+\s*[.．、)）]\s*/, '')
+        .replace(/(?:\.{2,}|…)\s*$/, '')
+        .split(/\s*[/／]\s*/)
+        .map((s) => /^(.*?)\s*(?:【([^【】]*)】)?\s*$/.exec(s) as RegExpExecArray)
+        .map((m) => ({ text: m[1].trim(), label: (m[2] ?? '').trim() }))
+        .filter((s) => s.text)
+      if (segs.length < 2) return
+      if (current) segs[segs.length - 1].text = current
+      for (let k = 1; k < segs.length; k++) raw.push({ ...loc(i), from: segs[k - 1].text, to: segs[k].text, label: segs[k - 1].label, bidi: false })
+      chainEnd = segs[segs.length - 1].text
+    }
     lines.forEach((line, i) => {
       if (line.length > MAX_LINE) return
       if (section[i] !== section[i - 1] && i > 0) {
@@ -275,7 +418,7 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
       const m = META_RE.exec(text)
       if (!m) return
       const label = normLabel(m[1])
-      const value = m[2].trim()
+      const value = stripFormula(m[2])
       if (!value) return
       if (screenIdLabels.has(label)) {
         current = { ...loc(i), id: value.normalize('NFKC'), name: pendingName, end: section.lastIndexOf(section[i]) + 1 }
@@ -287,7 +430,10 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
         else pendingName = value
       } else if (transitionLabels.has(label)) {
         const cur = current as SpecScreen | null
-        pushChain(value, i, cur ? cur.id : '')
+        // Chỉ đường dẫn menu thật (`1. A/B/C` hoặc có 【アンカー】, ≥ 3 đoạn); `一覧/詳細`, ngày `2026/01/27` giữ đường cũ
+        const crumb = !ARROW_SPLIT.test(value) && value.split(/[/／]/).length >= 3 && /^\d+\s*[.．、)）]|【[^【】]*】/.test(value)
+        if (crumb) pushBreadcrumb(value, i, cur ? cur.id : '')
+        else pushChain(value, i, cur ? cur.id : '')
       }
     })
     for (const def of parseTableDefs(doc.text, doc.rel)) {
@@ -298,7 +444,31 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
       for (let n = def.line; n <= last; n++) set.add(n)
       defLines.set(doc.rel, set)
     }
+    // Khối テーブル編集仕様: không quét tham chiếu trong khối (CRUD lấy thẳng từ 更新種別, không đoán từ heading)
+    const pu = parseUsages(doc.rel, lines, heading, section, rules?.crudVerbs)
+    usages.push(...pu.usages)
+    if (pu.blockLines.size > 0) defLines.set(doc.rel, new Set([...(defLines.get(doc.rel) ?? []), ...pu.blockLines]))
   }
+
+  /* Bảng chỉ có trong テーブル編集仕様 (không có テーブル定義書): bảng suy luận, gộp cột mọi khối */
+  const defined = new Set(tables.map((t) => up(t.tableName)))
+  const inferred = new Map<string, TableDef>()
+  for (const u of usages) {
+    if (defined.has(up(u.table))) continue
+    let t = inferred.get(up(u.table))
+    if (!t) {
+      t = { source: u.rel, tableName: u.table, logicalName: u.logical, columns: [], line: u.line, inferred: true }
+      inferred.set(up(u.table), t)
+    }
+    t.logicalName ||= u.logical
+    for (const c of u.columns) {
+      const have = t.columns.find((x) => up(x.name) === up(c.name))
+      if (have) have.logical ||= c.logical
+      // Cột từ file khác: dòng không thuộc file nguồn của bảng -> trỏ về dòng khai báo bảng
+      else t.columns.push({ name: c.name, logical: c.logical, type: '', length: '', scale: '', pk: false, notNull: false, default: '', comment: '', line: t.source === u.rel ? c.line : t.line })
+    }
+  }
+  tables.push(...inferred.values())
 
   const issues: SpecIssue[] = []
 
@@ -549,6 +719,7 @@ export function buildSpecIndex(input: SpecDoc[], project?: SpecProject): SpecInd
     tables,
     refs,
     issues,
+    usages,
     glossary: gDoc ? { rel: gDoc.rel, entries: parseGlossary(gDoc.text) } : null,
     ...(project ? { project } : {}),
     truncated: { docs: input.length > docs.length, refs: refsTruncated },
@@ -784,6 +955,16 @@ export function crudMatrix(index: SpecIndex): CrudMatrix {
     if (cell.evidence.length < CRUD_MAX_EVIDENCE) cell.evidence.push({ rel: r.rel, line: r.line, heading: r.heading, ops: ops || '?', term: r.term, snippet: r.snippet })
     cell.ops = mergeOps(cell.ops, ops)
   }
+  // テーブル編集仕様: 更新種別 là bằng chứng trực tiếp; phần chỉ có 機能ID (バッチ...) thành một dòng riêng
+  for (const u of index.usages ?? []) {
+    const table = tables.get(up(u.table))
+    if (!table || !u.owner) continue
+    if (!screens.has(up(u.owner))) screens.set(up(u.owner), { id: u.owner, name: u.ownerName })
+    const id = (screens.get(up(u.owner)) as { id: string }).id
+    const cell = ((cells[id] ??= {})[table] ??= { ops: '', evidence: [] })
+    if (cell.evidence.length < CRUD_MAX_EVIDENCE) cell.evidence.push({ rel: u.rel, line: u.line, heading: u.heading, ops: u.ops || '?', term: u.table, snippet: `${u.table} ${u.logical} 更新種別: ${u.kind}`.trim() })
+    cell.ops = mergeOps(cell.ops, u.ops)
+  }
   for (const row of Object.values(cells)) for (const cell of Object.values(row)) if (!cell.ops) cell.ops = '?'
   return { screens: [...screens.values()], tables: [...tables.values()], cells }
 }
@@ -872,5 +1053,23 @@ export function erMermaid(index: SpecIndex): { source: string; truncated: boolea
     if (size > MERMAID_MAX_TEXT) break
     kept.push(d)
   }
-  return { source: kept.length > 0 ? toErMermaid(kept) : '', truncated: kept.length < defs.length }
+  // 入力元情報 trỏ sang bảng khác (tên vật lý hoặc tên logic): hai bảng nối qua cột đó; một cạnh mỗi cặp
+  const byName = new Map<string, string>()
+  for (const t of index.tables) {
+    byName.set(up(t.tableName), t.tableName)
+    if (t.logicalName.trim().length >= 2 && !byName.has(up(t.logicalName.trim()))) byName.set(up(t.logicalName.trim()), t.tableName)
+  }
+  const pairs = new Map<string, { from: string; to: string; cols: string[] }>()
+  for (const u of index.usages ?? []) {
+    for (const s of u.sources) {
+      const to = byName.get(up(s.from))
+      if (!to || up(to) === up(u.table)) continue
+      const k = [up(u.table), up(to)].sort().join('|')
+      const p = pairs.get(k) ?? { from: u.table, to, cols: [] }
+      if (!p.cols.includes(s.column)) p.cols.push(s.column)
+      pairs.set(k, p)
+    }
+  }
+  const rels = [...pairs.values()].map((p) => ({ from: p.from, to: p.to, label: p.cols.length > 2 ? `${p.cols.slice(0, 2).join(', ')} +${p.cols.length - 2}` : p.cols.join(', ') }))
+  return { source: kept.length > 0 ? toErMermaid(kept, rels) : '', truncated: kept.length < defs.length }
 }

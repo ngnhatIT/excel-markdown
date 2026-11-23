@@ -723,7 +723,9 @@ export default function App(): React.ReactElement {
   const viewerTitle = useMemo(() => {
     if (!viewerPath) return null
     if (viewerPath === PASTE_PATH) return t('viewer.paste')
-    if (viewerRoot && viewerPath.startsWith(viewerRoot)) return viewerPath.slice(viewerRoot.length).replace(/^[\\/]+/, '')
+    // Luôn `/` (như rel của Bản đồ / 影響調査), không theo dấu `\` của Windows
+    // Ranh giới thư mục: `C:\proj` không được khớp `C:\proj2\a.md`
+    if (viewerRoot && viewerPath.startsWith(viewerRoot) && (/[\\/]$/.test(viewerRoot) || /^[\\/]/.test(viewerPath.slice(viewerRoot.length)))) return viewerPath.slice(viewerRoot.length).replace(/^[\\/]+/, '').replace(/\\/g, '/')
     return baseName(viewerPath)
   }, [viewerPath, viewerRoot, t])
 

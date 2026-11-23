@@ -257,7 +257,7 @@ describe('Markdown bất kỳ (spec §11): không crash, mọi chữ được gi
       if (lost.length > 0) failures.push({ md, lost })
     }
     expect(failures).toEqual([])
-  })
+  }, 30_000) // test nặng: tự đo thời gian bên trong, không để timeout 5s mặc định cắt khi máy bận
 
   it('mẫu viết tay (heading nhiều cấp, list có số, quote, bảng, code, <br>): không mất chữ', async () => {
     const md = readFileSync(fileURLToPath(new URL('../../../../test/fixtures/handwritten.md', import.meta.url)), 'utf8')

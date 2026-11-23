@@ -107,10 +107,11 @@ function classify(label: string, kind: string, type: string, maxLength: number):
   const kt = `${kind} ${type}`.normalize('NFC').toLowerCase()
   const all = `${kt} ${label}`.normalize('NFC').toLowerCase()
   // Radio / checkbox trước nút bấm: ラジオボタン, "Nút chọn" có chữ ボタン / nút nhưng không phải nút bấm
-  if (/チェックボックス|checkbox|hộp kiểm|ô đánh dấu/.test(kt)) return { control: 'checkbox', inputType: 'text' }
+  // 型 = チェック (không phải チェック内容...) cũng là checkbox; I/O = O là ô hiển thị
+  if (/チェックボックス|checkbox|hộp kiểm|ô đánh dấu/.test(kt) || /^チェック$/.test(type.trim())) return { control: 'checkbox', inputType: 'text' }
   if (/ラジオ|radio|nút chọn/.test(kt)) return { control: 'radio', inputType: 'text' }
-  if (isButton(label, kind)) return { control: 'button', inputType: 'text' }
-  if (isOutput(kind)) return { control: 'output', inputType: 'text' }
+  if (isButton(label, kt)) return { control: 'button', inputType: 'text' }
+  if (isOutput(kt) || /^o$/i.test(kind.normalize('NFKC').trim())) return { control: 'output', inputType: 'text' }
   if (/選択|プルダウン|リスト|コンボ|ドロップダウン|select|dropdown|combo|list|chọn|danh sách|thả xuống/.test(kt)) return { control: 'select', inputType: 'text' }
   if (/テキストエリア|textarea|複数行|nhiều dòng|văn bản dài/.test(kt) || maxLength >= 200) return { control: 'textarea', inputType: 'text' }
   const t = type.normalize('NFKC').toLowerCase()
@@ -156,53 +157,77 @@ export function buildMockScreens(docs: SpecDoc[]): MockScreen[] {
     const lines = text.get(s.rel) ?? []
     const items: MockItem[] = []
     const lists: string[][] = []
-    let fence = ''
-    for (let i = s.line; i < s.end && i < lines.length; i++) {
-      const line = lines[i]
-      const nf = fenceAfter(fence, line)
-      if (nf !== undefined) {
-        fence = nf
-        continue
-      }
-      if (fence || atxHeading(line)) continue
-      const list = LIST_RE.exec(cellText(line))
-      if (list) {
-        const values = list[2].split(/\s+\/\s+/).map((v) => v.trim()).filter(Boolean)
-        if (values.length > 0) lists.push(values)
-        continue
-      }
-      if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
-      const cols = new Map<ItemField, number>()
-      splitTableRow(line).forEach((c, k) => {
-        const f = ITEM_FIELD_OF.get(normLabel(cellText(c)))
-        if (f && !cols.has(f)) cols.set(f, k)
-      })
-      i += 2
-      const isItems = cols.has('item') && (cols.has('kind') || cols.has('type') || cols.has('length') || cols.has('required'))
-      for (; i < lines.length && lines[i].trimStart().startsWith('|'); i++) {
-        if (!isItems || items.length >= MOCK_MAX_ITEMS) continue
-        const cells = splitTableRow(lines[i])
-        const get = (f: ItemField): string => {
-          const k = cols.get(f)
-          return k === undefined ? '' : cellText(cells[k])
+    // 画面ID lặp ở từng phần (レイアウト / 項目定義 / イベント...) của cùng file: đọc mọi phần, mỗi phần một lần
+    const ranges = new Map<number, number>()
+    for (const x of index.screens) if (x.rel === s.rel && x.id.toUpperCase() === s.id.toUpperCase() && !ranges.has(x.end)) ranges.set(x.end, x.line)
+    for (const [end, start] of ranges) {
+      let fence = ''
+      /** Cột của header 項目定義 gần nhất: bảng sau heading nhóm (### 【ヘッダー情報】) mất header, dòng đầu là dữ liệu */
+      let carry: Map<ItemField, number> | null = null
+      let carryWidth = 0
+      let afterHeading = false
+      for (let i = start; i < end && i < lines.length; i++) {
+        const line = lines[i]
+        const nf = fenceAfter(fence, line)
+        if (nf !== undefined) {
+          fence = nf
+          continue
         }
-        const label = get('item')
-        if (!label || isBlank(label)) continue
-        const maxLength = Math.min(Number(/^\d+/.exec(get('length').normalize('NFKC'))?.[0] ?? 0), 100_000)
-        const def = get('default')
-        items.push({
-          label,
-          ...classify(label, get('kind'), get('type'), maxLength),
-          // Không có cột 必須 thì đọc từ 備考 / チェック (「必須」, không tính 非必須 / 不要)
-          required: cols.has('required') ? isYes(get('required')) : /(?<![非不])必須|required/i.test(`${get('note')} ${get('check')}`),
-          maxLength,
-          value: isBlank(def) ? '' : def,
-          note: [get('check'), get('note')].filter((v) => v && !isBlank(v)).join(' / '),
-          options: [],
-          goto: -1,
+        if (fence) continue
+        if (atxHeading(line)) {
+          afterHeading = true
+          continue
+        }
+        if (line.trim() && !line.trimStart().startsWith('|')) afterHeading = false
+        const list = LIST_RE.exec(cellText(line))
+        if (list) {
+          const values = list[2].split(/\s+\/\s+/).map((v) => v.trim()).filter(Boolean)
+          if (values.length > 0) lists.push(values)
+          continue
+        }
+        if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
+        let cols = new Map<ItemField, number>()
+        splitTableRow(line).forEach((c, k) => {
+          const f = ITEM_FIELD_OF.get(normLabel(cellText(c)))
+          if (f && !cols.has(f)) cols.set(f, k)
         })
+        const width = splitTableRow(line).length
+        const isHeader = cols.has('item') && (cols.has('kind') || cols.has('type') || cols.has('length') || cols.has('required'))
+        // carry chỉ cho bảng ngay sau heading nhóm, cùng số cột với header; bảng khác (イベント...) xóa carry
+        if (isHeader) {
+          carry = cols
+          carryWidth = width
+        } else if (carry && !cols.has('item') && afterHeading && width === carryWidth) cols = carry
+        else carry = null
+        afterHeading = false
+        const isItems = isHeader || (carry !== null && cols === carry)
+        i += isHeader || !isItems ? 2 : 0
+        for (; i < lines.length && lines[i].trimStart().startsWith('|'); i++) {
+          if (!isItems || items.length >= MOCK_MAX_ITEMS || isDelimRow(lines[i])) continue
+          const cells = splitTableRow(lines[i])
+          const get = (f: ItemField): string => {
+            const k = cols.get(f)
+            return k === undefined ? '' : cellText(cells[k])
+          }
+          const label = get('item')
+          // Dòng tiêu đề nhóm trong bảng (【テーブル情報】) không phải hạng mục
+          if (!label || isBlank(label) || /^【[^】]*】$/.test(label)) continue
+          const maxLength = Math.min(Number(/^\d+/.exec(get('length').normalize('NFKC'))?.[0] ?? 0), 100_000)
+          const def = get('default')
+          items.push({
+            label,
+            ...classify(label, get('kind'), get('type'), maxLength),
+            // Không có cột 必須 thì đọc từ 備考 / チェック (「必須」, không tính 非必須 / 不要)
+            required: cols.has('required') ? isYes(get('required')) : /(?<![非不])必須|required/i.test(`${get('note')} ${get('check')}`),
+            maxLength,
+            value: isBlank(def) ? '' : def,
+            note: [get('check'), get('note')].filter((v) => v && !isBlank(v)).join(' / '),
+            options: [],
+            goto: -1,
+          })
+        }
+        i--
       }
-      i--
     }
     // Lựa chọn: ưu tiên ghi thẳng ở 備考 / Ghi chú của chính hạng mục; còn lại lấy 〔入力規則〕 của màn hình theo thứ tự
     let li = 0

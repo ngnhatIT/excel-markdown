@@ -112,8 +112,9 @@ export function completenessOf(index: SpecIndex): Completeness {
       logical: t.logicalName,
       rel: t.source,
       line: t.line,
-      pk: t.columns.some((col) => col.pk),
-      types: t.columns.length > 0 && t.columns.every((col) => col.type.trim() !== ''),
+      // Bảng suy từ テーブル編集仕様 không có PK / 型 để xét
+      pk: t.inferred ? null : t.columns.some((col) => col.pk),
+      types: t.inferred ? null : t.columns.length > 0 && t.columns.every((col) => col.type.trim() !== ''),
       // Chưa có màn hình nào trong thư mục thì không xét "được dùng"
       used: screens.length === 0 ? null : usedTables.has(k),
       columns: t.columns.length,

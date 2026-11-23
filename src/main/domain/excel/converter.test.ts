@@ -476,7 +476,7 @@ describe('!ref phình (Excel ghi dimension theo vùng có định dạng)', () =
     } finally {
       fs.unlinkSync(p)
     }
-  })
+  }, 30_000) // test nặng: tự đo thời gian bên trong, không để timeout 5s mặc định cắt khi máy bận
 })
 
 describe('A14: continuation + detectTwoColTables', () => {
