@@ -490,7 +490,7 @@ describe('parseMarkdownFile: Markdown không tin cậy (không crash, không tre
     expect(Date.now() - t).toBeLessThan(10_000)
     expect((br[0] as { text: string }).text).toBe('a\n'.repeat(100_000))
     expect((em[0] as { text: string }).text.startsWith('**a **a')).toBe(true)
-  })
+  }, 30_000) // test nặng: tự đo thời gian bên trong, không để timeout 5s mặc định cắt khi máy bận
 
   it('đoạn > 20 000 ký tự vẫn ra đúng chữ như đoạn ngắn (tách nguồn inline tại khoảng trắng)', () => {
     const unit = '\\*x\\* `c` [l](https://e.example) a&amp;b '

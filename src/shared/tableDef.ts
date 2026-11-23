@@ -36,6 +36,15 @@ export interface TableDef {
   columns: TableColumn[]
   /** Dòng header của bảng cột trong Markdown (tính từ 1) */
   line: number
+  /** Suy từ テーブル編集仕様 (không có テーブル定義書): chỉ có tên cột, không có kiểu / 桁数 / PK */
+  inferred?: boolean
+}
+
+/** Quan hệ thêm vào ER ngoài FK suy từ PK (vd cột nối giữa hai bảng đọc từ 入力元情報) */
+export interface ErRelation {
+  from: string
+  to: string
+  label: string
 }
 
 /* ------------------------------- Nhận diện ------------------------------- */
@@ -467,7 +476,7 @@ const singlePk = (def: TableDef): string => {
 
 /** Mermaid `erDiagram`: thực thể + thuộc tính (kiểu, PK/FK, tên logic) + quan hệ FK suy ra thận trọng:
  * cột A trùng tên với PK đơn của bảng B (hoặc tên `<B>_ID`, bỏ tiền tố TBL_/M_/T_...) và không phải PK đơn của A. */
-export function toErMermaid(defs: TableDef[]): string {
+export function toErMermaid(defs: TableDef[], extra: ErRelation[] = []): string {
   const used = new Set<string>()
   const tables = defs
     .filter((d) => d.columns.length > 0)
@@ -493,6 +502,13 @@ export function toErMermaid(defs: TableDef[]): string {
         rels.push(`  ${a.id} }o--|| ${b.id} : "${mermaidText(c.name) || 'fk'}"`)
       }
     }
+  }
+  // Quan hệ không rõ bội số: đường đứt `}o..o{`
+  const idOf = new Map(tables.map((t) => [t.def.tableName.toUpperCase(), t.id]))
+  for (const r of extra) {
+    const a = idOf.get(r.from.toUpperCase())
+    const b = idOf.get(r.to.toUpperCase())
+    if (a && b && a !== b) rels.push(`  ${a} }o..o{ ${b} : "${mermaidText(r.label) || 'ref'}"`)
   }
   const lines = ['erDiagram']
   for (const { def, id } of tables) {

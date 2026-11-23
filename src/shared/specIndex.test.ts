@@ -440,3 +440,103 @@ describe('x2m.json: luật cộng thêm', () => {
     expect(crudMatrix(idx).cells.A001?.TBL_X?.ops).toBe('C')
   })
 })
+
+// 設計書 chỉ có テーブル編集仕様 (không có テーブル定義書): ER / CRUD dựng từ テーブルID + 更新種別 + bảng cột
+describe('テーブル編集仕様 -> bảng suy luận, CRUD, ER', () => {
+  const screenDoc = [
+    '## テーブル編集仕様(納品予定照会) (初期表示)',
+    '',
+    '- **機能ID**: FPOR0040AC',
+    '- **画面ID**: SPOR00401AC',
+    '- **画面名**: 納品予定照会',
+    '',
+    '- **テーブルID**: TAPR04\_DELIVERY',
+    '- **テーブル名**: 納品予定ファイル',
+    '- **更新種別**: SELECT 20260127田代修正',
+    '',
+    '| № | 項目名(日本語） | 項目名 | 入力元項目 | 入力元情報 | 備考 |',
+    '|---|---|---|---|---|---|',
+    '| 1 | 会社コード | CMPNYCD | 会社コード | ヘッダ |  |',
+    '| 2 | 店舗コード | STORECD | 工場コード | 【ヘッダー情報】 |  |',
+    '',
+    '- **テーブルID**: TAOR59\_REQUEST',
+    '- **テーブル名**: ANAC発注依頼ファイル',
+    '- **更新種別**: SELECT',
+    '',
+    '| № | 項目名(日本語） | 項目名 | 入力元項目 | 入力元情報 | 備考 |',
+    '|---|---|---|---|---|---|',
+    '| 1 | 店舗コード | STORECD | 店舗コード | TAPR04_DELIVERY |  |',
+    '',
+    '---',
+    '',
+    '## テーブル編集仕様(納品予定照会) (キャンセル)',
+    '',
+    '> 20260902田代全文削除',
+    '',
+    '- **画面ID**: SPOR00401AC',
+    '',
+    '- **テーブルID**: TAPR04\_DELIVERY',
+    '- **更新種別**: UPDATE',
+    '',
+    '| № | 項目名(日本語） | 項目名 | 入力元項目 | 入力元情報 | 備考 |',
+    '|---|---|---|---|---|---|',
+    '| 1 | 完了フラグ | ENDFLG | 1 | 固定 |  |',
+  ].join('\n')
+  const batchDoc = [
+    '## テーブル編集仕様(WEBEDI)',
+    '',
+    '- **機能ID**: BCC00603AC',
+    '- **機能名**: WEBEDI食材使用数量報告書作成',
+    '',
+    '- **テーブルID**: TAOR63\_EDI',
+    '- **テーブル名**: WEBEDI報告書',
+    '- **更新種別**: INSERT 20260127田代修正',
+    '',
+    '| № | 項目名(日本語） | 項目名 | 入力元項目 | 入力元情報 | 備考 |',
+    '|---|---|---|---|---|---|',
+    '| 1 | 店舗コード | STORECD | 店舗コード | 納品予定ファイル |  |',
+  ].join('\n')
+  const idx = buildSpecIndex([
+    { rel: 'screen.md', text: screenDoc },
+    { rel: 'batch.md', text: batchDoc },
+  ])
+
+  it('bảng suy luận: tên, tên logic, cột gộp; không báo trùng bảng', () => {
+    expect(idx.tables.map((t) => `${t.tableName}|${t.logicalName}|${t.columns.map((c) => c.name).join(',')}|${t.inferred}`)).toEqual([
+      'TAPR04_DELIVERY|納品予定ファイル|CMPNYCD,STORECD|true',
+      'TAOR59_REQUEST|ANAC発注依頼ファイル|STORECD|true',
+      'TAOR63_EDI|WEBEDI報告書|STORECD|true',
+    ])
+    expect(idx.issues.filter((i) => i.code === 'duplicate-table')).toEqual([])
+  })
+
+  it('CRUD theo 更新種別; 機能ID làm dòng khi không có 画面ID; phần 全文削除 bỏ qua', () => {
+    const m = crudMatrix(idx)
+    expect(m.screens.map((s) => s.id)).toEqual(['SPOR00401AC', 'BCC00603AC'])
+    expect(m.cells.SPOR00401AC?.TAPR04_DELIVERY?.ops).toBe('R')
+    expect(m.cells.SPOR00401AC?.TAOR59_REQUEST?.ops).toBe('R')
+    expect(m.cells.BCC00603AC?.TAOR63_EDI?.ops).toBe('C')
+    expect(m.cells.SPOR00401AC?.TAPR04_DELIVERY?.evidence[0]).toMatchObject({ rel: 'screen.md', line: 7, ops: 'R' })
+  })
+
+  it('ER: thực thể từ bảng suy luận + quan hệ từ 入力元情報 (tên vật lý hoặc tên logic)', () => {
+    const src = erMermaid(idx).source
+    expect(src).toContain('TAPR04_DELIVERY["TAPR04_DELIVERY (納品予定ファイル)"] {')
+    expect(src).toContain('TAOR59_REQUEST }o..o{ TAPR04_DELIVERY : "STORECD"')
+    expect(src).toContain('TAOR63_EDI }o..o{ TAPR04_DELIVERY : "STORECD"')
+  })
+})
+
+describe('テーブル編集仕様: phần không có 画面ID / 機能ID', () => {
+  it('thuộc 画面ID đầu tiên của tài liệu', () => {
+    const text = ['## 画面', '- **画面ID**: S01', '- **画面名**: 取込', '---', '## 【CSV取込項目定義】①マスタ', '- **テーブルID**: TMT003_STORE', '- **更新種別**: SELECT', '', '| No | 項目名 |', '|---|---|', '| 1 | STORECD |'].join('\n')
+    expect(crudMatrix(buildSpecIndex([{ rel: 'a.md', text }])).cells.S01?.TMT003_STORE?.ops).toBe('R')
+  })
+})
+
+describe('画面遷移 có `/` nhưng không phải đường dẫn menu', () => {
+  it('`一覧/詳細` không sinh cạnh', () => {
+    const idx = buildSpecIndex([{ rel: 'a.md', text: ['## 画面', '- **画面ID**: S01', '- **画面遷移**: 一覧/詳細'].join('\n') }])
+    expect(idx.transitions).toEqual([])
+  })
+})

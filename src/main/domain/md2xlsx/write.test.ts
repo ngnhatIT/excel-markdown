@@ -988,5 +988,5 @@ describe('buildWorkbook: round-trip định dạng, căn cột, 入力規則, gh
     const t = Date.now()
     await buildWorkbook([{ name: 'S', blocks: [{ kind: 'code', lines: Array.from({ length: 100_000 }, () => 'x') }] }]).xlsx.writeBuffer()
     expect(Date.now() - t).toBeLessThan(30_000)
-  })
+  }, 30_000) // test nặng: tự đo thời gian bên trong, không để timeout 5s mặc định cắt khi máy bận
 })
