@@ -608,11 +608,13 @@ export function diffSpecMarkdown(oldMd: string, newMd: string, rules?: Pick<Proj
   }
   const removed = (a: Section): void => {
     for (const l of nonBlank(a)) hunks.push({ kind: 'del', oldLine: l.n, oldText: l.text, sectionPath: a.path })
+    sum.linesRemoved += nonBlank(a).length // mục xóa nguyên mục: dòng của nó cũng tính vào tổng dòng xóa
     sections.push({ kind: 'del', path: a.path, oldPath: a.path, oldLine: firstLine(a), rows: [], lines: [] })
     sum.sectionsRemoved++
   }
   const added = (b: Section): void => {
     for (const l of nonBlank(b)) hunks.push({ kind: 'add', newLine: l.n, newText: l.text, sectionPath: b.path })
+    sum.linesAdded += nonBlank(b).length
     sections.push({ kind: 'add', path: b.path, newLine: firstLine(b), rows: [], lines: [] })
     sum.sectionsAdded++
   }

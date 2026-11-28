@@ -179,10 +179,11 @@ describe('diffSpecMarkdown', () => {
     const extra = '\n### 【イベント】\n\n- **検索ボタン**: 一覧を表示する\n'
     const added = diffSpecMarkdown(ITEMS, ITEMS + extra)
     expect(added.sections).toEqual([expect.objectContaining({ kind: 'add', path: '画面項目定義 › 【イベント】', newLine: 18 })])
-    expect(added.summary).toMatchObject({ sectionsAdded: 1, sectionsChanged: 0, linesAdded: 0 })
+    expect(added.summary).toMatchObject({ sectionsAdded: 1, sectionsChanged: 0, linesAdded: 2, linesRemoved: 0 })
     expect(added.hunks.filter((h) => h.kind === 'add').map((h) => h.newText)).toEqual(['### 【イベント】', '- **検索ボタン**: 一覧を表示する'])
     const removed = diffSpecMarkdown(ITEMS + extra, ITEMS)
     expect(removed.sections).toEqual([expect.objectContaining({ kind: 'del', path: '画面項目定義 › 【イベント】', oldLine: 18 })])
+    expect(removed.summary).toMatchObject({ sectionsRemoved: 1, linesRemoved: 2, linesAdded: 0 })
   })
 
   it('đổi tên sheet (heading cha) → ghép theo vị trí, chỉ báo dòng heading', () => {
