@@ -6,6 +6,8 @@ export const ja: Dict = {
   'lang.en': 'English',
   'lang.ja': '日本語',
 
+  'common.undo': '元に戻す',
+  'toast.excel.cleared': '{n} 件のファイルを一覧から削除しました',
   'common.close': '閉じる',
   'common.cancel': 'キャンセル',
   'common.copy': 'コピー',
@@ -113,6 +115,7 @@ export const ja: Dict = {
   'files.rows': '{n} 行',
   'files.rowsHidden': '{n} 行（Excel で非表示のシート）',
   'files.hiddenTag': '非表示',
+  'files.willSkip': 'スキップされます',
   'files.rowsShort': '{n} 行',
 
   'mdfiles.title': 'Markdown ファイル（{n}）',
@@ -243,6 +246,7 @@ export const ja: Dict = {
   'viewer.closePaste': '貼り付けを閉じる',
   'viewer.recent': '最近の更新',
   'viewer.all': 'すべて',
+  'viewer.sort': '並べ替え',
   'viewer.sortName': '名前',
   'viewer.sortDate': '更新日',
   'viewer.searching': '検索中...',
@@ -263,15 +267,15 @@ export const ja: Dict = {
   'palette.heading': 'セクション',
 
   'ai.title': 'AI アシスタント（RAG）',
-  'ai.quick.summary': '📋 業務の要約',
+  'ai.quick.summary': '業務の要約',
   'ai.quick.summaryPrompt': '表示中の資料について、業務目的、主な処理フロー、重要なテーブルを日本語で要約してください。',
-  'ai.quick.review': '🔍 抜け漏れチェック',
+  'ai.quick.review': '抜け漏れチェック',
   'ai.quick.reviewPrompt':
     'この設計書に、曖昧な点、境界条件の不足（バリデーション/エラー処理）、項目間の矛盾がないか確認してください。',
-  'ai.quick.tests': '🧪 テストケース作成',
+  'ai.quick.tests': 'テストケース作成',
   'ai.quick.testsPrompt':
     '表示中の資料から、各項目、入力チェック、イベント、エラーケースを網羅するテストケース表（No | 項目 | 前提条件 / 入力データ | 操作 | 期待結果 | 出典）を作成してください。各行に出典を明記してください。',
-  'ai.quick.cross': '🔗 横断チェック',
+  'ai.quick.cross': '横断チェック',
   'ai.quick.crossPrompt':
     'フォルダ内の資料を横断的に照合し、DB のテーブル名/カラム名、画面 ID、桁数・データ型、エラーコードがファイル間で一致しているか確認してください。不一致ごとに双方の出典を挙げて列挙してください。',
   'ai.quick.folderTitle': 'フォルダ全体で実行',

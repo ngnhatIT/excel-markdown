@@ -2,8 +2,8 @@
 import { joinRoot, PASTE_PATH, type MdContentSearch } from './useMdViewer'
 import type { MdSearchHit } from '../../../../shared/types'
 import { baseName, cn } from '../../lib/utils'
-import { btnPrimary, btnSm, cx, iconBtn, input } from '../../lib/ui'
-import { IconChevronDown, IconCopy, IconFile, IconFolder, IconMap, IconRefresh, IconX } from '../../components/icons'
+import { btnPrimary, btnSm, cx, iconBtnDanger, input } from '../../lib/ui'
+import { IconChevronDown, IconCopy, IconFile, IconFolder, IconMap, IconRefresh, IconSort, IconX } from '../../components/icons'
 import { LOCALES, useLang, useT } from '../../i18n'
 
 interface Props {
@@ -68,13 +68,13 @@ export function MdTreeList(p: Props): React.ReactElement {
         <IconFile size={14} />
         <span className="x2m-tree-name truncate flex-1">{label}</span>
         {mtime !== undefined && (
-          <span className="x2m-tree-date dim ml-auto text-[11px] text-faint shrink-0" title={new Date(mtime).toLocaleString(locale)}>
+          <span className="x2m-tree-date dim ml-auto text-xs text-faint shrink-0" title={new Date(mtime).toLocaleString(locale)}>
             {formatRelativeTime(mtime, now, locale)}
           </span>
         )}
       </button>
       {onRemove && (
-        <button className={`icon-btn ${iconBtn}`} onClick={onRemove} title={t('viewer.closeFile')} aria-label={t('viewer.closeFile')}>
+        <button className={`icon-btn ${iconBtnDanger}`} onClick={onRemove} title={t('viewer.closeFile')} aria-label={t('viewer.closeFile')}>
           <IconX size={12} />
         </button>
       )}
@@ -105,7 +105,7 @@ export function MdTreeList(p: Props): React.ReactElement {
 
   return (
     <aside className={cn('x2m-files flex w-[300px] min-w-[220px] shrink-0 flex-col overflow-y-auto border-r border-line-subtle', p.dragOver && 'drag-over outline-2 -outline-offset-2 outline-dashed outline-accent')}>
-      <div className="x2m-pane-title flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[11.5px] font-semibold tracking-normal text-faint">
+      <div className="x2m-pane-title flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-xs font-semibold tracking-normal text-faint">
         <span className="x2m-tree-title truncate text-[12.5px] font-semibold text-ink" title={p.root ?? undefined}>
           {rootLabel}
           {p.root ? ` (${p.relFiles.length})` : ''}
@@ -126,18 +126,6 @@ export function MdTreeList(p: Props): React.ReactElement {
           {p.root && (
             <>
               <button
-                className={cn(
-                  'x2m-specmap-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent',
-                  p.specMapOpen && 'bg-accent-soft text-accent-ink'
-                )}
-                onClick={p.onToggleSpecMap}
-                aria-pressed={p.specMapOpen}
-                title={t('sm.buttonTitle')}
-                aria-label={t('sm.button')}
-              >
-                <IconMap size={14} />
-              </button>
-              <button
                 className="x2m-move-btn x2m-reload-btn flex cursor-pointer items-center rounded-md p-1.5 text-dim transition-colors hover:bg-hover hover:text-ink"
                 onClick={p.onRefresh}
                 disabled={p.listing}
@@ -146,13 +134,29 @@ export function MdTreeList(p: Props): React.ReactElement {
               >
                 <IconRefresh size={14} />
               </button>
-              <button className={`icon-btn ${iconBtn}`} onClick={p.onCloseFolder} title={t('viewer.closeFolder')} aria-label={t('viewer.closeFolder')}>
+              <button className={`icon-btn ${iconBtnDanger}`} onClick={p.onCloseFolder} title={t('viewer.closeFolder')} aria-label={t('viewer.closeFolder')}>
                 <IconX size={14} />
               </button>
             </>
           )}
         </span>
       </div>
+      {p.root && (
+        <div className="px-2.5 pt-2">
+          <button
+            className={cn(
+              'x2m-specmap-btn flex w-full cursor-pointer items-center gap-2 rounded-md border border-line bg-raised px-3 py-1.5 text-[13px] font-semibold text-ink transition-colors hover:bg-hover focus-visible:outline-2 focus-visible:outline-accent',
+              p.specMapOpen && '!border-accent-line !bg-accent-soft !text-accent-ink'
+            )}
+            onClick={p.onToggleSpecMap}
+            aria-pressed={p.specMapOpen}
+            title={t('sm.buttonTitle')}
+          >
+            <IconMap size={16} />
+            {t('sm.button')}
+          </button>
+        </div>
+      )}
       {!empty && (
         <div className="x2m-filter flex items-center gap-1.5 px-2.5 py-2">
           <input
@@ -167,7 +171,7 @@ export function MdTreeList(p: Props): React.ReactElement {
               {([false, true] as const).map((on) => (
                 <button
                   key={String(on)}
-                  className="x2m-sort-btn rounded px-1.5 py-0.5 text-[10.5px] font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs"
+                  className="x2m-sort-btn rounded px-1.5 py-0.5 text-xs font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs"
                   aria-pressed={p.contentSearch === on}
                   onClick={() => p.onContentSearchChange(on)}
                   title={t(on ? 'viewer.byContentTitle' : 'viewer.byNameTitle')}
@@ -196,25 +200,27 @@ export function MdTreeList(p: Props): React.ReactElement {
                 <IconCopy size={14} />
                 <span className="x2m-tree-name truncate flex-1">{t('viewer.paste')}</span>
               </button>
-              <button className={`icon-btn ${iconBtn}`} onClick={p.onClosePaste} title={t('viewer.closePaste')} aria-label={t('viewer.closePaste')}>
+              <button className={`icon-btn ${iconBtnDanger}`} onClick={p.onClosePaste} title={t('viewer.closePaste')} aria-label={t('viewer.closePaste')}>
                 <IconX size={12} />
               </button>
             </div>
           )}
           {p.root && p.recent.length > 0 && !p.search && (
             <>
-              <div className="x2m-tree-section px-2 py-1.5 text-[11.5px] font-semibold text-dim">{t('viewer.recent')}</div>
+              <div className="x2m-tree-section px-2 py-1.5 text-xs font-semibold text-dim">{t('viewer.recent')}</div>
               {p.recent.map((r) => fileRow(joinRoot(p.root as string, r), r, 0, r, undefined, p.mtimes[r], 'x2m-recent-row'))}
             </>
           )}
           {p.root && !p.search && (
-            <div className="x2m-tree-section x2m-tree-section-bar flex items-center justify-between px-2 py-1.5 text-[11.5px] font-semibold text-dim border-t border-line/40 mt-1.5">
+            <div className="x2m-tree-section x2m-tree-section-bar flex items-center justify-between px-2 py-1.5 text-xs font-semibold text-dim border-t border-line/40 mt-1.5">
               <span>{t('viewer.all')}</span>
-              <span className="x2m-sort flex items-center gap-0.5 rounded border border-line bg-raised p-0.5">
-                <button className="x2m-sort-btn rounded px-1.5 py-0.5 text-[10.5px] font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs" aria-pressed={p.sort === 'name'} onClick={() => p.onSortChange('name')}>
+              <span role="group" aria-label={t('viewer.sort')} className="x2m-sort flex items-center gap-1 text-xs font-medium text-faint">
+                <IconSort size={13} />
+                <span>{t('viewer.sort')}:</span>
+                <button className="x2m-sort-btn rounded px-1 py-0.5 text-xs font-medium text-dim underline-offset-4 transition-colors hover:text-ink [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:underline" aria-pressed={p.sort === 'name'} onClick={() => p.onSortChange('name')}>
                   {t('viewer.sortName')}
                 </button>
-                <button className="x2m-sort-btn rounded px-1.5 py-0.5 text-[10.5px] font-medium text-dim transition-colors hover:text-ink [&[aria-pressed=true]]:bg-soft [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:shadow-xs" aria-pressed={p.sort === 'date'} onClick={() => p.onSortChange('date')}>
+                <button className="x2m-sort-btn rounded px-1 py-0.5 text-xs font-medium text-dim underline-offset-4 transition-colors hover:text-ink [&[aria-pressed=true]]:text-accent-ink [&[aria-pressed=true]]:underline" aria-pressed={p.sort === 'date'} onClick={() => p.onSortChange('date')}>
                   {t('viewer.sortDate')}
                 </button>
               </span>
@@ -222,7 +228,7 @@ export function MdTreeList(p: Props): React.ReactElement {
           )}
           {p.search && p.root ? (
             <div className="x2m-search-results" aria-live="polite">
-              <div className="px-2 py-1.5 text-[11.5px] text-dim">
+              <div className="px-2 py-1.5 text-xs text-dim">
                 {p.search.error
                   ? p.search.error
                   : p.search.loading && !p.search.result
@@ -240,7 +246,7 @@ export function MdTreeList(p: Props): React.ReactElement {
                     {f.hits.map((h) => (
                       <button
                         key={h.line}
-                        className="x2m-search-hit flex w-full cursor-pointer gap-2 rounded-md py-0.5 pr-2 pl-[30px] text-left text-[11.5px] text-dim outline-none hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
+                        className="x2m-search-hit flex w-full cursor-pointer gap-2 rounded-md py-0.5 pr-2 pl-[30px] text-left text-xs text-dim outline-none hover:bg-hover hover:text-ink focus-visible:outline-2 focus-visible:outline-accent"
                         onClick={() => p.onOpenHit(abs, h)}
                         title={h.heading ? t('viewer.hitTitle', { heading: h.heading, line: h.line }) : t('viewer.hitLine', { line: h.line })}
                       >
@@ -261,7 +267,7 @@ export function MdTreeList(p: Props): React.ReactElement {
           {p.root && p.relFiles.length === 0 && !p.listing && <div className="x2m-loading">{t('viewer.noMd')}</div>}
           {p.loose.length > 0 && (
             <>
-              <div className="x2m-tree-group px-2 py-1.5 text-[11.5px] font-semibold text-dim border-t border-line/40 mt-2">{t('viewer.opened')}</div>
+              <div className="x2m-tree-group px-2 py-1.5 text-xs font-semibold text-dim border-t border-line/40 mt-2">{t('viewer.opened')}</div>
               {p.loose
                 .filter((f) => !q || f.toLowerCase().includes(q))
                 .map((f) => fileRow(f, baseName(f), 0, f, () => p.onRemoveLoose(f)))}

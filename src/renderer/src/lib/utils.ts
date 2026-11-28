@@ -52,7 +52,11 @@ export function uid(): string {
 }
 
 /** Simple toast bus */
-type ToastListener = (msg: string, kind: 'ok' | 'err') => void
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+type ToastListener = (msg: string, kind: 'ok' | 'err', action?: ToastAction) => void
 const listeners = new Set<ToastListener>()
 
 export function onToast(fn: ToastListener): () => void {
@@ -62,6 +66,6 @@ export function onToast(fn: ToastListener): () => void {
   }
 }
 
-export function toast(msg: string, kind: 'ok' | 'err' = 'ok'): void {
-  listeners.forEach((fn) => fn(msg, kind))
+export function toast(msg: string, kind: 'ok' | 'err' = 'ok', action?: ToastAction): void {
+  listeners.forEach((fn) => fn(msg, kind, action))
 }

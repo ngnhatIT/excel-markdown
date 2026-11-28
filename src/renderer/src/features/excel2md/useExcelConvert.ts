@@ -63,9 +63,8 @@ export function useExcelConvert({
       if (cancelledCount > 0) {
         toast(t('toast.excel.cancelled', { ok: okCount, cancelled: cancelledCount }), 'err')
       } else if (okCount === res.length) {
-        toast(
-          mdCount === 0 ? t('toast.excel.nothing') : t('toast.excel.done', { md: mdCount, n: res.length })
-        )
+        // có file ghi ra thì bảng Kết quả đã nói đủ, không thêm toast lặp lại
+        if (mdCount === 0) toast(t('toast.excel.nothing'))
       } else {
         toast(t('toast.excel.partial', { ok: okCount, n: res.length }), 'err')
       }

@@ -72,7 +72,7 @@ export function Header({ onPickFiles, mode, onLangChange }: Pick<Props, 'onPickF
             <button
               key={l}
               className={cn(
-                'x2m-lang-btn rounded px-2 py-0.5 text-[11.5px] font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+                'x2m-lang-btn rounded px-2 py-0.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
                 lang === l ? 'active seg-on' : 'text-dim hover:text-ink'
               )}
               onClick={() => onLangChange(l)}

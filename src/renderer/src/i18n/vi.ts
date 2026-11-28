@@ -6,6 +6,8 @@ export const vi = {
   'lang.en': 'English',
   'lang.ja': '日本語',
 
+  'common.undo': 'Hoàn tác',
+  'toast.excel.cleared': 'Đã xóa {n} file khỏi danh sách',
   'common.close': 'Đóng',
   'common.cancel': 'Hủy',
   'common.copy': 'Copy',
@@ -113,6 +115,7 @@ export const vi = {
   'files.rows': '{n} dòng',
   'files.rowsHidden': '{n} dòng (sheet ẩn trong Excel)',
   'files.hiddenTag': 'ẩn',
+  'files.willSkip': 'sẽ bỏ qua',
   'files.rowsShort': '{n} dòng',
 
   'mdfiles.title': 'File Markdown ({n})',
@@ -243,6 +246,7 @@ export const vi = {
   'viewer.closePaste': 'Đóng bản dán',
   'viewer.recent': 'Mới sửa',
   'viewer.all': 'Tất cả',
+  'viewer.sort': 'Sắp xếp',
   'viewer.sortName': 'Tên',
   'viewer.sortDate': 'Ngày sửa',
   'viewer.searching': 'Đang tìm...',
@@ -263,16 +267,16 @@ export const vi = {
   'palette.heading': 'Mục',
 
   'ai.title': 'Trợ lý AI (RAG)',
-  'ai.quick.summary': '📋 Tóm tắt nghiệp vụ',
+  'ai.quick.summary': 'Tóm tắt nghiệp vụ',
   'ai.quick.summaryPrompt':
     'Hãy tóm tắt mục đích nghiệp vụ, luồng xử lý chính và các bảng quan trọng của tài liệu đang xem bằng tiếng Việt.',
-  'ai.quick.review': '🔍 Kiểm tra thiếu sót',
+  'ai.quick.review': 'Kiểm tra thiếu sót',
   'ai.quick.reviewPrompt':
     'Hãy rà soát tài liệu thiết kế này xem có điểm nào mơ hồ, thiếu điều kiện biên (validation/error handling) hoặc mâu thuẫn giữa các mục không.',
-  'ai.quick.tests': '🧪 Sinh test case',
+  'ai.quick.tests': 'Sinh test case',
   'ai.quick.testsPrompt':
     'Từ tài liệu đang xem, hãy sinh bảng test case (No | Hạng mục | Điều kiện / Dữ liệu vào | Thao tác | Kết quả mong đợi | Nguồn) bao phủ từng 項目, 入力チェック, sự kiện và trường hợp lỗi. Mỗi dòng ghi rõ trích dẫn nguồn.',
-  'ai.quick.cross': '🔗 Đối chiếu chéo',
+  'ai.quick.cross': 'Đối chiếu chéo',
   'ai.quick.crossPrompt':
     'Hãy đối chiếu chéo các tài liệu trong thư mục: tên bảng/cột DB, mã màn hình, độ dài - kiểu dữ liệu và mã lỗi có khớp nhau giữa các file không. Liệt kê từng điểm lệch kèm trích dẫn hai phía.',
   'ai.quick.folderTitle': 'Chạy trên cả thư mục',

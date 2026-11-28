@@ -6,6 +6,8 @@ export const en: Dict = {
   'lang.en': 'English',
   'lang.ja': '日本語',
 
+  'common.undo': 'Undo',
+  'toast.excel.cleared': 'Removed {n} files from the list',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.copy': 'Copy',
@@ -113,6 +115,7 @@ export const en: Dict = {
   'files.rows': '{n} rows',
   'files.rowsHidden': '{n} rows (hidden in Excel)',
   'files.hiddenTag': 'hidden',
+  'files.willSkip': 'will be skipped',
   'files.rowsShort': '{n} rows',
 
   'mdfiles.title': 'Markdown files ({n})',
@@ -243,6 +246,7 @@ export const en: Dict = {
   'viewer.closePaste': 'Close pasted document',
   'viewer.recent': 'Recently modified',
   'viewer.all': 'All',
+  'viewer.sort': 'Sort',
   'viewer.sortName': 'Name',
   'viewer.sortDate': 'Modified',
   'viewer.searching': 'Searching...',
@@ -263,16 +267,16 @@ export const en: Dict = {
   'palette.heading': 'Section',
 
   'ai.title': 'AI Assistant (RAG)',
-  'ai.quick.summary': '📋 Business summary',
+  'ai.quick.summary': 'Business summary',
   'ai.quick.summaryPrompt':
     'Summarize the business purpose, main processing flow and key tables of the document I am viewing, in English.',
-  'ai.quick.review': '🔍 Find gaps',
+  'ai.quick.review': 'Find gaps',
   'ai.quick.reviewPrompt':
     'Review this design document for anything ambiguous, missing edge conditions (validation/error handling) or contradictions between sections.',
-  'ai.quick.tests': '🧪 Generate test cases',
+  'ai.quick.tests': 'Generate test cases',
   'ai.quick.testsPrompt':
     'From the document I am viewing, generate a test case table (No | Item | Precondition / Input | Steps | Expected result | Source) covering every 項目, 入力チェック, event and error case. Cite the source on every row.',
-  'ai.quick.cross': '🔗 Cross-check',
+  'ai.quick.cross': 'Cross-check',
   'ai.quick.crossPrompt':
     'Cross-check the documents in the folder: do DB table/column names, screen IDs, lengths and data types, and error codes match across files? List each mismatch with citations from both sides.',
   'ai.quick.folderTitle': 'Runs on the whole folder',

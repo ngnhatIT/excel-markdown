@@ -16,7 +16,7 @@ function Cell({ c, n }: { c: Check; n?: number }): React.ReactElement {
   return (
     <td className={cn('border-b border-line-subtle px-2 py-1.5 text-center tabular-nums', c === null ? 'text-faint' : c ? 'text-success' : 'font-semibold text-danger')} aria-label={t(c === null ? 'sm.done.na' : c ? 'sm.done.ok' : 'sm.done.ng')}>
       {mark(c)}
-      {!c && n ? <span className="ml-0.5 text-[10.5px]">{n}</span> : null}
+      {!c && n ? <span className="ml-0.5 text-xs">{n}</span> : null}
     </td>
   )
 }
@@ -58,7 +58,7 @@ export function SpecCompleteness({ index, onOpen }: { index: SpecIndex; onOpen: 
         <p className="m-0 pb-1 text-[12.5px] text-dim">{summary}</p>
         <ExportBar md={() => [`# ${t('sm.tab.done')}: ${pct(c.overall)}`, '', summary, '', tableText(rows().slice(0, c.screens.length + 1), 'md'), tableText(rows().slice(c.screens.length + 3), 'md')].join('\n')} tsv={() => rows().map((r) => r.join('\t')).join('\n') + '\n'} name="完成度" label={t('sm.tab.done')} />
       </div>
-      <p className="m-0 max-w-[90ch] text-[11.5px] leading-relaxed text-faint">{t('sm.done.hint')}</p>
+      <p className="m-0 max-w-[90ch] text-xs leading-relaxed text-faint">{t('sm.done.hint')}</p>
 
       {c.screens.length > 0 && (
         <div className="max-h-[52vh] overflow-auto rounded-md border border-line-subtle">

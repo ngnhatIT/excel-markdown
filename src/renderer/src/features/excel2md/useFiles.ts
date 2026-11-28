@@ -57,6 +57,14 @@ export function useFiles(skipDelSheets: boolean, persist: (key: string, value: u
     setFiles((prev) => prev.filter((f) => f.id !== id))
   }, [])
 
+  /** Khôi phục danh sách đã xóa (nút Hoàn tác); file đã được thêm lại sau đó thì bỏ qua bản cũ. */
+  const restoreFiles = useCallback((old: FileItem[]) => {
+    setFiles((prev) => {
+      const known = new Set(prev.map((f) => f.path))
+      return [...old.filter((f) => !known.has(f.path)), ...prev]
+    })
+  }, [])
+
   /** Đổi tick sheet của một file rồi nhớ lựa chọn (giữ tối đa MAX_REMEMBERED file). */
   const updateChecks = useCallback(
     (fileId: string, change: (s: SheetInfo) => SheetInfo) => {
@@ -120,5 +128,5 @@ export function useFiles(skipDelSheets: boolean, persist: (key: string, value: u
     [files, patch]
   )
 
-  return { files, setSavedChecks, addPaths, removeFile, toggleFileSheets, toggleSheet, reloadSheets, relistAll }
+  return { files, setSavedChecks, addPaths, removeFile, restoreFiles, toggleFileSheets, toggleSheet, reloadSheets, relistAll }
 }

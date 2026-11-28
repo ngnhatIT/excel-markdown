@@ -68,7 +68,7 @@ export function TargetPicker({ value, onChange }: { value: TranslateLang; onChan
           key={l}
           role="radio"
           aria-checked={value === l}
-          className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium text-dim hover:text-ink', value === l && 'seg-on')}
+          className={cn('rounded px-1.5 py-0.5 text-xs font-medium text-dim hover:text-ink', value === l && 'seg-on')}
           onClick={() => onChange(l)}
           lang={l}
         >
@@ -82,7 +82,7 @@ export function TargetPicker({ value, onChange }: { value: TranslateLang; onChan
 /** `Tiếng Nhật → Tiếng Việt` */
 export function Direction({ source, to }: { source: string; to: TranslateLang }): React.ReactElement {
   const t = useT()
-  return <span className="text-[11.5px] text-dim">{t('tr.direction', { from: t(`tr.lang.${detectTextLang(source)}`), to: t(`tr.lang.${to}`) })}</span>
+  return <span className="text-xs text-dim">{t('tr.direction', { from: t(`tr.lang.${detectTextLang(source)}`), to: t(`tr.lang.${to}`) })}</span>
 }
 
 /** Thuật ngữ 用語集 mà bản dịch đã theo. */
@@ -90,7 +90,7 @@ export function TermsUsed({ terms }: { terms: GlossaryEntry[] }): React.ReactEle
   const t = useT()
   if (terms.length === 0) return null
   return (
-    <p className="m-0 flex flex-wrap items-center gap-1 text-[11px] text-faint">
+    <p className="m-0 flex flex-wrap items-center gap-1 text-xs text-faint">
       <span>{t('tr.terms')}</span>
       {terms.slice(0, 12).map((e, i) => (
         <span key={i} className="rounded border border-line-subtle bg-soft px-1.5 py-px text-dim">
@@ -187,13 +187,13 @@ export function TranslateDialog({ source, label, initial, onClose }: { source: s
         </div>
         <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line overflow-hidden">
           <section className="flex min-h-0 flex-col" aria-label={t('tr.source')}>
-            <h3 className="m-0 border-b border-line-subtle bg-soft px-4 py-1.5 text-[11.5px] font-semibold text-dim">{t('tr.source')}</h3>
+            <h3 className="m-0 border-b border-line-subtle bg-soft px-4 py-1.5 text-xs font-semibold text-dim">{t('tr.source')}</h3>
             <div className="min-h-0 flex-1 overflow-auto px-4 py-3" tabIndex={0}>
               <MdHtml md={source} />
             </div>
           </section>
           <section className="flex min-h-0 flex-col" aria-label={t('tr.result')}>
-            <h3 className="m-0 border-b border-line-subtle bg-soft px-4 py-1.5 text-[11.5px] font-semibold text-dim">{t('tr.result')}</h3>
+            <h3 className="m-0 border-b border-line-subtle bg-soft px-4 py-1.5 text-xs font-semibold text-dim">{t('tr.result')}</h3>
             <div className="min-h-0 flex-1 overflow-auto px-4 py-3" tabIndex={0} aria-live="polite">
               {shown.loading ? (
                 <Skeleton label={t('tr.loading')} />
@@ -214,7 +214,7 @@ export function TranslateDialog({ source, label, initial, onClose }: { source: s
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-2">
           <TermsUsed terms={shown.terms} />
-          <span className="ml-auto text-[10.5px] text-faint">{t('tr.privacy')}</span>
+          <span className="ml-auto text-xs text-faint">{t('tr.privacy')}</span>
         </div>
       </div>
     </div>,

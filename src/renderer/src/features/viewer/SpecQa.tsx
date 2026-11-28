@@ -28,7 +28,7 @@ export function SpecQa({ index, onOpen }: { index: SpecIndex; onOpen: (rel: stri
         <p className="m-0 text-[12.5px] font-semibold text-ink">{t('sm.qa.summary', { n: all.length, spec, doc: all.length - spec })}</p>
         <span className="flex items-center gap-0.5 rounded-md border border-line bg-soft p-0.5" role="radiogroup" aria-label={t('sm.qa.lang')}>
           {QA_LANGS.map((l) => (
-            <button key={l} role="radio" aria-checked={lang === l} lang={l} className={cn('rounded px-1.5 py-0.5 text-[11px] font-medium text-dim hover:text-ink', lang === l && 'seg-on')} onClick={() => setLang(l)}>
+            <button key={l} role="radio" aria-checked={lang === l} lang={l} className={cn('rounded px-1.5 py-0.5 text-xs font-medium text-dim hover:text-ink', lang === l && 'seg-on')} onClick={() => setLang(l)}>
               {LANG_CHIP[l]}
             </button>
           ))}
@@ -68,7 +68,7 @@ export function SpecQa({ index, onOpen }: { index: SpecIndex; onOpen: (rel: stri
                 <tr key={`${r.kind}|${r.rel}|${r.line}|${r.no}`} className="align-top">
                   <td className="border-b border-line-subtle px-2 py-1.5 tabular-nums text-faint">{r.no}</td>
                   <td className="border-b border-line-subtle px-2 py-1.5">
-                    <span className={cn('whitespace-nowrap rounded px-1.5 py-px text-[11px] font-semibold', r.category === 'spec' ? 'bg-accent-soft text-accent-ink' : 'bg-warning-soft text-warning')}>
+                    <span className={cn('whitespace-nowrap rounded px-1.5 py-px text-xs font-semibold', r.category === 'spec' ? 'bg-accent-soft text-accent-ink' : 'bg-warning-soft text-warning')}>
                       {qaCategoryLabel(r.category, lang)}
                     </span>
                   </td>

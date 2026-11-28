@@ -8,11 +8,11 @@ import { useT } from '../../i18n'
 const focusRing = 'focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent'
 const segGroup = 'grid grid-cols-3 gap-1 rounded-lg border border-line-subtle bg-canvas p-[3px]'
 const segBtn = cx(
-  'cursor-pointer rounded-lg px-1 py-1.5 text-center text-[11.5px] font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50',
+  'cursor-pointer rounded-lg px-1 py-1.5 text-center text-xs font-semibold leading-tight [text-wrap:balance] transition-[background-color,color,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-50',
   focusRing
 )
 const segState = (on: boolean): string => (on ? 'active seg-on' : 'text-dim hover:bg-hover hover:text-ink')
-const optRow = 'flex cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] [&_.dim]:mt-px [&_.dim]:block [&_.dim]:text-[11px] [&_.dim]:text-dim'
+const optRow = 'flex cursor-pointer items-start gap-2 text-[12.5px] leading-[1.45] [&_.dim]:mt-px [&_.dim]:block [&_.dim]:text-xs [&_.dim]:text-dim'
 const optGroup = 'glass-chip flex flex-col gap-2 rounded-lg p-3'
 const chk = 'chk size-3.5 shrink-0 cursor-pointer accent-accent disabled:cursor-not-allowed disabled:opacity-50'
 const fieldCls = 'flex flex-col gap-1 mt-1 text-xs text-dim'
@@ -84,7 +84,7 @@ export function OptionsPanel({
     >
       <div className="x2m-opts flex flex-col gap-2.5 px-3 pb-4 pt-3">
         {projectConfig && (
-          <div className={`x2m-project-config ${optGroup} text-[11.5px] leading-[1.5]`} role="note">
+          <div className={`x2m-project-config ${optGroup} text-xs leading-[1.5]`} role="note">
             <div className="font-semibold text-ink">{t('opts.project.title')}</div>
             <div className="text-dim">{t(locked.size > 0 ? 'opts.project.locked' : 'opts.project.none')}</div>
             <div className="truncate text-faint" title={projectConfig.path}>
@@ -131,7 +131,7 @@ export function OptionsPanel({
             </button>
           </div>
           {/* Ghi rõ preset đang chọn làm gì (trước chỉ có tooltip nên 3 nút trông như nhau) */}
-          <p className="x2m-preset-desc m-0 text-[11.5px] leading-relaxed text-dim">
+          <p className="x2m-preset-desc m-0 text-xs leading-relaxed text-dim">
             {t(activePreset === 'rag' ? 'opts.preset.ragDesc' : activePreset === 'spec' ? 'opts.preset.specDesc' : 'opts.preset.customDesc')}
           </p>
         </div>
@@ -345,7 +345,7 @@ export function OptionsPanel({
           </label>
         </div>
 
-        <div className="x2m-opt-note border-t border-line pt-2.5 text-[11.5px] leading-[1.55] text-faint">
+        <div className="x2m-opt-note border-t border-line pt-2.5 text-xs leading-[1.55] text-faint">
           {t('opts.note')}
         </div>
       </div>

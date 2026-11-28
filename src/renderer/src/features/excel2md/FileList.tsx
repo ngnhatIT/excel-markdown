@@ -4,7 +4,7 @@ import {
   btnGhost,
   btnSm,
   btnMini,
-  iconBtn,
+  iconBtnDanger,
   input,
   paneTitle,
   filesAside,
@@ -31,6 +31,8 @@ const chevronBtn =
 
 interface Props {
   files: FileItem[]
+  /** Đang bật "Bỏ qua sheet rỗng": sheet 0 dòng không tính vào số sheet sẽ convert */
+  skipEmpty?: boolean
   expanded: Record<string, boolean>
   onToggleExpanded: (fileId: string) => void
   selFileId: string | null
@@ -88,7 +90,7 @@ export function FileList(p: Props): React.ReactElement {
       className={cn('x2m-files', filesAside, p.dragOver && 'drag-over', p.dragOver && filesAsideDrag)}
       style={p.width ? { width: p.width, minWidth: p.width } : undefined}
     >
-      <div className={cn('x2m-pane-title', paneTitle, '!text-[11.5px] !normal-case !tracking-normal')}>
+      <div className={cn('x2m-pane-title', paneTitle, '!text-xs !normal-case !tracking-normal')}>
         <span>{t('files.title', { n: files.length })}</span>
         <span className="x2m-side-head-actions flex items-center gap-1">
           {files.length > 0 && totalSheets > 0 && (
@@ -146,7 +148,9 @@ export function FileList(p: Props): React.ReactElement {
       ) : (
         <div className="x2m-file-list flex flex-col gap-1.5 px-2 pb-4">
           {files.map((f) => {
+            const willSkip = (s: FileItem['sheets'][number]): boolean => !!p.skipEmpty && s.rows === 0
             const checked = f.sheets.filter((s) => s.checked).length
+            const effective = f.sheets.filter((s) => s.checked && !willSkip(s)).length
             const isOpen = expanded[f.id] ?? false
             const visible = f.sheets.filter((s) =>
               sheetFilter ? s.name.toLowerCase().includes(sheetFilter.toLowerCase()) : true
@@ -167,7 +171,7 @@ export function FileList(p: Props): React.ReactElement {
                   />
                   <button className={cn("x2m-file-name", fileNameBtn)} onClick={() => p.onToggleExpanded(f.id)} title={f.path}>
                     <span className={cn("x2m-file-name-text", fileNameText)}>{f.name}</span>
-                    <span className="dim text-[11.5px] text-dim">{f.loading ? t('files.reading') : t('files.checked', { checked, total: f.sheets.length })}</span>
+                    <span className="dim text-xs text-dim">{f.loading ? t('files.reading') : t('files.checked', { checked: effective, total: f.sheets.length })}</span>
                   </button>
                   <button
                     className={cn('x2m-chevron', chevronBtn, isOpen && 'open rotate-180')}
@@ -178,7 +182,7 @@ export function FileList(p: Props): React.ReactElement {
                     <IconChevronDown size={15} />
                   </button>
                   <button
-                    className={cn("icon-btn", iconBtn)}
+                    className={cn("icon-btn", iconBtnDanger)}
                     onClick={() => p.onRemoveFile(f.id)}
                     title={t('common.removeFromList')}
                     aria-label={t('common.removeFromList')}
@@ -205,7 +209,7 @@ export function FileList(p: Props): React.ReactElement {
                       visible.map((s) => (
                         <label
                           key={s.name}
-                          className={cn('x2m-sheet group flex cursor-pointer items-center gap-[7px] rounded-md px-2 py-[5px] transition-colors duration-100 hover:bg-hover motion-reduce:transition-none', selFileId === f.id && selSheet === s.name && 'selected bg-accent-soft')}
+                          className={cn('x2m-sheet group flex cursor-pointer items-center gap-[7px] rounded-md px-2 py-[5px] transition-colors duration-100 hover:bg-hover motion-reduce:transition-none', willSkip(s) && 'opacity-50', selFileId === f.id && selSheet === s.name && 'selected bg-accent-soft')}
                         >
                           <input
                             type="checkbox"
@@ -223,8 +227,8 @@ export function FileList(p: Props): React.ReactElement {
                             title={t(s.hidden ? 'files.rowsHidden' : 'files.rows', { n: s.rows })}
                           >
                             <span className={cn("x2m-sheet-label min-w-0 flex-1 truncate", selFileId === f.id && selSheet === s.name && "font-semibold text-accent-ink")}>{s.name}</span>
-                            {s.hidden && <span className="x2m-tag inline-block shrink-0 rounded-md border border-line bg-raised px-[5px] text-[10px] leading-[15px] text-faint">{t('files.hiddenTag')}</span>}
-                            <span className="x2m-sheet-rows shrink-0 text-[10.5px] tabular-nums text-faint">{t('files.rowsShort', { n: s.rows })}</span>
+                            {s.hidden && <span className="x2m-tag inline-block shrink-0 rounded-md border border-line bg-raised px-[5px] text-xs leading-[15px] text-faint">{t('files.hiddenTag')}</span>}
+                            <span className="x2m-sheet-rows shrink-0 text-xs tabular-nums text-faint">{willSkip(s) ? t('files.willSkip') : t('files.rowsShort', { n: s.rows })}</span>
                           </button>
                         </label>
                       ))

@@ -104,6 +104,9 @@ export default function App(): React.ReactElement {
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [leftWidth, setLeftWidth] = useState(300)
   const [rightWidth, setRightWidth] = useState(304)
+  // onUp cần giá trị mới nhất sau khi kéo (closure của startResize giữ giá trị lúc bắt đầu)
+  const widthRef = useRef({ left: 300, right: 304 })
+  widthRef.current = { left: leftWidth, right: rightWidth }
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null)
   /** Bản đồ thiết kế + 影響調査 thay vùng xem của chế độ Đọc Markdown */
   const [specMapOpen, setSpecMapOpen] = useState(false)
@@ -117,6 +120,7 @@ export default function App(): React.ReactElement {
     setSavedChecks,
     addPaths,
     removeFile: dropFile,
+    restoreFiles,
     toggleFileSheets,
     toggleSheet,
     reloadSheets,
@@ -175,6 +179,12 @@ export default function App(): React.ReactElement {
       .storeGet<boolean>('sideCollapsed')
       .then((c) => setSideCollapsed(c === true))
       .catch(() => undefined)
+    // Độ rộng cột trái/phải và trạng thái thu gọn cột trái (ngoài khoảng cho phép thì bỏ qua)
+    const num = (v: unknown, min: number, max: number): number | null =>
+      typeof v === 'number' && v >= min && v <= max ? v : null
+    window.api.storeGet<number>('leftWidth').then((v) => { const w = num(v, 220, 520); if (w) setLeftWidth(w) }).catch(() => undefined)
+    window.api.storeGet<number>('rightWidth').then((v) => { const w = num(v, 240, 500); if (w) setRightWidth(w) }).catch(() => undefined)
+    window.api.storeGet<boolean>('leftCollapsed').then((c) => setLeftCollapsed(c === true)).catch(() => undefined)
     ;(async () => {
       try {
         const [root, file] = await Promise.all([
@@ -219,8 +229,11 @@ export default function App(): React.ReactElement {
   }, [persist, sideHidden, sideCollapsed])
 
   const toggleLeft = useCallback(() => {
-    setLeftCollapsed((c) => !c)
-  }, [])
+    setLeftCollapsed((c) => {
+      persist('leftCollapsed', !c)
+      return !c
+    })
+  }, [persist])
 
   const startResize = useCallback(
     (side: 'left' | 'right', e: React.MouseEvent<HTMLDivElement>) => {
@@ -236,6 +249,7 @@ export default function App(): React.ReactElement {
         }
       }
       const onUp = (): void => {
+        persist(side === 'left' ? 'leftWidth' : 'rightWidth', side === 'left' ? widthRef.current.left : widthRef.current.right)
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         document.body.style.cursor = ''
@@ -244,7 +258,21 @@ export default function App(): React.ReactElement {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [leftWidth, rightWidth]
+    [leftWidth, rightWidth, persist]
+  )
+
+  // Nhấp đúp thanh kéo: về độ rộng mặc định
+  const resetWidth = useCallback(
+    (side: 'left' | 'right') => {
+      if (side === 'left') {
+        setLeftWidth(300)
+        persist('leftWidth', 300)
+      } else {
+        setRightWidth(304)
+        persist('rightWidth', 304)
+      }
+    },
+    [persist]
   )
 
   const addPathsRef = useRef(addPaths)
@@ -362,11 +390,13 @@ export default function App(): React.ReactElement {
   )
 
   const clearAllFiles = useCallback(() => {
-    for (const f of files) dropFile(f.id)
+    const removed = files
+    for (const f of removed) dropFile(f.id)
     setSelFileId(null)
     setSelSheet(null)
     setResults(null)
-  }, [files, dropFile])
+    toast(t('toast.excel.cleared', { n: removed.length }), 'ok', { label: t('common.undo'), onClick: () => restoreFiles(removed) })
+  }, [files, dropFile, restoreFiles])
 
   const toggleExpanded = useCallback((id: string) => {
     setExpanded((p) => ({ ...p, [id]: !(p[id] ?? false) }))
@@ -512,8 +542,8 @@ export default function App(): React.ReactElement {
 
   /* ------------------------------- convert --------------------------------- */
   const checkedCount = useMemo(
-    () => files.reduce((n, f) => n + f.sheets.filter((s) => s.checked).length, 0),
-    [files]
+    () => files.reduce((n, f) => n + f.sheets.filter((s) => s.checked && !(effectiveOptions.skipEmptySheets && s.rows === 0)).length, 0),
+    [files, effectiveOptions.skipEmptySheets]
   )
 
   /** Thư mục xuất hiện tại; chưa có thì hỏi người dùng. null = bỏ qua (hoặc lỗi đã báo). */
@@ -885,6 +915,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
+                onDoubleClick={() => resetWidth('right')}
                 title={t('app.resize.ai')}
               />
             )}
@@ -906,6 +937,7 @@ export default function App(): React.ReactElement {
           <>
             <FileList
               files={files}
+              skipEmpty={effectiveOptions.skipEmptySheets}
               expanded={expanded}
               onToggleExpanded={toggleExpanded}
               selFileId={selFileId}
@@ -928,6 +960,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('left', e)}
+                onDoubleClick={() => resetWidth('left')}
                 title={t('app.resize.files')}
               />
             )}
@@ -959,6 +992,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
+                onDoubleClick={() => resetWidth('right')}
                 title={t('app.resize.options')}
               />
             )}

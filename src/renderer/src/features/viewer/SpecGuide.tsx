@@ -48,15 +48,15 @@ export function SpecGuide({ index, onOpen }: { index: SpecIndex; onOpen: (rel: s
             <li key={k} className="grid gap-x-4 gap-y-1.5 rounded-md border border-line-subtle p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <span className={cn('shrink-0 rounded px-1.5 py-px text-[11px] font-semibold tabular-nums', ok ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning')}>
+                  <span className={cn('shrink-0 rounded px-1.5 py-px text-xs font-semibold tabular-nums', ok ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning')}>
                     {ok ? t('sm.guide.found', { n: count[k] }) : t('sm.guide.missing')}
                   </span>
                   <h3 className="m-0 text-[13px] font-semibold text-ink">{t(`sm.guide.${k}.title`)}</h3>
                 </div>
                 <p className="m-0 text-dim">{t(`sm.guide.${k}.how`)}</p>
-                <p className="m-0 text-[11.5px] text-faint">{t(`sm.guide.${k}.use`)}</p>
+                <p className="m-0 text-xs text-faint">{t(`sm.guide.${k}.use`)}</p>
               </div>
-              <pre className="m-0 min-w-0 overflow-x-auto rounded border border-line-subtle bg-code px-3 py-2 font-mono text-[11.5px] leading-relaxed text-ink select-text">{EXAMPLE[k]}</pre>
+              <pre className="m-0 min-w-0 overflow-x-auto rounded border border-line-subtle bg-code px-3 py-2 font-mono text-xs leading-relaxed text-ink select-text">{EXAMPLE[k]}</pre>
             </li>
           )
         })}
@@ -65,7 +65,7 @@ export function SpecGuide({ index, onOpen }: { index: SpecIndex; onOpen: (rel: s
 
       <section className="flex flex-col gap-2">
         <h3 className="m-0 text-[13px] font-semibold text-ink">{t('sm.guide.files')}</h3>
-        <p className="m-0 text-[11.5px] text-faint">{t('sm.guide.filesHint')}</p>
+        <p className="m-0 text-xs text-faint">{t('sm.guide.filesHint')}</p>
         <div className="max-h-[320px] overflow-auto rounded-md border border-line-subtle">
           <table className="w-full border-separate border-spacing-0 text-[12px] tabular-nums">
             <thead>
@@ -86,7 +86,7 @@ export function SpecGuide({ index, onOpen }: { index: SpecIndex; onOpen: (rel: s
                       <button className="max-w-full truncate text-left hover:text-accent-ink hover:underline" onClick={() => onOpen(c.rel)} title={c.rel}>
                         {c.rel}
                       </button>
-                      {none && <span className="ml-2 text-[11px] text-warning">{t('sm.guide.nothing')}</span>}
+                      {none && <span className="ml-2 text-xs text-warning">{t('sm.guide.nothing')}</span>}
                     </td>
                     {[c.screens, c.transitions, c.tables, c.refs].map((n, i) => (
                       <td key={i} className="border-b border-line-subtle px-2 py-1 text-right">
@@ -118,10 +118,10 @@ export function SpecGuide({ index, onOpen }: { index: SpecIndex; onOpen: (rel: s
             </button>
           </span>
         </div>
-        <p className="m-0 text-[11.5px] text-faint">{t('sm.guide.sampleHint')}</p>
+        <p className="m-0 text-xs text-faint">{t('sm.guide.sampleHint')}</p>
         <details>
           <summary className="cursor-pointer select-none text-dim hover:text-ink">{t('sm.guide.preview')}</summary>
-          <pre className="mt-2 max-h-[360px] overflow-auto rounded border border-line-subtle bg-code px-3 py-2 font-mono text-[11.5px] leading-relaxed text-ink select-text">{SPEC_SAMPLE}</pre>
+          <pre className="mt-2 max-h-[360px] overflow-auto rounded border border-line-subtle bg-code px-3 py-2 font-mono text-xs leading-relaxed text-ink select-text">{SPEC_SAMPLE}</pre>
         </details>
       </section>
     </div>

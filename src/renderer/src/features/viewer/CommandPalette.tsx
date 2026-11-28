@@ -94,7 +94,7 @@ export function CommandPalette({ items, onPick, onClose }: Props): React.ReactEl
             >
               {it.kind === 'file' ? <IconFile size={14} /> : <IconList size={14} />}
               <span className="truncate">{it.label}</span>
-              <span className="ml-auto shrink-0 text-[11px] text-faint">{t(it.kind === 'file' ? 'palette.file' : 'palette.heading')}</span>
+              <span className="ml-auto shrink-0 text-xs text-faint">{t(it.kind === 'file' ? 'palette.file' : 'palette.heading')}</span>
             </li>
           ))}
         </ul>

@@ -106,7 +106,7 @@ try {
   // Ngôn ngữ giao diện: lấy 'vi' từ store; đổi EN -> 日本語 -> VI
   check('ngôn ngữ từ store: <html lang="vi">', (await waitFor(`document.documentElement.lang === 'vi'`, 3000)) >= 0, await ev(`document.documentElement.lang`))
   const langBtn = (t) => `[...document.querySelectorAll('.x2m-lang button')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
-  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[2]?.textContent.trim()`
+  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[1]?.textContent.trim()`
   const langState = `[${viewModeText}, document.documentElement.lang]`
   await ev(`(${langBtn('EN')}).click(), 1`)
   check('đổi sang English: chữ nút chế độ tiếng Anh, <html lang="en">',
@@ -185,7 +185,7 @@ try {
   await ev(`document.activeElement && document.activeElement.blur(), 1`)
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
-  const convMs = await waitFor(`document.body.innerText.includes('Xong:')`, 20000)
+  const convMs = await waitFor(`!!document.querySelector('.x2m-results')`, 20000)
   check('Ctrl+Enter convert xong', convMs >= 0)
   check('panel kết quả: 1/1 file thành công', await ev(`(document.querySelector('.x2m-results')?.innerText ?? '').includes('1/1 file thành công')`))
   const written = (() => {
@@ -214,7 +214,7 @@ try {
     await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files: bigFiles, dragOperationsMask: 1 } })
   }
   const convertBtn = `[...document.querySelectorAll('button')].find(b => b.textContent.includes('sang Markdown') || b.textContent.includes('Đang convert'))`
-  check('3 file lớn được liệt kê sheet', (await waitFor(`(${convertBtn})?.textContent.includes('Convert 6 sheet')`, 60000)) >= 0)
+  check('3 file lớn được liệt kê sheet', (await waitFor(`(${convertBtn})?.textContent.includes('Convert 5 sheet')`, 60000)) >= 0)
   const bigMd = () => readdirSync(outDir).filter((f) => f.startsWith('big-'))
   const pressCtrlEnter = async () => {
     await ev(`document.activeElement && document.activeElement.blur(), 1`)
@@ -548,7 +548,7 @@ try {
   check('AI: có chọn ngữ cảnh tối đa 3 mức', await ev(`document.querySelectorAll('#x2m-ai-ctx option').length === 3`))
   await ev(`(${providerBtn('Claude')})?.click(), 1`)
   check('AI: chọn Claude -> ô key gợi ý sk-ant, nút đầu panel ghi Claude',
-    (await waitFor(`(${providerBtn('Claude')})?.getAttribute('aria-checked') === 'true' && document.querySelector('.x2m-ai-keybox input[type=password]')?.placeholder.includes('sk-ant') && document.body.innerText.includes('🔑 Claude')`, 3000)) >= 0)
+    (await waitFor(`(${providerBtn('Claude')})?.getAttribute('aria-checked') === 'true' && document.querySelector('.x2m-ai-keybox input[type=password]')?.placeholder.includes('sk-ant') && document.body.innerText.includes('Claude')`, 3000)) >= 0)
   if (process.env.E2E_SHOT) writeFileSync(process.env.E2E_SHOT, Buffer.from((await send('Page.captureScreenshot')).result.data, 'base64'))
   const cfg = await ev(`window.api.aiSetConfig({ apiKey: 'sk-ant-e2e-test-key-123456' })`)
   check('AI: lưu key Claude không đụng key Gemini/OpenAI', cfg?.provider === 'claude' && cfg.keys.claude === 'sk-a••••3456' && cfg.keys.gemini === '' && cfg.keys.openai === '', cfg)

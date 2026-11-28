@@ -146,7 +146,7 @@ export function SelectionTranslate({ containerRef }: { containerRef: React.RefOb
           <IconX size={13} />
         </button>
       </div>
-      <p className="m-0 line-clamp-2 border-b border-line-subtle bg-soft px-3 py-1.5 text-[11.5px] text-faint" title={anchor.text}>
+      <p className="m-0 line-clamp-2 border-b border-line-subtle bg-soft px-3 py-1.5 text-xs text-faint" title={anchor.text}>
         {anchor.text}
       </p>
       <div className="min-h-[64px] flex-1 overflow-y-auto px-3 py-2.5 text-[13.5px] leading-relaxed" aria-live="polite">
@@ -171,7 +171,7 @@ export function SelectionTranslate({ containerRef }: { containerRef: React.RefOb
         </div>
       )}
       <div className="flex items-center gap-2 border-t border-line px-3 py-1.5">
-        <span className="text-[10.5px] text-faint">{t('tr.privacy')}</span>
+        <span className="text-xs text-faint">{t('tr.privacy')}</span>
         <button
           className={cx(btnGhost, btnSm, 'ml-auto')}
           disabled={!state.text}
