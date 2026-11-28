@@ -84,8 +84,8 @@ export interface ApiResult<T> {
   error?: string
 }
 
-/** Chế độ làm việc của app: Excel → Markdown (mặc định), Markdown → Excel hoặc Đọc Markdown. */
-export type AppMode = 'excel2md' | 'md2excel' | 'mdview' | 'compare'
+/** Chế độ làm việc của app: Excel → Markdown (mặc định), Đọc Markdown hoặc So sánh. */
+export type AppMode = 'excel2md' | 'mdview' | 'compare'
 
 /** Một dòng khớp khi tìm theo nội dung (chế độ Đọc Markdown). */
 export interface MdSearchHit {
@@ -116,38 +116,6 @@ export interface MdFolderListing {
   /** Quá nhiều file nên dừng quét giữa chừng */
   truncated: boolean
 }
-
-/** Kết quả đọc nhanh một file Markdown (preview + danh sách sheet sẽ tạo). */
-export interface MdInspectResult {
-  /** `# tiêu đề` đầu file (dùng cho tên file Excel mặc định); null nếu không có */
-  title: string | null
-  /** Tên sheet đã hợp lệ/không trùng trong riêng file này */
-  sheets: string[]
-  /** Nội dung Markdown nguyên văn để hiển thị preview */
-  markdown: string
-}
-
-/** Một file trong danh sách chế độ Markdown → Excel (thứ tự danh sách = thứ tự sheet). */
-export interface MdFileItem {
-  id: string
-  path: string
-  name: string
-  /** Đang đọc nhanh file (inspectMarkdown) */
-  loading: boolean
-  error?: string
-  /** `# tiêu đề` đầu file; null nếu không có */
-  title: string | null
-  /** Tên sheet sẽ tạo từ file này */
-  sheets: string[]
-  /** Nội dung nguyên văn để preview */
-  markdown: string
-}
-
-/** Kết quả Markdown → Excel. `declined`: người dùng chọn không ghi đè file đã có. */
-export type MdConvertResult =
-  | { status: 'done'; outPath: string; sheets: string[] }
-  | { status: 'cancelled' }
-  | { status: 'declined' }
 
 /* --------------------------- Trợ lý AI (RAG, nhiều nhà cung cấp) --------------------------- */
 
@@ -205,6 +173,8 @@ export interface AiConfigInfo {
   maskedKey: string
   model: AiModelId
   contextTokens: number
+  /** Tìm theo nghĩa bằng embedding (gửi mọi mục của thư mục tới nhà cung cấp); mặc định tắt */
+  embeddings: boolean
   /** Key đã che của từng nhà cung cấp ('' = chưa có) */
   keys: Record<AiProvider, string>
 }
@@ -214,6 +184,7 @@ export interface AiSetConfigPayload {
   apiKey?: string
   model?: AiModelId
   contextTokens?: number
+  embeddings?: boolean
 }
 
 export interface AiAskRequest {

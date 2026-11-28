@@ -1,5 +1,6 @@
 /* Client OpenAI (gồm cả model Codex) qua Responses API, stream SSE.
  * Khối <context> nằm trong `instructions` nên OpenAI tự cache tiền tố khi hỏi tiếp trên cùng tài liệu. */
+import { mt } from '../../../i18nMain'
 import type { AiChatTurn, AiModelId, AiUsage } from '../../../../shared/types'
 import { errorMessageOf, postJsonWithRetry, readSse, redactApiKey, systemWithContext, trimHistory } from './shared'
 
@@ -50,7 +51,7 @@ export async function callOpenAiApi(opts: {
   system?: string
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
-  if (!key) throw new Error('Chưa cấu hình OpenAI API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
+  if (!key) throw new Error(mt('ai.noKey', { api: 'OpenAI' }))
   const res = await postJsonWithRetry({
     url: `${BASE}/responses`,
     headers: { Authorization: `Bearer ${key}` },
@@ -61,10 +62,10 @@ export async function callOpenAiApi(opts: {
   })
   if (!res.ok) {
     const msg = redactApiKey(await errorMessageOf(res), key)
-    if (res.status === 401 || res.status === 403) throw new Error(`OpenAI API Key không hợp lệ hoặc không có quyền truy cập (${res.status}): ` + msg)
-    if (res.status === 404) throw new Error(`Model "${opts.model}" không tồn tại hoặc key không dùng được. Bấm ↻ để tải lại danh sách model.`)
-    if (res.status === 429) throw new Error('Đã vượt giới hạn hoặc hết hạn mức OpenAI API (429): ' + msg)
-    throw new Error(`Lỗi OpenAI API (${res.status}): ` + msg)
+    if (res.status === 401 || res.status === 403) throw new Error(mt('ai.badKey', { api: 'OpenAI', status: res.status, msg }))
+    if (res.status === 404) throw new Error(mt('ai.badModel', { model: `"${opts.model}"` }))
+    if (res.status === 429) throw new Error(mt('ai.rateLimit', { api: 'OpenAI', msg: ' ' + msg }))
+    throw new Error(mt('ai.apiError', { api: 'OpenAI', status: res.status, msg }))
   }
 
   let text = ''
@@ -79,18 +80,18 @@ export async function callOpenAiApi(opts: {
       } else if (ev.type === 'response.completed' || ev.type === 'response.incomplete') {
         final = ev.response
       } else if (ev.type === 'response.failed') {
-        throw new Error('Lỗi OpenAI API: ' + redactApiKey(ev.response?.error?.message ?? 'phản hồi thất bại', key))
+        throw new Error(mt('ai.apiFail', { api: 'OpenAI', msg: redactApiKey(ev.response?.error?.message ?? 'response.failed', key) }))
       } else if (ev.type === 'error') {
-        throw new Error('Lỗi OpenAI API: ' + redactApiKey(ev.message ?? 'không rõ', key))
+        throw new Error(mt('ai.apiFail', { api: 'OpenAI', msg: redactApiKey(ev.message ?? '?', key) }))
       }
     },
     opts.signal
   )
 
   text = text.trim()
-  if (!text) throw new Error('OpenAI không trả về nội dung.')
+  if (!text) throw new Error(mt('ai.empty', { api: 'OpenAI' }))
   if (final?.status === 'incomplete') {
-    text += `\n\n*(Lưu ý: câu trả lời bị cắt ngang (${final.incomplete_details?.reason ?? 'incomplete'}))*`
+    text += '\n\n' + mt('ai.incomplete', { reason: final.incomplete_details?.reason ?? 'incomplete' })
   }
   const u = final?.usage
   const usage =
@@ -121,15 +122,15 @@ export function filterOpenAiModels(models: { id?: string; created?: number }[]):
 
 export async function listOpenAiModels(apiKey: string): Promise<string[]> {
   const key = apiKey.trim()
-  if (!key) throw new Error('Chưa cấu hình OpenAI API Key.')
+  if (!key) throw new Error(mt('ai.noKey', { api: 'OpenAI' }))
   let res: Response
   try {
     res = await fetch(`${BASE}/models`, { headers: { Authorization: `Bearer ${key}` } })
   } catch (err) {
-    throw new Error('Không kết nối được tới OpenAI API: ' + redactApiKey(String(err), key))
+    throw new Error(mt('ai.connect', { api: 'OpenAI', msg: redactApiKey(String(err), key) }))
   }
   if (!res.ok) {
-    throw new Error(`Không lấy được danh sách model (${res.status}): ` + redactApiKey(await errorMessageOf(res), key))
+    throw new Error(mt('ai.modelsFailed', { status: res.status, msg: redactApiKey(await errorMessageOf(res), key) }))
   }
   const data = (await res.json()) as { data?: { id?: string; created?: number }[] }
   return filterOpenAiModels(data.data ?? [])

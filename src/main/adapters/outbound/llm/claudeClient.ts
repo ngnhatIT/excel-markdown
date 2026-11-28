@@ -1,5 +1,6 @@
 /* Client Claude (Anthropic API) qua SDK chính thức, stream câu trả lời.
  * Khối <context> nằm ở system kèm cache_control: hỏi tiếp trên cùng tài liệu thì phần này đọc từ cache (rẻ ~10 lần). */
+import { mt } from '../../../i18nMain'
 import Anthropic from '@anthropic-ai/sdk'
 import type { AiChatTurn, AiModelId, AiUsage } from '../../../../shared/types'
 import { contextBlock, redactApiKey, SYSTEM_INSTRUCTION, trimHistory, USER_ABORT_MSG } from './shared'
@@ -33,16 +34,16 @@ export function buildClaudeParams(
 
 function friendlyClaudeError(err: unknown, key: string): Error {
   if (err instanceof Anthropic.APIUserAbortError) return new Error(USER_ABORT_MSG)
-  if (err instanceof Anthropic.APIConnectionTimeoutError) return new Error('Quá thời gian chờ phản hồi từ Claude API. Vui lòng thử lại.')
+  if (err instanceof Anthropic.APIConnectionTimeoutError) return new Error(mt('ai.timeout', { api: 'Claude', secs: '' }))
   if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) {
-    return new Error(`Claude API Key không hợp lệ hoặc không có quyền truy cập (${err.status}): ` + redactApiKey(err.message, key))
+    return new Error(mt('ai.badKey', { api: 'Claude', status: err.status, msg: redactApiKey(err.message, key) }))
   }
   if (err instanceof Anthropic.NotFoundError) {
-    return new Error('Model Claude không tồn tại hoặc key không dùng được model này. Bấm ↻ để tải lại danh sách model.')
+    return new Error(mt('ai.badModel', { model: 'Claude' }))
   }
-  if (err instanceof Anthropic.RateLimitError) return new Error('Đã vượt giới hạn Claude API (429). Vui lòng chờ ít giây rồi thử lại.')
-  if (err instanceof Anthropic.APIConnectionError) return new Error('Không kết nối được tới Claude API: ' + redactApiKey(err.message, key))
-  if (err instanceof Anthropic.APIError) return new Error(`Lỗi Claude API (${err.status ?? '?'}): ` + redactApiKey(err.message, key))
+  if (err instanceof Anthropic.RateLimitError) return new Error(mt('ai.rateLimit', { api: 'Claude', msg: '' }))
+  if (err instanceof Anthropic.APIConnectionError) return new Error(mt('ai.connect', { api: 'Claude', msg: redactApiKey(err.message, key) }))
+  if (err instanceof Anthropic.APIError) return new Error(mt('ai.apiError', { api: 'Claude', status: err.status ?? '?', msg: redactApiKey(err.message, key) }))
   return new Error(redactApiKey(err instanceof Error ? err.message : String(err), key))
 }
 
@@ -57,7 +58,7 @@ export async function callClaudeApi(opts: {
   system?: string
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
-  if (!key) throw new Error('Chưa cấu hình Claude API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
+  if (!key) throw new Error(mt('ai.noKey', { api: 'Claude' }))
   const client = new Anthropic({ apiKey: key, timeout: 120_000, maxRetries: 2 })
   let msg: Anthropic.Beta.BetaMessage
   try {
@@ -72,17 +73,17 @@ export async function callClaudeApi(opts: {
   }
 
   if (msg.stop_reason === 'refusal') {
-    throw new Error('Claude từ chối trả lời yêu cầu này (refusal). Hãy thử diễn đạt lại câu hỏi.')
+    throw new Error(mt('ai.blocked', { api: 'Claude', reason: 'refusal' }))
   }
   let text = msg.content
     .map((b) => (b.type === 'text' ? b.text : ''))
     .join('')
     .trim()
-  if (!text) throw new Error('Claude không trả về nội dung.')
-  if (msg.stop_reason === 'max_tokens') text += '\n\n*(Lưu ý: Câu trả lời đã đạt giới hạn độ dài tối đa)*'
+  if (!text) throw new Error(mt('ai.empty', { api: 'Claude' }))
+  if (msg.stop_reason === 'max_tokens') text += '\n\n' + mt('ai.maxTokens')
   // Khối `fallback` mới là dấu hiệu chắc chắn; so msg.model sai khi chọn alias (API trả về id bản cụ thể)
   if (msg.content.some((b) => b.type === 'fallback')) {
-    text += `\n\n*(Lưu ý: câu trả lời này do ${msg.model} tạo thay cho ${opts.model}.)*`
+    text += '\n\n' + mt('ai.fallbackModel', { model: opts.model, used: msg.model })
   }
 
   const u = msg.usage
@@ -97,7 +98,7 @@ export async function callClaudeApi(opts: {
 /** Model Claude mà key dùng được, mới nhất trước (thứ tự của Models API). */
 export async function listClaudeModels(apiKey: string): Promise<string[]> {
   const key = apiKey.trim()
-  if (!key) throw new Error('Chưa cấu hình Claude API Key.')
+  if (!key) throw new Error(mt('ai.noKey', { api: 'Claude' }))
   const client = new Anthropic({ apiKey: key, timeout: 30_000 })
   const ids: string[] = []
   try {

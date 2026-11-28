@@ -137,6 +137,27 @@ function scoreItemsBm25(texts: ScoreItem[], queryTerms: WeightedTerm[], rawQuery
   })
 }
 
+/** Mục không khớp từ khóa nào chỉ được nạp khi nằm trong số mục gần nghĩa nhất này. */
+const SEM_TOP = 12
+
+/** Trộn điểm BM25 với điểm theo nghĩa (cosine của embedding) bằng Reciprocal Rank Fusion: thứ hạng, không phải độ lớn,
+ * nên không cần cân hai thang điểm. Không có điểm theo nghĩa -> giữ nguyên BM25. */
+export function fuseScores(bm25: number[], sem: (number | undefined)[] | undefined): number[] {
+  if (!sem || sem.every((x) => x === undefined)) return bm25
+  const rankOf = (xs: number[]): number[] => {
+    const rank: number[] = []
+    xs.map((_, i) => i).sort((a, b) => xs[b] - xs[a]).forEach((i, pos) => (rank[i] = pos))
+    return rank
+  }
+  const s = sem.map((x) => x ?? -1)
+  const rb = rankOf(bm25)
+  const rs = rankOf(s)
+  return bm25.map((b, i) => (b <= 0 && rs[i] >= SEM_TOP ? 0 : (b > 0 ? 1 / (60 + rb[i]) : 0) + (s[i] >= 0 ? 1 / (60 + rs[i]) : 0)))
+}
+
+/** Điểm theo nghĩa của một mục (cosine với câu hỏi); undefined = chưa nhúng. */
+export type SemanticScore = (sec: RagSection) => number | undefined
+
 const sectionItem = (s: RagSection): ScoreItem => ({ key: s, body: s.content, header: s.metaHeader + ' ' + s.sectionTitle })
 
 /** Phần ngân sách token tối đa cho sơ đồ thư mục (phần còn lại để nạp nội dung thật). */
@@ -165,8 +186,10 @@ export function fitTokens(text: string, max: number): string {
 export function buildRagContext(
   docs: RagDocument[],
   query: string,
-  opts: { scope: 'folder' | 'active'; activeFilePath?: string; maxContextTokens?: number }
+  opts: { scope: 'folder' | 'active'; activeFilePath?: string; maxContextTokens?: number; semantic?: SemanticScore }
 ): RagContextResult {
+  const sem = opts.semantic
+  const semOf = (secs: RagSection[]): (number | undefined)[] | undefined => (sem ? secs.map(sem) : undefined)
   const maxTokens = opts.maxContextTokens ?? DEFAULT_MAX_CONTEXT_TOKENS
   // Mức ngữ cảnh người dùng chọn lớn hơn thì file đang xem cũng được nạp nguyên văn tới mức đó
   const activeMax = Math.max(MAX_ACTIVE_FILE_TOKENS, maxTokens)
@@ -185,11 +208,7 @@ export function buildRagContext(
       const outlineBlock = `=== MỤC LỤC FILE ĐANG XEM: ${target.relPath} ===\n${target.metaHeader}\nMục: ${target.outline.join(', ')}`
       let usedTokens = estimateTokens(outlineBlock)
       const queryTerms = buildWeightedQueryTerms(query)
-      const secScores = scoreItemsBm25(
-        target.sections.map(sectionItem),
-        queryTerms,
-        query
-      )
+      const secScores = fuseScores(scoreItemsBm25(target.sections.map(sectionItem), queryTerms, query), semOf(target.sections))
       const rankedSecs = target.sections
         .map((sec, idx) => ({ sec, score: secScores[idx] }))
         .sort((a, b) => b.score - a.score)
@@ -268,10 +287,15 @@ export function buildRagContext(
   // 3. Thư mục lớn (> maxTokens): Parent-Document RAG kết hợp Sơ đồ thư mục
   const budget = Math.max(500, maxTokens)
   const queryTerms = buildWeightedQueryTerms(query)
-  const docScores = scoreItemsBm25(
-    nonEmptyDocs.map((d) => ({ key: d, body: d.fullContent, header: d.metaHeader + ' ' + d.outline.join(' ') })),
-    queryTerms,
-    query
+  // Điểm theo nghĩa của file = mục gần nghĩa nhất của file đó
+  const docSem = sem ? nonEmptyDocs.map((d) => d.sections.reduce<number | undefined>((m, x) => { const v = sem(x); return v === undefined ? m : Math.max(m ?? -1, v) }, undefined)) : undefined
+  const docScores = fuseScores(
+    scoreItemsBm25(
+      nonEmptyDocs.map((d) => ({ key: d, body: d.fullContent, header: d.metaHeader + ' ' + d.outline.join(' ') })),
+      queryTerms,
+      query
+    ),
+    docSem
   )
 
   const rankedDocs = nonEmptyDocs
@@ -322,11 +346,7 @@ export function buildRagContext(
     .flatMap((d) => d.sections)
 
   if (remainingSections.length > 0 && usedTokens < budget) {
-    const secScores = scoreItemsBm25(
-      remainingSections.map(sectionItem),
-      queryTerms,
-      query
-    )
+    const secScores = fuseScores(scoreItemsBm25(remainingSections.map(sectionItem), queryTerms, query), semOf(remainingSections))
     const rankedSecs = remainingSections
       .map((sec, idx) => ({ sec, score: secScores[idx] }))
       .sort((a, b) => b.score - a.score)

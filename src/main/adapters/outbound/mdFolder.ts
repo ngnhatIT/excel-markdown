@@ -41,7 +41,7 @@ async function statMtimes(root: string, files: string[]): Promise<Record<string,
 
 /** Mọi file dưới `root` có tên thỏa `test` (đệ quy theo chiều rộng, không theo symlink, bỏ SKIP_DIRS),
  * đường dẫn tương đối phân cách `/`. Thư mục con không đọc được thì bỏ qua; `root` không đọc được thì throw.
- * Quá `limit` file thì dừng, `truncated: true`. Dùng chung cho Đọc Markdown và đầu vào thư mục của CLI / MCP. */
+ * Quá `limit` file thì dừng, `truncated: true`. */
 export async function walkFiles(
   root: string,
   test: (name: string) => boolean,

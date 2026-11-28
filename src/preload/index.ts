@@ -9,10 +9,8 @@ import type {
   ConvertFileSpec,
   ConvertOptions,
   ConvertResultItem,
-  MdConvertResult,
   MdFolderListing,
   MdSearchResult,
-  MdInspectResult,
   OutputMode,
 } from '../shared/types'
 import type { SpecIndex } from '../shared/specIndex'
@@ -99,11 +97,6 @@ contextBridge.exposeInMainWorld('api', {
   cancelConvert: (): Promise<void> =>
     unwrap(ipcRenderer.invoke('excel:cancel') as Promise<ApiResult<null>>).then(() => undefined),
 
-  // Markdown → Excel (Hủy dùng lại cancelConvert)
-  inspectMarkdown: (path: string): Promise<MdInspectResult> =>
-    unwrap(ipcRenderer.invoke('md:inspect', path) as Promise<ApiResult<MdInspectResult>>),
-  convertMarkdown: (payload: { files: string[]; outDir: string; fileName: string }): Promise<MdConvertResult> =>
-    unwrap(ipcRenderer.invoke('md:convert', payload) as Promise<ApiResult<MdConvertResult>>),
 
   // Đọc Markdown
   openMarkdownFolder: (): Promise<string | null> =>

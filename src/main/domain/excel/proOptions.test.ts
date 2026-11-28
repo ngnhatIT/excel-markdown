@@ -174,7 +174,7 @@ describe('bố cục nâng cao: header 2 tầng, merge ngang/dọc, ghi chú cu�
   })
 })
 
-describe('workbookMdFiles (dùng chung app + CLI)', () => {
+describe('workbookMdFiles', () => {
   const opts = { escapeMarkdown: true, frontMatter: false }
   const sheets = [
     { sheet: 'A', markdown: '## A' },

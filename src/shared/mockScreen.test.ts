@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { buildMockScreens, mockLang, mockPageHtml, mockScreenHtml } from './mockScreen'
 import { SPEC_SAMPLE } from './specGuide'
+import { EMPTY_RULES } from './projectConfig'
+import { buildTestDesign } from './testDesign'
 
 const MD = [
   '## 顧客検索',
@@ -206,5 +208,39 @@ describe('buildMockScreens: carry không lan sang bảng khác', () => {
   it('bảng イベント sau 項目定義 không thành hạng mục', () => {
     const md = ['## 画面', '- **画面ID**: S01', '', '| No | 項目名 | 型 |', '|---|---|---|', '| 1 | 氏名 | 文字列 |', '', '| No | イベント | 処理内容 |', '|---|---|---|', '| 1 | 初期表示 | 検索 |'].join('\n')
     expect(buildMockScreens([{ rel: 'a.md', text: md }])[0].items.map((i) => i.label)).toEqual(['氏名'])
+  })
+})
+
+describe('tài liệu lệch mẫu', () => {
+  const md = ['## 顧客登録', '', '| フィールド名 | サイズ | 必須/任意 | 説明 |', '|---|---|---|---|', '| 氏名 | 40 | ○ | |', '', '## 改訂履歴', '', '| 版 | 内容 |', '|---|---|', '| 1 | 初版 |'].join('\n')
+
+  it('không có 画面ID: heading của phần có bảng 項目定義 thành màn hình (Mock + 観点表)', () => {
+    const screens = buildMockScreens([{ rel: 'a.md', text: md }])
+    expect(screens.map((s) => s.id)).toEqual(['顧客登録'])
+    expect(screens[0].items.map((i) => `${i.label}:${i.maxLength}${i.required ? '*' : ''}`)).toEqual(['氏名:40*'])
+    expect(buildTestDesign(md).tables).toBe(1)
+  })
+
+  it('phần đã có 画面ID thì không thêm màn hình từ heading', () => {
+    const withId = md.replace('## 顧客登録\n', '## 顧客登録\n\n- **画面ID**: S01\n')
+    expect(buildMockScreens([{ rel: 'a.md', text: withId }]).map((s) => s.id)).toEqual(['S01'])
+  })
+
+  it('x2m.json rules.itemColumns: tên cột riêng của dự án', () => {
+    const custom = ['## 画面', '- **画面ID**: S01', '', '| 部品名称 | 入力桁 |', '|---|---|', '| 氏名 | 40 |'].join('\n')
+    expect(buildMockScreens([{ rel: 'a.md', text: custom }])[0].items).toEqual([])
+    const rules = { ...EMPTY_RULES, itemColumns: { ...EMPTY_RULES.itemColumns, item: ['部品名称'], length: ['入力桁'] } }
+    const project = { path: 'x2m.json', warnings: [], rules }
+    expect(buildMockScreens([{ rel: 'a.md', text: custom }], project)[0].items.map((i) => `${i.label}:${i.maxLength}`)).toEqual(['氏名:40'])
+    expect(buildTestDesign(custom, { project }).tables).toBe(1)
+  })
+})
+
+describe('itemColumns: khớp tên cột gần đúng', () => {
+  it('header dài hơn alias vẫn nhận; khớp nguyên văn được ưu tiên', () => {
+    const md = ['## 画面', '- **画面ID**: S01', '', '| 項目ID | 入力項目名 | 入力桁数 | 必須入力 | 備考欄 |', '|---|---|---|---|---|', '| I01 | 氏名 | 40 | ○ | メモ |'].join('\n')
+    expect(buildMockScreens([{ rel: 'a.md', text: md }])[0].items.map((i) => `${i.label}:${i.maxLength}${i.required ? '*' : ''}`)).toEqual(['氏名:40*'])
+    const exact = md.replace('入力項目名', '項目名')
+    expect(buildMockScreens([{ rel: 'a.md', text: exact }])[0].items.map((i) => i.label)).toEqual(['氏名'])
   })
 })

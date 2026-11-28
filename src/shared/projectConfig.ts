@@ -3,13 +3,13 @@
  * File đến từ thư mục người khác gửi: chỉ nhận chuỗi thường (không regex), sai thì bỏ phần sai + cảnh báo, không throw.
  */
 import { DEFAULT_OPTIONS, type ConvertOptions } from './types'
-import type { CrudOp } from './specIndex'
+import type { CrudOp, ItemColumnRules, ItemField } from './specCore'
 
 export const PROJECT_CONFIG_FILE = 'x2m.json'
 export const PROJECT_CONFIG_MAX_BYTES = 256 * 1024
 const ITEM_MAX_CHARS = 40
 const LIST_MAX = 200
-/** Cảnh báo tối đa: file đầy khóa lạ không làm phình kết quả MCP / giao diện */
+/** Cảnh báo tối đa: file đầy khóa lạ không làm phình giao diện */
 const WARNINGS_MAX = 20
 
 export interface ProjectRules {
@@ -18,6 +18,8 @@ export interface ProjectRules {
   transitionLabels: string[]
   crudVerbs: Record<CrudOp, string[]>
   diffKeyColumns: string[]
+  /** Tên cột 項目定義 của dự án theo vai trò (item / required / length / type / kind / default / note / check) */
+  itemColumns: ItemColumnRules
 }
 
 export interface ProjectConfig {
@@ -33,6 +35,8 @@ export interface FoundProjectConfig {
 }
 
 const CRUD_OPS: readonly CrudOp[] = ['C', 'R', 'U', 'D']
+const ITEM_KEYS: readonly ItemField[] = ['item', 'required', 'length', 'type', 'kind', 'default', 'note', 'check']
+const emptyItemColumns = (): ItemColumnRules => ({ item: [], required: [], length: [], type: [], kind: [], default: [], note: [], check: [] })
 const LIST_KEYS = ['ambiguousWords', 'screenIdLabels', 'transitionLabels', 'diffKeyColumns'] as const
 
 export const EMPTY_RULES: ProjectRules = {
@@ -41,6 +45,7 @@ export const EMPTY_RULES: ProjectRules = {
   transitionLabels: [],
   crudVerbs: { C: [], R: [], U: [], D: [] },
   diffKeyColumns: [],
+  itemColumns: emptyItemColumns(),
 }
 
 /** Dạng so khớp của một mục luật (cũng là dạng lưu): NFKC + chữ thường + bỏ khoảng trắng hai đầu. */
@@ -93,7 +98,7 @@ export function parseProjectConfig(text: string): { config: ProjectConfig; warni
 
 function parseAll(text: string): { config: ProjectConfig; warnings: string[] } {
   const warnings: string[] = []
-  const rules: ProjectRules = { ...EMPTY_RULES, crudVerbs: { C: [], R: [], U: [], D: [] } }
+  const rules: ProjectRules = { ...EMPTY_RULES, crudVerbs: { C: [], R: [], U: [], D: [] }, itemColumns: emptyItemColumns() }
   const config: ProjectConfig = { convert: {}, rules }
   let data: unknown
   try {
@@ -131,6 +136,13 @@ function parseAll(text: string): { config: ProjectConfig; warnings: string[] } {
             for (const [op, list] of Object.entries(v)) {
               if ((CRUD_OPS as readonly string[]).includes(op)) rules.crudVerbs[op as CrudOp] = parseList(list, `rules.crudVerbs.${op}`, warnings)
               else warnings.push(`rules.crudVerbs.${op}: chỉ nhận C / R / U / D, bỏ qua`)
+            }
+        } else if (k === 'itemColumns') {
+          if (!isObj(v)) warnings.push('rules.itemColumns: phải là object { "item": [...], "required": [...], "length": [...], ... }, bỏ qua')
+          else
+            for (const [f, list] of Object.entries(v)) {
+              if ((ITEM_KEYS as readonly string[]).includes(f)) rules.itemColumns[f as ItemField] = parseList(list, `rules.itemColumns.${f}`, warnings)
+              else warnings.push(`rules.itemColumns.${f}: chỉ nhận ${ITEM_KEYS.join(' / ')}, bỏ qua`)
             }
         } else warnings.push(`rules.${k}: khóa không dùng, bỏ qua`)
       }

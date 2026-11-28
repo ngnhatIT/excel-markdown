@@ -72,7 +72,7 @@ export async function runExcelConvert(
   const perWorkbook = outputMode === 'per-workbook'
   if (!(await ensureWritableDir(outDir))) return { ok: false, error: 'E_OUTDIR_NOT_WRITABLE|' + outDir }
 
-  // File .md đích đã có (có thể người dùng đã sửa tay): hỏi một lần trước khi ghi đè, như Markdown → Excel.
+  // File .md đích đã có (có thể người dùng đã sửa tay): hỏi một lần trước khi ghi đè.
   const planned = plannedMdFileNames(
     files.map((f) => ({ base: baseOf(f.path), sheets: f.sheets })),
     perWorkbook

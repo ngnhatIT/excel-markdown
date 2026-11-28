@@ -4,8 +4,7 @@ import { errMsg, type ConvertProgress } from '../../lib/api'
 import { toast } from '../../lib/utils'
 import { t } from '../../i18n'
 
-/** Luồng convert Excel → Markdown: gửi các sheet đã chọn, nhận tiến độ + kết quả.
- * Cờ converting dùng chung với chế độ Markdown → Excel (main chỉ cho chạy một lần convert). */
+/** Luồng convert Excel → Markdown: gửi các sheet đã chọn, nhận tiến độ + kết quả. */
 export function useExcelConvert({
   files,
   options,

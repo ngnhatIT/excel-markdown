@@ -12,7 +12,7 @@ const CORRUPT_RE =
 export type ErrLang = 'vi' | 'en' | 'ja'
 
 /** Mã lỗi `E_…` (tham số sau dấu `|`, vd `E_WORKER_TIMEOUT|120`) -> chữ theo ngôn ngữ.
- * Renderer có bản dịch riêng của cùng các mã (i18n/errors.ts); bảng này cho CLI/MCP (tiếng Việt)
+ * Renderer có bản dịch riêng của cùng các mã (i18n/errors.ts); bảng này cho worker (tiếng Việt)
  * và lỗi từng file trong kết quả convert (main dịch theo ngôn ngữ giao diện). */
 const ERROR_TEXT: Record<string, Record<ErrLang, string>> = {
   E_WRITE_LOCKED: {
@@ -85,6 +85,6 @@ export function codeText(codeOrMsg: string, lang: ErrLang): string {
 export const describeError = (err: unknown, lang: ErrLang, op: 'read' | 'write' = 'read'): string =>
   codeText(errorCode(err, op), lang)
 
-/** Chuyển lỗi kỹ thuật (SheetJS...) thành thông báo tiếng Việt dễ hiểu (CLI, MCP, worker Markdown → Excel).
+/** Chuyển lỗi kỹ thuật (SheetJS...) thành thông báo tiếng Việt dễ hiểu.
  * IPC trả `errorCode` để renderer dịch theo ngôn ngữ giao diện. */
 export const friendlyError = (err: unknown, op: 'read' | 'write' = 'read'): string => describeError(err, 'vi', op)

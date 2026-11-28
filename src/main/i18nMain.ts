@@ -30,6 +30,21 @@ const vi = {
 
   'preview.truncated':
     'Bản xem trước quá dài nên chỉ hiện {shown} / {total} ký tự đầu. File .md khi convert vẫn có đủ nội dung.',
+  'ai.noKey': 'Chưa cấu hình {api} API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.',
+  'ai.timeout': 'Quá thời gian chờ phản hồi từ {api} API{secs}. Vui lòng thử lại.',
+  'ai.badKey': '{api} API Key không hợp lệ hoặc không có quyền truy cập ({status}): {msg}',
+  'ai.badModel': 'Model {model} không tồn tại hoặc key không dùng được model này. Bấm ↻ để tải lại danh sách model.',
+  'ai.rateLimit': 'Đã vượt giới hạn hoặc hết hạn mức {api} API (429). Vui lòng chờ ít giây rồi thử lại.{msg}',
+  'ai.connect': 'Không kết nối được tới {api} API: {msg}',
+  'ai.apiError': 'Lỗi {api} API ({status}): {msg}',
+  'ai.apiFail': 'Lỗi {api} API: {msg}',
+  'ai.blocked': '{api} từ chối hoặc chặn nội dung này ({reason}). Hãy thử diễn đạt lại câu hỏi.',
+  'ai.empty': '{api} không trả về nội dung (có thể bị bộ lọc an toàn chặn hoặc tài liệu rỗng).',
+  'ai.stalled': 'Luồng trả lời bị ngắt (không nhận thêm dữ liệu sau {secs}s). Vui lòng thử lại.',
+  'ai.modelsFailed': 'Không lấy được danh sách model ({status}): {msg}',
+  'ai.maxTokens': '*(Lưu ý: câu trả lời đã đạt giới hạn độ dài tối đa của model)*',
+  'ai.incomplete': '*(Lưu ý: câu trả lời bị cắt ngang ({reason}))*',
+  'ai.fallbackModel': '*(Lưu ý: model "{model}" không còn dùng được, câu trả lời này do {used} tạo. Hãy chọn model khác.)*',
   'ai.skippedNote':
     '*(Lưu ý: mỗi câu hỏi chỉ đọc tối đa {max} file của thư mục và {loose} file mở lẻ; {n} file vượt giới hạn chưa được đọc. Hãy mở thư mục con hoặc chọn "Chỉ file đang xem" để hỏi về các file đó.)*',
 
@@ -95,6 +110,21 @@ const en: MainDict = {
 
   'preview.truncated':
     'The preview is too long, so only the first {shown} / {total} characters are shown. Converted .md files still contain everything.',
+  'ai.noKey': 'No {api} API key is set. Click "🔑 API Key" at the top to enter one.',
+  'ai.timeout': 'Timed out waiting for the {api} API{secs}. Please try again.',
+  'ai.badKey': 'The {api} API key is invalid or has no access ({status}): {msg}',
+  'ai.badModel': 'Model {model} does not exist or this key cannot use it. Click ↻ to reload the model list.',
+  'ai.rateLimit': 'The {api} API rate limit or quota was exceeded (429). Wait a few seconds and try again.{msg}',
+  'ai.connect': 'Cannot connect to the {api} API: {msg}',
+  'ai.apiError': '{api} API error ({status}): {msg}',
+  'ai.apiFail': '{api} API error: {msg}',
+  'ai.blocked': '{api} refused or blocked this content ({reason}). Try rephrasing the question.',
+  'ai.empty': '{api} returned no content (it may have been blocked by a safety filter, or the documents are empty).',
+  'ai.stalled': 'The answer stream stalled (no data for {secs}s). Please try again.',
+  'ai.modelsFailed': 'Cannot load the model list ({status}): {msg}',
+  'ai.maxTokens': '*(Note: the answer reached the model\'s maximum length)*',
+  'ai.incomplete': '*(Note: the answer was cut short ({reason}))*',
+  'ai.fallbackModel': '*(Note: model "{model}" is no longer available; this answer was written by {used}. Please choose another model.)*',
   'ai.skippedNote':
     '*(Note: each question reads at most {max} files of the folder and {loose} loose files; {n} files over the limit were not read. Open a subfolder or choose "Current file only" to ask about them.)*',
 
@@ -156,6 +186,21 @@ const ja: MainDict = {
   'convert.mdWriteFailed': '.md ファイルを書き込めません: {err}',
 
   'preview.truncated': 'プレビューが長すぎるため、先頭 {shown} / {total} 文字のみ表示しています。変換した .md ファイルには全内容が含まれます。',
+  'ai.noKey': '{api} の API キーが未設定です。上部の「🔑 API Key」から入力してください。',
+  'ai.timeout': '{api} API の応答がタイムアウトしました{secs}。もう一度お試しください。',
+  'ai.badKey': '{api} の API キーが無効、またはアクセス権がありません ({status}): {msg}',
+  'ai.badModel': 'モデル {model} は存在しないか、このキーでは利用できません。↻ でモデル一覧を再読み込みしてください。',
+  'ai.rateLimit': '{api} API の利用制限または上限を超えました (429)。少し待ってからもう一度お試しください。{msg}',
+  'ai.connect': '{api} API に接続できません: {msg}',
+  'ai.apiError': '{api} API エラー ({status}): {msg}',
+  'ai.apiFail': '{api} API エラー: {msg}',
+  'ai.blocked': '{api} がこの内容を拒否またはブロックしました ({reason})。質問の表現を変えてお試しください。',
+  'ai.empty': '{api} から内容が返されませんでした（安全フィルターによるブロック、または文書が空の可能性があります）。',
+  'ai.stalled': '回答のストリームが途切れました（{secs} 秒間データなし）。もう一度お試しください。',
+  'ai.modelsFailed': 'モデル一覧を取得できません ({status}): {msg}',
+  'ai.maxTokens': '*(注意: 回答がモデルの最大長に達しました)*',
+  'ai.incomplete': '*(注意: 回答が途中で打ち切られました ({reason}))*',
+  'ai.fallbackModel': '*(注意: モデル「{model}」は利用できなくなったため、この回答は {used} が生成しました。別のモデルを選択してください。)*',
   'ai.skippedNote':
     '*(注意: 1 回の質問で読み込むのはフォルダーの最大 {max} ファイルと個別に開いた {loose} ファイルまでです。上限を超えた {n} ファイルは読み込まれていません。サブフォルダーを開くか「表示中のファイルのみ」を選んで質問してください。)*',
 

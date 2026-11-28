@@ -113,7 +113,9 @@ export function registerViewerIpc(): void {
     if (typeof root !== 'string' || !viewerRoots.has(root)) return { ok: false, error: 'E_SEARCH_NOT_OPENED' }
     try {
       const { files } = await listMarkdownFiles(root)
-      return { ok: true, data: buildMockScreens((await readMarkdownFolder(root, files)) ?? []) }
+      const found = await findProjectConfig(root)
+      const project = found ? { path: found.path, warnings: found.warnings, rules: found.config.rules } : undefined
+      return { ok: true, data: buildMockScreens((await readMarkdownFolder(root, files)) ?? [], project) }
     } catch (err) {
       void logError('mdv:mockScreens', err)
       return { ok: false, error: errorCode(err) }

@@ -10,6 +10,7 @@ import { SelectionTranslate } from './SelectionTranslate'
 import { TranslateDialog } from './TranslateDialog'
 import { MockDialog } from './MockDialog'
 import { buildMockScreens } from '../../../shared/mockScreen'
+import type { SpecProject } from '../../../shared/specIndex'
 import { sectionMarkdown } from '../../../shared/translate'
 import { DdlPopover, ErDialog } from './TableDefTools'
 import { TestDesignDialog } from './TestDesignTools'
@@ -143,6 +144,8 @@ interface Props {
   scrollTarget?: ScrollTarget | null
   /** Nút đặt trước tiêu đề trên thanh preview (vd Lùi/Tiến của chế độ Đọc Markdown) */
   leading?: React.ReactNode
+  /** x2m.json của thư mục đang đọc: luật nhận diện của dự án cho Mock / テスト観点表 */
+  project?: SpecProject
 }
 
 export interface ScrollTarget {
@@ -229,6 +232,7 @@ export function PreviewPane({
   fullWidth = true,
   scrollTarget,
   leading,
+  project,
 }: Props): React.ReactElement {
   const t = useT()
   const lang = useLang()
@@ -335,7 +339,7 @@ export function PreviewPane({
   const closeDdl = useCallback(() => setDdl(null), [])
   const closeEr = useCallback(() => setErOpen(false), [])
   // テスト観点表: nút 観点表 khi tài liệu có bảng 項目定義 thuộc một 画面
-  const testTables = useMemo(() => buildTestDesign(md).tables, [md])
+  const testTables = useMemo(() => buildTestDesign(md, { project }).tables, [md, project])
   const [testOpen, setTestOpen] = useState(false)
   const [trTarget, setTrTarget] = useState<{ source: string; label: string } | null>(null)
   const [mockOpen, setMockOpen] = useState(false)
@@ -651,9 +655,9 @@ export function PreviewPane({
       <SelectionTranslate containerRef={previewRef} />
       {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
       {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
-      {mockOpen && <MockDialog screens={buildMockScreens([{ rel: title ?? 'document.md', text: md }])} title={title} onClose={() => setMockOpen(false)} />}
+      {mockOpen && <MockDialog screens={buildMockScreens([{ rel: title ?? 'document.md', text: md }], project)} title={title} onClose={() => setMockOpen(false)} />}
       {trTarget && trTarget.source && <TranslateDialog source={trTarget.source} label={trTarget.label} onClose={() => setTrTarget(null)} />}
-      {testOpen && <TestDesignDialog md={md} title={title} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {testOpen && <TestDesignDialog md={md} title={title} project={project} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>
   )
 }

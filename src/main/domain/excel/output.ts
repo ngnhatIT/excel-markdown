@@ -171,7 +171,7 @@ export function plannedMdFileNames(specs: { base: string; sheets: string[] }[], 
   return specs.flatMap((s) => mdNamesFor(s.base, s.sheets, perWorkbook, used))
 }
 
-/** Các file .md Excel → Markdown ghi cho một workbook; app (IPC excel:convert) và CLI dùng chung.
+/** Các file .md Excel → Markdown ghi cho một workbook.
  * `used`: tên đã dùng trong lần convert này (được cập nhật). Gộp workbook mà mọi sheet rỗng thì không ghi gì. */
 export function workbookMdFiles(
   base: string,

@@ -88,6 +88,7 @@ export function AiChatPanel({
     maskedKey: '',
     model: AI_PROVIDERS[DEFAULT_AI_PROVIDER].defaultModel,
     contextTokens: AI_CONTEXT_LEVELS[0],
+    embeddings: false,
     keys: { gemini: '', claude: '', openai: '' },
   })
   const providerInfo = AI_PROVIDERS[config.provider]
@@ -182,6 +183,14 @@ export function AiChatPanel({
   const changeContext = useCallback(async (contextTokens: number) => {
     try {
       setConfig(await window.api.aiSetConfig({ contextTokens }))
+    } catch (e) {
+      toast(errMsg(e), 'err')
+    }
+  }, [])
+
+  const changeEmbeddings = useCallback(async (embeddings: boolean) => {
+    try {
+      setConfig(await window.api.aiSetConfig({ embeddings }))
     } catch (e) {
       toast(errMsg(e), 'err')
     }
@@ -450,6 +459,16 @@ export function AiChatPanel({
                 ))}
               </select>
             </div>
+            <label className="x2m-ai-keybox-row flex items-start gap-2 text-xs text-dim" title={t('ai.embeddingsTitle')}>
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={config.embeddings}
+                disabled={config.provider === 'claude'}
+                onChange={(e) => void changeEmbeddings(e.target.checked)}
+              />
+              <span>{t(config.provider === 'claude' ? 'ai.embeddingsNoClaude' : 'ai.embeddings')}</span>
+            </label>
             <details className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
               <summary className="cursor-pointer select-none text-dim hover:text-ink">{t('ai.keyNoteSummary')}</summary>
               {t('ai.keyNote', { site: providerInfo.site })}

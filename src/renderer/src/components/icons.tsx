@@ -178,16 +178,6 @@ export const IconSheetToMd = (p: { size?: number }) => (
   </Svg>
 )
 
-/** Chế độ Markdown → Excel: trang chữ sang ô lưới */
-export const IconMdToSheet = (p: { size?: number }) => (
-  <Svg size={p.size}>
-    <path d="M3.5 4h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-    <path d="M5 7.5h3.5M5 10.5h2.5" />
-    <rect x="13.5" y="10" width="8" height="10" rx="1" />
-    <path d="M13.5 13.5h8M13.5 16.5h8M17.5 10v10M11 17h1.5m0 0-1-1m1 1-1 1" />
-  </Svg>
-)
-
 /** Chế độ Đọc Markdown: cuốn sách mở */
 export const IconBook = (p: { size?: number }) => (
   <Svg size={p.size}>

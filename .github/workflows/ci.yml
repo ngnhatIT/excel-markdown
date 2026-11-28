@@ -28,7 +28,7 @@ jobs:
       - run: npm run build
 
   package:
-    # Bắt lỗi đóng gói sớm (asar thiếu file, extraResources, wrapper CLI, script NSIS resources/installer.nsh)
+    # Bắt lỗi đóng gói sớm (asar thiếu file, script NSIS resources/installer.nsh)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,18 +41,13 @@ jobs:
       - run: npx electron-builder --dir --win --x64 --publish never
       # Dựng cả installer từ bản --dir ở trên (thêm ~1 phút): makensis mới bắt được lỗi trong installer.nsh
       - run: npx electron-builder --win nsis --x64 --publish never --prepackaged release/win-unpacked
-      - name: Kiểm app.asar và wrapper x2m.cmd
+      - name: Kiểm app.asar
         shell: bash
         run: |
           list=$(npx asar list release/win-unpacked/resources/app.asar)
-          for f in index.js worker.js cli.js mcp.js; do
+          for f in index.js worker.js; do
             echo "$list" | grep -qx "/out/main/$f" || { echo "thiếu out/main/$f trong app.asar"; exit 1; }
           done
-          test -f release/win-unpacked/resources/bin/x2m.cmd
-          test -f release/win-unpacked/resources/bin/x2m-mcp.cmd
-      - name: x2m.cmd chạy được CLI trong bản đóng gói
-        shell: cmd
-        run: release\win-unpacked\resources\bin\x2m.cmd --version
 
   e2e:
     # Runner Windows của GitHub có phiên desktop nên Electron mở cửa sổ được.

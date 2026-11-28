@@ -1,4 +1,5 @@
 /* Client gọi Gemini API ở tiến trình main (stream SSE). Phần dùng chung (prompt, che key, gọi HTTP) ở ./shared. */
+import { mt } from '../../../i18nMain'
 import { DEFAULT_AI_MODEL, type AiChatTurn, type AiModelId, type AiUsage } from '../../../../shared/types'
 import {
   errorMessageOf,
@@ -70,7 +71,7 @@ async function readGeminiBody(res: Response, onDelta?: (text: string) => void, s
     res,
     (data) => {
       const chunk = JSON.parse(data) as GeminiApiRawResponse
-      if (chunk.error) throw new Error(chunk.error.message ?? 'Lỗi Gemini API')
+      if (chunk.error) throw new Error(chunk.error.message ?? mt('ai.apiFail', { api: 'Gemini', msg: '?' }))
       const cand = chunk.candidates?.[0]
       const piece = cand?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
       if (piece) {
@@ -100,7 +101,7 @@ export async function callGeminiApi(opts: {
 }): Promise<{ text: string; usage?: AiUsage }> {
   const key = opts.apiKey.trim()
   if (!key) {
-    throw new Error('Chưa cấu hình Gemini API Key. Hãy bấm nút "🔑 API Key" ở góc trên để nhập key.')
+    throw new Error(mt('ai.noKey', { api: 'Gemini' }))
   }
 
   const body = buildGeminiRequestBody(opts.question, opts.contextText, opts.history, opts.system)
@@ -127,25 +128,25 @@ export async function callGeminiApi(opts: {
   if (!res.ok) {
     const msg = redactApiKey(await errorMessageOf(res), key)
     if (res.status === 400 || res.status === 401 || res.status === 403) {
-      throw new Error('Gemini API Key không hợp lệ hoặc không có quyền truy cập (' + res.status + '): ' + msg)
+      throw new Error(mt('ai.badKey', { api: 'Gemini', status: res.status, msg }))
     }
     if (res.status === 429) {
-      throw new Error('Đã vượt giới hạn quota Gemini API (429). Vui lòng chờ ít giây rồi thử lại.')
+      throw new Error(mt('ai.rateLimit', { api: 'Gemini', msg: '' }))
     }
-    throw new Error(`Lỗi Gemini API (${res.status}): ` + msg)
+    throw new Error(mt('ai.apiError', { api: 'Gemini', status: res.status, msg }))
   }
 
   const data = await readGeminiBody(res, opts.onDelta, opts.signal)
 
   const candidate = data.candidates?.[0]
   if (candidate?.finishReason === 'SAFETY') {
-    throw new Error('Nội dung phản hồi bị bộ lọc an toàn của Gemini chặn (SAFETY). Vui lòng điều chỉnh lại câu hỏi.')
+    throw new Error(mt('ai.blocked', { api: 'Gemini', reason: 'SAFETY' }))
   }
   if (candidate?.finishReason === 'RECITATION') {
-    throw new Error('Nội dung phản hồi bị bộ lọc bản quyền của Gemini chặn (RECITATION).')
+    throw new Error(mt('ai.blocked', { api: 'Gemini', reason: 'RECITATION' }))
   }
   if (data.promptFeedback?.blockReason) {
-    throw new Error(`Yêu cầu bị chặn (${data.promptFeedback.blockReason}). Hãy thử đổi cách diễn đạt câu hỏi.`)
+    throw new Error(mt('ai.blocked', { api: 'Gemini', reason: data.promptFeedback.blockReason }))
   }
 
   let rawText =
@@ -155,14 +156,14 @@ export async function callGeminiApi(opts: {
       .trim() ?? ''
 
   if (!rawText) {
-    throw new Error('Gemini không trả về nội dung (có thể bị bộ lọc an toàn chặn hoặc tài liệu rỗng).')
+    throw new Error(mt('ai.empty', { api: 'Gemini' }))
   }
 
   if (candidate?.finishReason === 'MAX_TOKENS') {
-    rawText += '\n\n*(Lưu ý: Câu trả lời đã đạt giới hạn độ dài tối đa của model)*'
+    rawText += '\n\n' + mt('ai.maxTokens')
   }
   if (activeModel !== opts.model) {
-    rawText += `\n\n*(Lưu ý: model "${opts.model}" không còn dùng được, câu trả lời này do ${activeModel} tạo. Hãy chọn model khác.)*`
+    rawText += '\n\n' + mt('ai.fallbackModel', { model: opts.model, used: activeModel })
   }
 
   const um = data.usageMetadata
@@ -198,14 +199,14 @@ export function filterGeminiModels(
 /** Hỏi Google những model mà API key này dùng được (không gửi key trên URL). */
 export async function listGeminiModels(apiKey: string): Promise<string[]> {
   const key = apiKey.trim()
-  if (!key) throw new Error('Chưa cấu hình Gemini API Key.')
+  if (!key) throw new Error(mt('ai.noKey', { api: 'Gemini' }))
   let res: Response
   try {
     res = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', {
       headers: { 'x-goog-api-key': key },
     })
   } catch (err) {
-    throw new Error('Không kết nối được tới Gemini API: ' + redactApiKey(String(err), key))
+    throw new Error(mt('ai.connect', { api: 'Gemini', msg: redactApiKey(String(err), key) }))
   }
   let data: { models?: Array<{ name?: string; supportedGenerationMethods?: string[] }>; error?: { message?: string } } = {}
   try {
@@ -214,7 +215,7 @@ export async function listGeminiModels(apiKey: string): Promise<string[]> {
     /* không phải JSON */
   }
   if (!res.ok) {
-    throw new Error(`Không lấy được danh sách model (${res.status}): ` + redactApiKey(data.error?.message ?? res.statusText, key))
+    throw new Error(mt('ai.modelsFailed', { status: res.status, msg: redactApiKey(data.error?.message ?? res.statusText, key) }))
   }
   return filterGeminiModels(data.models ?? [])
 }
