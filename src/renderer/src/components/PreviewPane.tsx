@@ -10,6 +10,7 @@ import { SelectionTranslate } from './SelectionTranslate'
 import { TranslateDialog } from './TranslateDialog'
 import { MockDialog } from './MockDialog'
 import { buildMockScreens } from '../../../shared/mockScreen'
+import type { SpecProject } from '../../../shared/specIndex'
 import { sectionMarkdown } from '../../../shared/translate'
 import { DdlPopover, ErDialog } from './TableDefTools'
 import { TestDesignDialog } from './TestDesignTools'
@@ -143,6 +144,8 @@ interface Props {
   scrollTarget?: ScrollTarget | null
   /** Nút đặt trước tiêu đề trên thanh preview (vd Lùi/Tiến của chế độ Đọc Markdown) */
   leading?: React.ReactNode
+  /** x2m.json của thư mục đang đọc: luật nhận diện của dự án cho Mock / テスト観点表 */
+  project?: SpecProject
 }
 
 export interface ScrollTarget {
@@ -229,6 +232,7 @@ export function PreviewPane({
   fullWidth = true,
   scrollTarget,
   leading,
+  project,
 }: Props): React.ReactElement {
   const t = useT()
   const lang = useLang()
@@ -335,7 +339,7 @@ export function PreviewPane({
   const closeDdl = useCallback(() => setDdl(null), [])
   const closeEr = useCallback(() => setErOpen(false), [])
   // テスト観点表: nút 観点表 khi tài liệu có bảng 項目定義 thuộc một 画面
-  const testTables = useMemo(() => buildTestDesign(md).tables, [md])
+  const testTables = useMemo(() => buildTestDesign(md, { project }).tables, [md, project])
   const [testOpen, setTestOpen] = useState(false)
   const [trTarget, setTrTarget] = useState<{ source: string; label: string } | null>(null)
   const [mockOpen, setMockOpen] = useState(false)
@@ -461,7 +465,7 @@ export function PreviewPane({
         <div className="x2m-preview-meta flex min-w-0 flex-1 basis-[20rem] flex-wrap items-center justify-end gap-1 text-xs">
           {leading}
           {title ? (
-            <span className="x2m-meta-stats dim mr-auto min-w-24 flex-1 basis-0 truncate pl-1 text-dim" title={title}>
+            <span className="x2m-meta-stats dim mr-auto min-w-[14rem] flex-[1_1_14rem] truncate pl-1 text-dim" title={title}>
               <strong className="x2m-meta-title font-semibold text-ink">{title}</strong>
               {stats ? ` · ${t('preview.stats', { lines: stats.lines, tables: stats.tables, chars: stats.chars.toLocaleString(LOCALES[lang]) })}` : ''}
             </span>
@@ -524,7 +528,7 @@ export function PreviewPane({
         <div className="x2m-outline-bar border-b border-line-subtle px-3 py-2 overflow-x-auto [scrollbar-width:none] [mask-image:linear-gradient(90deg,transparent,#000_14px,#000_calc(100%-14px),transparent)]" role="navigation" aria-label={t('preview.outlineAria')}>
           <div className="x2m-outline-items flex w-max items-center gap-1.5">
             {outline.map((item, idx) => (
-              <div key={idx} className={cn('x2m-outline-chip glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-md text-xs', item.kind === 'table' && 'is-table')}>
+              <div key={idx} className={cn('x2m-outline-chip group glass-chip inline-flex shrink-0 items-center overflow-hidden whitespace-nowrap rounded-md text-xs', item.kind === 'table' && 'is-table')}>
                 <button
                   className="x2m-outline-jump inline-flex items-center gap-1 px-2.5 py-1 text-dim transition-colors hover:bg-hover hover:text-ink"
                   onClick={() => jumpToItem(item)}
@@ -537,13 +541,13 @@ export function PreviewPane({
                   {item.kind === 'table' && <IconTable size={12} />}
                   <span>{item.label}</span>
                   {item.kind === 'table' && (
-                    <span className="x2m-outline-badge ml-1 rounded bg-line px-1 py-0.5 text-[10px] text-faint">
+                    <span className="x2m-outline-badge ml-1 rounded bg-line px-1 py-0.5 text-xs text-faint">
                       {item.rowCount}×{item.colCount}
                     </span>
                   )}
                 </button>
                 <button
-                  className="x2m-outline-tr border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                  className="x2m-outline-tr hidden border-l border-line px-1.5 py-1 text-xs font-semibold group-hover:inline-flex group-focus-within:inline-flex text-accent-ink transition-colors hover:bg-accent-soft"
                   onClick={() => setTrTarget({ label: item.label, source: item.kind === 'table' ? (item.mdBlock ?? '') : sectionMarkdown(md, item.domIndex) })}
                   title={t('tr.section')}
                   aria-label={`${t('tr.section')}: ${item.label}`}
@@ -553,7 +557,7 @@ export function PreviewPane({
                 </button>
                 {item.kind === 'table' && item.tsvBlock && (
                   <button
-                    className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                    className="x2m-outline-copy hidden border-l border-line px-1.5 py-1 text-xs font-semibold group-hover:inline-flex group-focus-within:inline-flex text-accent-ink transition-colors hover:bg-accent-soft"
                     onClick={() => void copyTableData(item.tsvBlock!, t('preview.copyTsv', { label: item.label }))}
                     title={t('preview.copyTsvTitle')}
                   >
@@ -562,7 +566,7 @@ export function PreviewPane({
                 )}
                 {item.kind === 'table' && item.mdBlock && tablesInOutline.length > 1 && (
                   <button
-                    className="x2m-outline-copy border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                    className="x2m-outline-copy hidden border-l border-line px-1.5 py-1 text-xs font-semibold group-hover:inline-flex group-focus-within:inline-flex text-accent-ink transition-colors hover:bg-accent-soft"
                     onClick={() => void copyTableData(item.mdBlock!, t('preview.copyMd', { label: item.label }))}
                     title={t('preview.copyMdTitle')}
                   >
@@ -571,7 +575,7 @@ export function PreviewPane({
                 )}
                 {item.kind === 'table' && item.line !== undefined && defByLine.has(item.line) && (
                   <button
-                    className="x2m-outline-copy x2m-outline-ddl border-l border-line px-1.5 py-1 text-[11px] font-semibold text-accent-ink transition-colors hover:bg-accent-soft"
+                    className="x2m-outline-copy x2m-outline-ddl hidden border-l border-line px-1.5 py-1 text-xs font-semibold group-hover:inline-flex group-focus-within:inline-flex text-accent-ink transition-colors hover:bg-accent-soft"
                     onClick={(e) => {
                       const r = e.currentTarget.getBoundingClientRect()
                       setDdl({ def: defByLine.get(item.line!)!, x: r.left, y: r.bottom + 6 })
@@ -651,9 +655,9 @@ export function PreviewPane({
       <SelectionTranslate containerRef={previewRef} />
       {ddl && <DdlPopover def={ddl.def} x={ddl.x} y={ddl.y} onClose={closeDdl} onCopy={(text, label) => void copyTableData(text, label)} />}
       {erOpen && <ErDialog defs={tableDefs} onClose={closeEr} onCopy={(text, label) => void copyTableData(text, label)} />}
-      {mockOpen && <MockDialog screens={buildMockScreens([{ rel: title ?? 'document.md', text: md }])} title={title} onClose={() => setMockOpen(false)} />}
+      {mockOpen && <MockDialog screens={buildMockScreens([{ rel: title ?? 'document.md', text: md }], project)} title={title} onClose={() => setMockOpen(false)} />}
       {trTarget && trTarget.source && <TranslateDialog source={trTarget.source} label={trTarget.label} onClose={() => setTrTarget(null)} />}
-      {testOpen && <TestDesignDialog md={md} title={title} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
+      {testOpen && <TestDesignDialog md={md} title={title} project={project} onClose={closeTest} onCopy={(text, label) => void copyTableData(text, label)} />}
     </>
   )
 }

@@ -55,7 +55,7 @@ describe('errorCode / describeError', () => {
     expect(errorCode(new Error('boom'))).toBe('boom')
   })
 
-  it('dịch mã theo ngôn ngữ, thay tham số; CLI (friendlyError) vẫn tiếng Việt', () => {
+  it('dịch mã theo ngôn ngữ, thay tham số; friendlyError vẫn tiếng Việt', () => {
     expect(codeText('E_WORKER_TIMEOUT|120', 'en')).toContain('120 seconds')
     expect(codeText('E_WORKER_CRASHED|3', 'vi')).toContain('(mã 3)')
     expect(codeText('E_UNKNOWN|x', 'ja')).toBe('E_UNKNOWN|x')

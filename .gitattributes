@@ -2,7 +2,6 @@
 # template string nhiều dòng trong test không được đổi thành CRLF khi checkout trên Windows (CI windows-latest).
 * text=auto eol=lf
 test/golden/** text eol=lf
-test/golden-md2xlsx/** text eol=lf
 *.xlsx binary
 *.xlsm binary
 *.xls binary

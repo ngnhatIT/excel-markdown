@@ -1,4 +1,5 @@
 /* Hộp thoại テスト観点表: sinh tại chỗ từ tài liệu đang xem (shared/testDesign.ts), xem trước, Copy TSV / Markdown, Lưu .md. */
+import type { SpecProject } from '../../../shared/specIndex'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { buildTestDesign, TEST_LANGS, TEST_MAX_ROWS, testDesignHeader, testDesignMarkdown, testDesignTsv, type TestLang } from '../../../shared/testDesign'
@@ -16,11 +17,11 @@ const COLS = ['no', 'screen', 'item', 'aspect', 'steps', 'expected', 'ref'] as c
 /** Focus nút đóng khi mở mà không cuộn các khung cha. */
 const focusNoScroll = (el: HTMLButtonElement | null): void => el?.focus({ preventScroll: true })
 
-export function TestDesignDialog({ md, title, onClose, onCopy }: { md: string; title: string | null; onClose: () => void; onCopy: (text: string, label: string) => void }): React.ReactElement {
+export function TestDesignDialog({ md, title, project, onClose, onCopy }: { md: string; title: string | null; project?: SpecProject; onClose: () => void; onCopy: (text: string, label: string) => void }): React.ReactElement {
   const t = useT()
   const ref = useRef<HTMLDivElement | null>(null)
   const [lang, setLang] = useState<TestLang>('ja')
-  const design = useMemo(() => buildTestDesign(md, { source: title ?? '', lang }), [md, title, lang])
+  const design = useMemo(() => buildTestDesign(md, { source: title ?? '', lang, project }), [md, title, lang, project])
   const shown = design.rows.slice(0, SHOW_MAX)
 
   useEffect(() => {

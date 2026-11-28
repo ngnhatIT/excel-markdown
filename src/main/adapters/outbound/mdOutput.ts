@@ -1,4 +1,4 @@
-/* Ghi kết quả Excel → Markdown (file .md + ảnh) ra đĩa; app (IPC excel:convert) và CLI dùng chung. */
+/* Ghi kết quả Excel → Markdown (file .md + ảnh) ra đĩa. */
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { MdOutputFile } from '../../domain/excel/output'

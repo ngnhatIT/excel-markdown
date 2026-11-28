@@ -46,7 +46,7 @@ export function MockDialog({ screens, title, onClose }: { screens: MockScreen[];
       <div ref={ref} role="dialog" aria-modal="true" aria-label={t('mock.title')} className="x2m-mock-dialog x2m-er-dialog flex h-[90vh] w-[min(1240px,96vw)] flex-col overflow-hidden rounded-lg text-ink">
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-2.5">
           <h2 className="m-0 text-[14px] font-semibold">{t('mock.title')}</h2>
-          <span className="text-[11.5px] text-faint">{t('mock.summary', { n: screens.length })}</span>
+          <span className="text-xs text-faint">{t('mock.summary', { n: screens.length })}</span>
           <span className="ml-auto flex items-center gap-1.5">
             <button className={cx('x2m-mock-save', btnPrimary, btnSm)} disabled={screens.length === 0} onClick={() => void save()} title={t('mock.saveTitle')}>
               {t('mock.save')}
@@ -56,7 +56,7 @@ export function MockDialog({ screens, title, onClose }: { screens: MockScreen[];
             </button>
           </span>
         </div>
-        <p className="m-0 border-b border-line-subtle px-4 py-1.5 text-[11.5px] text-dim">{t('mock.note')}</p>
+        <p className="m-0 border-b border-line-subtle px-4 py-1.5 text-xs text-dim">{t('mock.note')}</p>
         <div className="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)]">
           <nav className="min-h-0 overflow-y-auto border-r border-line p-2" aria-label={t('mock.screens')}>
             {screens.map((s, i) => (

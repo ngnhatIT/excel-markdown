@@ -168,6 +168,39 @@ export const IconMap = (p: { size?: number }) => (
   </Svg>
 )
 
+export const IconSort = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M7 4v16M3.5 16.5 7 20l3.5-3.5M17 20V4M13.5 7.5 17 4l3.5 3.5" />
+  </Svg>
+)
+
+export const IconSearch = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <circle cx="11" cy="11" r="6" />
+    <path d="m20 20-4.5-4.5" />
+  </Svg>
+)
+
+export const IconKey = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <circle cx="8" cy="15" r="4" />
+    <path d="m11 12 9-9M16 7l3 3" />
+  </Svg>
+)
+
+export const IconPin = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M12 21s-6-5.5-6-10.5a6 6 0 0 1 12 0C18 15.5 12 21 12 21z" />
+    <circle cx="12" cy="10.5" r="2" />
+  </Svg>
+)
+
+export const IconBolt = (p: { size?: number }) => (
+  <Svg size={p.size}>
+    <path d="M13 3 5 14h6l-1 7 8-11h-6l1-7z" />
+  </Svg>
+)
+
 /** Chế độ Excel → Markdown: ô lưới sang trang chữ */
 export const IconSheetToMd = (p: { size?: number }) => (
   <Svg size={p.size}>
@@ -175,16 +208,6 @@ export const IconSheetToMd = (p: { size?: number }) => (
     <path d="M2.5 7.5h8M2.5 10.5h8M6 4v10" />
     <path d="M14 10h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H14a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" />
     <path d="M15.5 13.5h3.5M15.5 16.5h2.5M11 17h1.5m-1.5 0 1-1m-1 1 1 1" />
-  </Svg>
-)
-
-/** Chế độ Markdown → Excel: trang chữ sang ô lưới */
-export const IconMdToSheet = (p: { size?: number }) => (
-  <Svg size={p.size}>
-    <path d="M3.5 4h6.5a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H3.5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" />
-    <path d="M5 7.5h3.5M5 10.5h2.5" />
-    <rect x="13.5" y="10" width="8" height="10" rx="1" />
-    <path d="M13.5 13.5h8M13.5 16.5h8M17.5 10v10M11 17h1.5m0 0-1-1m1 1-1 1" />
   </Svg>
 )
 

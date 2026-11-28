@@ -17,8 +17,6 @@ interface Props {
   convertLabel: string
   canConvert: boolean
   onConvert: () => void
-  /** Chữ khi chưa chọn thư mục lưu */
-  outDirPlaceholder?: string
 }
 
 /** Đáy workbench: thư mục xuất, tiến độ, nút Convert (số sheet nằm ngay trên nút, không cần thanh trạng thái riêng). */
@@ -32,7 +30,7 @@ export function Footer(p: Props): React.ReactElement {
         <div className="x2m-outdir flex min-w-0 flex-1 items-center gap-2 text-dim" title={outDir || t('footer.noOutDir')}>
           <div className="glass-chip flex min-w-0 items-center gap-2 rounded-md py-1 pl-2.5 pr-1">
             <IconFolder size={15} />
-            <span className={cn('x2m-outdir-text max-w-[420px] truncate font-mono text-[11.5px]', !outDir && 'dim font-sans text-faint')}>{outDir || (p.outDirPlaceholder ?? t('footer.noOutDirMd'))}</span>
+            <span className={cn('x2m-outdir-text max-w-[420px] truncate font-mono text-xs', !outDir && 'dim font-sans text-faint')}>{outDir || t('footer.noOutDirMd')}</span>
             {outDir && (
               <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm, '!p-1')} onClick={p.onOpenDir} title={t('common.openFolder')} aria-label={t('common.openFolder')}>
                 <IconOpen size={13} />
@@ -75,7 +73,7 @@ export function Footer(p: Props): React.ReactElement {
                 {/* scaleX thay vì width để chỉ animate transform */}
                 <div className="x2m-progress-fill h-full origin-left bg-accent transition-transform duration-500 ease-spring motion-reduce:transition-none" style={{ transform: `scaleX(${progress.done / progress.total})` }} />
               </div>
-              <span className="x2m-progress-text tabular text-[11px] font-semibold text-dim">
+              <span className="x2m-progress-text tabular text-xs font-semibold text-dim">
                 {progress.done}/{progress.total}
               </span>
             </div>

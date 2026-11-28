@@ -5,6 +5,22 @@
 > output mặc định hoặc breaking change IPC. Mỗi release cập nhật file này.
 
 ## Chưa phát hành
+- Trợ lý AI: tùy chọn **Tìm theo nghĩa (embedding)** (mặc định tắt, Gemini / OpenAI): trộn thứ hạng theo nghĩa với BM25
+  (Reciprocal Rank Fusion) khi thư mục lớn hơn mức ngữ cảnh. Bật thì nội dung cả thư mục được gửi để lấy vector.
+- Mock / テスト観点表: tên cột khớp một phần (`入力項目名`, `入力桁数`, `Input type`…), không cần khai trong `x2m.json`.
+- **Gỡ bỏ (breaking)**: chế độ **Markdown → Excel** (engine `md2xlsx`, IPC `md:*`, giao diện, golden test). exceljs không còn
+  đóng gói vào app (chỉ còn script sinh file mẫu dùng). テスト観点表 / báo cáo vẫn Copy TSV dán thẳng vào Excel.
+- Mock màn hình / テスト観点表 chịu được tài liệu lệch mẫu: phần có bảng 項目定義 nhưng không ghi 画面ID thì lấy heading của phần làm
+  màn hình; nhận thêm nhiều tên cột (`フィールド名`, `サイズ`, `必須/任意`, `説明`, `Field`, `Size`, `Mandatory`, `Tên trường`…);
+  `x2m.json` thêm `rules.itemColumns` để khai tên cột riêng của dự án. Mock / 観点表 giờ cũng áp dụng luật trong `x2m.json`
+  (trước chỉ Bản đồ thiết kế áp dụng).
+- Trợ lý AI: thư mục lớn hơn mức ngữ cảnh thì model đổi câu hỏi thành từ khóa Nhật / Việt / Anh trước khi chọn file (thêm một
+  lần gọi ngắn, chỉ gửi câu hỏi), nên câu hỏi diễn đạt khác tài liệu vẫn tìm đúng file. Thông báo lỗi và ghi chú của AI theo
+  ngôn ngữ giao diện (trước chỉ tiếng Việt).
+- Nội bộ: tách `shared/specIndex.ts` (1 075 dòng) thành `specCore`, `specIndex`, `specChecks`, `specImpact`, `specCrud`,
+  `specDiagram`; nhận diện cột 項目定義 gom về một hàm (`itemColumns`) thay cho ba bản chép.
+- **Gỡ bỏ (breaking)**: CLI `x2m` và MCP server `x2m-mcp` (`out/main/cli.js`, `out/main/mcp.js`, `resources\bin\*.cmd`).
+  Mọi chức năng vẫn có trong app; ai đang dùng `x2m` trong script / CI / `git diff` textconv hoặc đã đăng ký MCP thì ở lại 2.3.0.
 Minor: tính năng mới. Không có `x2m.json` thì mọi kết quả giữ nguyên như 2.3.0.
 - Tính năng: **cấu hình dự án `x2m.json`** đặt trong thư mục tài liệu (đưa vào Git) để cả đội convert ra cùng kết quả và
   dùng chung luật nhận diện. `convert`: tùy chọn Excel → Markdown (trong app bị khóa theo file, CLI / MCP làm mặc định).

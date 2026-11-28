@@ -34,7 +34,7 @@ export function SidePanel({ title: titleProp, collapsed, onToggle, actions, head
   }
   return (
     <aside className="x2m-side flex w-[304px] min-w-60 shrink-0 flex-col overflow-y-auto border-l border-line-subtle" style={width ? { width, minWidth: width } : undefined}>
-      <div className="x2m-pane-title sticky top-0 z-[1] flex shrink-0 bg-canvas/80 h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[11.5px] font-semibold tracking-normal text-faint">
+      <div className="x2m-pane-title sticky top-0 z-[1] flex shrink-0 bg-canvas/80 h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-xs font-semibold tracking-normal text-faint">
         {heading ?? title}
         <span className="x2m-side-head-actions flex items-center gap-1">
           {actions}

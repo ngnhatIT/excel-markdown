@@ -6,6 +6,8 @@ export const vi = {
   'lang.en': 'English',
   'lang.ja': '日本語',
 
+  'common.undo': 'Hoàn tác',
+  'toast.excel.cleared': 'Đã xóa {n} file khỏi danh sách',
   'common.close': 'Đóng',
   'common.cancel': 'Hủy',
   'common.copy': 'Copy',
@@ -23,30 +25,23 @@ export const vi = {
   'header.brandTitle': 'Convert file Excel sang Markdown, giữ đúng bố cục tài liệu',
   'header.modes': 'Chế độ',
   'header.mode.excel2md': 'Excel → Markdown',
-  'header.mode.md2excel': 'Markdown → Excel',
   'header.mode.mdview': 'Đọc Markdown',
   'header.mode.compare': 'So sánh',
   'header.pick.excel2md': 'Thêm file Excel',
-  'header.pick.md2excel': 'Thêm file Markdown',
   'header.pick.compare': 'Chọn file so sánh',
   'header.theme.toLight': 'Chuyển sang nền sáng',
   'header.theme.toDark': 'Chuyển sang nền tối',
 
   'onboarding.mdview':
     'Kéo thả thư mục hoặc file Markdown vào đây để đọc — **Ctrl+O** mở thư mục, **↑/↓** chuyển file, **Ctrl+K** tìm nhanh, **Alt+←/→** lùi/tiến.',
-  'onboarding.md2excel': 'Kéo thả file Markdown vào đây để bắt đầu — **Ctrl+O** thêm file, **Ctrl+Enter** để tạo file Excel.',
   'onboarding.excel2md': 'Kéo thả file Excel vào đây để bắt đầu — **Ctrl+O** thêm file, **Ctrl+Enter** để convert.',
   'onboarding.compare': 'Chọn **bản cũ** và **bản mới** (Excel hoặc Markdown) để xem thay đổi — **F7** nhảy tới thay đổi kế tiếp.',
 
   'app.hint.excelFile': 'File Excel: chuyển sang chế độ Excel → Markdown để convert',
-  'app.hint.mdFile': 'File Markdown: chuyển sang chế độ Markdown → Excel để tạo file Excel',
+  'app.hint.mdFile': 'File Markdown: chuyển sang chế độ Đọc Markdown để xem',
   'app.resize.ai': 'Kéo để thay đổi độ rộng cột Trợ lý AI',
   'app.resize.options': 'Kéo để thay đổi độ rộng cột Tùy chọn',
   'app.resize.files': 'Kéo để thay đổi độ rộng cột File Excel',
-  'app.md.pickToPreview': 'Chọn một file Markdown để xem trước',
-  'app.md.openDir': 'Mở thư mục chứa file Excel',
-  'app.md.noOutDir': 'Chưa chọn thư mục lưu file Excel',
-  'app.md.convert': 'Tạo file Excel ({n} sheet)',
   'app.excel.convertN': 'Convert {n} sheet sang Markdown',
   'app.excel.convert': 'Convert sang Markdown',
 
@@ -89,7 +84,6 @@ export const vi = {
   'results.summary': 'Kết quả: {ok}/{total} file thành công',
   'results.retry': 'Thử lại file lỗi',
   'results.unit.md': 'file.md',
-  'results.unit.sheet': 'sheet',
   'results.openDir': 'Mở thư mục chứa file.md',
   'results.copyDir': 'Copy đường dẫn thư mục',
 
@@ -121,6 +115,7 @@ export const vi = {
   'files.rows': '{n} dòng',
   'files.rowsHidden': '{n} dòng (sheet ẩn trong Excel)',
   'files.hiddenTag': 'ẩn',
+  'files.willSkip': 'sẽ bỏ qua',
   'files.rowsShort': '{n} dòng',
 
   'mdfiles.title': 'File Markdown ({n})',
@@ -251,6 +246,7 @@ export const vi = {
   'viewer.closePaste': 'Đóng bản dán',
   'viewer.recent': 'Mới sửa',
   'viewer.all': 'Tất cả',
+  'viewer.sort': 'Sắp xếp',
   'viewer.sortName': 'Tên',
   'viewer.sortDate': 'Ngày sửa',
   'viewer.searching': 'Đang tìm...',
@@ -271,16 +267,16 @@ export const vi = {
   'palette.heading': 'Mục',
 
   'ai.title': 'Trợ lý AI (RAG)',
-  'ai.quick.summary': '📋 Tóm tắt nghiệp vụ',
+  'ai.quick.summary': 'Tóm tắt nghiệp vụ',
   'ai.quick.summaryPrompt':
     'Hãy tóm tắt mục đích nghiệp vụ, luồng xử lý chính và các bảng quan trọng của tài liệu đang xem bằng tiếng Việt.',
-  'ai.quick.review': '🔍 Kiểm tra thiếu sót',
+  'ai.quick.review': 'Kiểm tra thiếu sót',
   'ai.quick.reviewPrompt':
     'Hãy rà soát tài liệu thiết kế này xem có điểm nào mơ hồ, thiếu điều kiện biên (validation/error handling) hoặc mâu thuẫn giữa các mục không.',
-  'ai.quick.tests': '🧪 Sinh test case',
+  'ai.quick.tests': 'Sinh test case',
   'ai.quick.testsPrompt':
     'Từ tài liệu đang xem, hãy sinh bảng test case (No | Hạng mục | Điều kiện / Dữ liệu vào | Thao tác | Kết quả mong đợi | Nguồn) bao phủ từng 項目, 入力チェック, sự kiện và trường hợp lỗi. Mỗi dòng ghi rõ trích dẫn nguồn.',
-  'ai.quick.cross': '🔗 Đối chiếu chéo',
+  'ai.quick.cross': 'Đối chiếu chéo',
   'ai.quick.crossPrompt':
     'Hãy đối chiếu chéo các tài liệu trong thư mục: tên bảng/cột DB, mã màn hình, độ dài - kiểu dữ liệu và mã lỗi có khớp nhau giữa các file không. Liệt kê từng điểm lệch kèm trích dẫn hai phía.',
   'ai.quick.folderTitle': 'Chạy trên cả thư mục',
@@ -312,6 +308,9 @@ export const vi = {
   'ai.keyHint.openai': 'Dán OpenAI API Key (sk-...)',
   'ai.clearKeyTitle': 'Xóa API Key đã lưu',
   'ai.clearKey': 'Xóa key',
+  'ai.embeddings': 'Tìm theo nghĩa (embedding) cho thư mục lớn — gửi mọi mục của thư mục tới nhà cung cấp để lập chỉ mục',
+  'ai.embeddingsNoClaude': 'Tìm theo nghĩa (embedding): Claude không có API embedding, chọn Gemini hoặc OpenAI để dùng',
+  'ai.embeddingsTitle': 'Tắt (mặc định): chỉ gửi phần tài liệu khớp câu hỏi. Bật: nội dung cả thư mục được gửi một lần để lấy vector, tốn thêm phí embedding; tìm đúng hơn khi câu hỏi diễn đạt khác tài liệu.',
   'ai.context': 'Ngữ cảnh:',
   'ai.contextTitle': 'Tài liệu nhỏ hơn mức này được gửi nguyên văn; lớn hơn thì chỉ gửi phần khớp nhất',
   'ai.ctx': '{n}k token',

@@ -2,9 +2,9 @@
  * Nguồn: bảng 【項目定義】 nằm trong phần có meta 画面ID (header so theo alias như tableDef.ts),
  * dòng `〔入力規則 C2:C50〕A / B` và 画面遷移 (meta + 〔矢印〕, lấy qua buildSpecIndex).
  * Mỗi quy tắc một dòng: 必須 / 桁数 (biên) / 形式 / 初期値 / 選択肢 / 表示 / ボタン / 遷移. Thuần, dùng chung. */
-import { atxHeading, fenceAfter, isDelimRow, normLabel, tsvCell } from './mdLines'
+import { atxHeading, fenceAfter, isDelimRow, tsvCell } from './mdLines'
 import { splitTableRow } from './specDiff'
-import { buildSpecIndex, ITEM_FIELD_OF as FIELD_OF, type ItemField as Field, type SpecScreen } from './specIndex'
+import { buildSpecIndex, itemColumns, type ItemField, type SpecProject, type SpecScreen } from './specIndex'
 
 export type TestLang = 'ja' | 'vi' | 'en'
 export const TEST_LANGS: readonly TestLang[] = ['ja', 'vi', 'en']
@@ -194,11 +194,11 @@ interface Draft extends Omit<TestRow, 'no' | 'ref'> {
 }
 
 /** Sinh khung テスト観点表 từ một tài liệu. Không ném với Markdown bất kỳ. */
-export function buildTestDesign(md: string, opts: { source?: string; lang?: TestLang } = {}): TestDesign {
+export function buildTestDesign(md: string, opts: { source?: string; lang?: TestLang; project?: SpecProject } = {}): TestDesign {
   const source = opts.source ?? ''
   const tx = TEXT[opts.lang ?? 'ja']
   const lines = md.split(/\r?\n/)
-  const index = buildSpecIndex([{ rel: source, text: md }])
+  const index = buildSpecIndex([{ rel: source, text: md }], opts.project, { headingScreens: true })
   const labelOf = new Map(index.nodes.map((n) => [n.key, n.label]))
   const screenLabel = (s: SpecScreen): string => (s.name ? `${s.id} ${s.name}` : s.id)
   const screenAt = (line: number): SpecScreen | undefined => index.screens.find((s) => s.line <= line && line <= s.end)
@@ -232,11 +232,7 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
       continue
     }
     if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
-    const cols = new Map<Field, number>()
-    splitTableRow(line).forEach((c, idx) => {
-      const field = FIELD_OF.get(normLabel(cellText(c)))
-      if (field && !cols.has(field)) cols.set(field, idx)
-    })
+    const cols = itemColumns(splitTableRow(line), opts.project?.rules.itemColumns)
     const start = i
     i += 2
     const rows: { cells: string[]; line: number }[] = []
@@ -249,7 +245,7 @@ export function buildTestDesign(md: string, opts: { source?: string; lang?: Test
     const scLabel = screenLabel(sc)
     const outs = index.transitions.filter((t) => t.from === sc.id || (t.bidi && t.to === sc.id))
     for (const { cells, line: n } of rows) {
-      const get = (fl: Field): string => {
+      const get = (fl: ItemField): string => {
         const idx = cols.get(fl)
         return idx === undefined ? '' : cellText(cells[idx])
       }
@@ -328,7 +324,7 @@ export function testDesignTsv(d: TestDesign, lang: TestLang = 'ja'): string {
   return [TEXT[lang].head, ...d.rows.map(cells)].map((r) => r.map(tsvCell).join('\t')).join('\n') + '\n'
 }
 
-/** Markdown `## テスト仕様書` + bảng (mở ở chế độ Markdown → Excel để ra .xlsx). */
+/** Markdown `## テスト仕様書` + bảng. */
 export function testDesignMarkdown(d: TestDesign, lang: TestLang = 'ja', title = ''): string {
   const esc = (s: string): string => s.replace(/[\\|`*_[\]<>&]/g, '\\$&').replace(/\r?\n/g, '<br>')
   const head = TEXT[lang].head

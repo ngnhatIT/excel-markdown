@@ -1,4 +1,4 @@
-/* Đọc + parse file .md cho RAG, cache LRU theo mtime (dùng chung cho trợ lý AI trong app và MCP server). */
+/* Đọc + parse file .md cho RAG, cache LRU theo mtime (trợ lý AI trong app). */
 import { stat } from 'node:fs/promises'
 import { isMarkdownPath } from '../../domain/guards'
 import { parseMarkdownForRag, type RagDocument } from '../../domain/rag/chunker'

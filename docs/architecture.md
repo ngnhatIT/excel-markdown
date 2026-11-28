@@ -5,11 +5,10 @@ Electron + TypeScript + React (electron-vite) + Tailwind CSS v4. UI tiếng Vi�
 ## Luồng dữ liệu
 
 ```
-Renderer (React) --IPC--> Main (Node) --message--> Worker (utilityProcess, SheetJS / exceljs)
+Renderer (React) --IPC--> Main (Node) --message--> Worker (utilityProcess, SheetJS)
      ^                      |   ^                        |
      |                      |   +---- Markdown ----------+   Excel -> Markdown
      +-- preview/kết quả ---+--> ghi file .md
-     |                      |   +---- .xlsx (đã ghi) ----+   Markdown -> Excel
      |                      +--> hỏi ghi đè (dialog)
      |                      +--> RAG (chấm điểm tài liệu) --> Gemini / Claude / OpenAI   Trợ lý AI
 ```
@@ -30,23 +29,22 @@ src/
     window.ts                    # BrowserWindow (sandbox): nhớ vị trí + phóng to (bỏ vị trí nếu màn hình đã rút), chặn điều hướng
     menu.ts, diagnostics.ts      # menu Sửa / Xem / Trợ giúp (Giới thiệu, thư mục log, chẩn đoán, đặt lại cài đặt)
     i18nMain.ts                  # chữ do main hiện (hộp thoại, menu, ghi chú) theo khóa 'lang' của store
-    cli.ts, mcp.ts, worker.ts    # điểm vào khác: CLI, MCP server (stdio), utilityProcess
+    worker.ts                    # điểm vào khác: utilityProcess
     domain/                      # logic thuần, test không cần Electron
       excel/                     # Excel -> Markdown: converter, drawings (ảnh/shape/biểu đồ), output (tên file, escape)
-      md2xlsx/                   # Markdown -> Excel: parse, inline, cellValue, names, layout, write
       rag/                       # chia mục, BM25 + từ điển Việt-Nhật, gom tài liệu cho AI
       guards.ts, errors.ts       # kiểm đường dẫn/URL/vị trí cửa sổ; dịch lỗi sang tiếng Việt
     application/ports/           # giao thức main <-> worker (chỉ type + hằng)
     adapters/
       inbound/
         ipc/                     # IPC theo tính năng: system, convert (excel:* + md:*), viewer (mdv:* + ảnh), ai
-        cli/, mcp/, worker/      # CLI, MCP JSON-RPC, xử lý yêu cầu trong worker (+ cache workbook)
+        worker/                  # xử lý yêu cầu trong worker (+ cache workbook)
       outbound/
         store.ts                 # store.json (ghi tmp rồi rename, chuỗi hóa) + error.log
         llm/                     # client Gemini, Claude (SDK), OpenAI; aiConfig (mã hóa key, chuẩn hóa)
         converterWorker.ts       # client tới utilityProcess (id, tự khởi động lại, Hủy = kill)
-        mdOutput.ts              # ghi .md + ảnh (app và CLI dùng chung)
-        mdFolder.ts, ragDocCache.ts, xlsxFiles.ts, xlsxWriter.ts
+        mdOutput.ts              # ghi .md + ảnh
+        mdFolder.ts, ragDocCache.ts, xlsxFiles.ts
   shared/ (thêm)                 # thuần, test bằng vitest, dùng chung main + renderer
     specDiff.ts                  # So sánh 新旧: diff theo sheet -> mục -> dòng bảng (khóa ID), inline diff, báo cáo
     revision.ts                  # dòng 改訂履歴 từ SpecDiff (Markdown / TSV)
@@ -57,7 +55,6 @@ src/
     App.tsx                      # layout + chuyển chế độ + nối các feature
     features/
       excel2md/                  # FileList, OptionsPanel, useFiles, usePreview, useExcelConvert
-      md2excel/                  # MdFileList, MdOptionsPanel, useMdFiles, useMdConvert
       viewer/                    # MdTreeList, useMdViewer
       ai/                        # AiChatPanel
     components/                  # UI dùng chung: Header, Footer, PreviewPane, ResultsPanel, SidePanel, Toasts, icons
@@ -71,17 +68,16 @@ Quy tắc phụ thuộc: `domain/` không import Electron hay adapter; `adapters
 
 ## Main process
 
-- **Không nạp SheetJS, không nạp exceljs** (`out/main/index.js` không được chứa `require("exceljs")`).
+- **Không nạp SheetJS** trong main process.
 - `ipc/convert.ts`: hai worker (preview cache 3 workbook / 150 MB file nguồn, convert cache 1; preview
   gửi renderer tối đa 2 000 000 ký tự) để preview không chờ
   convert hàng loạt và Hủy không ảnh hưởng preview. Hai chiều chuyển đổi dùng chung cờ
   `convertRunning` (mỗi lúc một lần convert) và `excel:cancel`. Trước khi ghi, hỏi ghi đè nếu file
   đích đã có (`plannedMdFileNames` tính trước tên `.md`; test giữ nó khớp `workbookMdFiles`).
-  Markdown → Excel: worker ghi `.partial` rồi đổi tên; Hủy/lỗi dọn `.partial`.
 - `ipc/system.ts`: `store:*` không bao giờ đọc/ghi khóa API Key (`isSecretStoreKey`), giá trị ≤ 1 MB JSON;
   `shell:openPath` chỉ mở thư mục; `log:renderer` nhận lỗi từ ErrorBoundary của renderer.
 - Lỗi IPC trả về renderer là mã `E_…` (tham số sau `|`, vd `E_WORKER_TIMEOUT|120`), renderer dịch
-  (`i18n/errors.ts`); `domain/errors.ts` (`errorCode` / `describeError`) có cùng chữ cho CLI/MCP
+  (`i18n/errors.ts`); `domain/errors.ts` (`errorCode` / `describeError`) có cùng chữ cho worker
   (`friendlyError` = tiếng Việt) và lỗi từng file trong kết quả convert.
 - Crash: `uncaughtException` / `unhandledRejection` / `child-process-gone` ghi `logs/error.log`
   (quá 512 KB thì chuyển sang `error.1.log`); `render-process-gone` hỏi tải lại cửa sổ.
@@ -96,8 +92,6 @@ Quy tắc phụ thuộc: `domain/` không import Electron hay adapter; `adapters
 ## Worker (`src/main/worker.ts` → `out/main/worker.js`, utilityProcess)
 
 - `workerHandler.ts` — listSheets / preview / convert (thuần, có test).
-- `mdHandler.ts` — `mdInspect` / `mdToXlsx`, không bao giờ ném (lỗi thành `ok: false` tiếng Việt).
-  **exceljs chỉ được nạp bằng import động khi có `mdToXlsx`.**
 - `workbookCache.ts` — LRU workbook đã parse, kiểm mtime + size mỗi lần lấy.
 
 ## Engine converter (tóm tắt)
@@ -117,40 +111,11 @@ Quy tắc phụ thuộc: `domain/` không import Electron hay adapter; `adapters
    sub-bullet) escape thêm cú pháp block (`# `, `> `, `- `, `1. `, `---`).
    Khoảng trắng ASCII gộp, toàn角 (U+3000) giữ.
 
-## Engine Markdown → Excel (`src/main/domain/md2xlsx/`, tóm tắt)
-
-Thuần Node (test được không cần Electron); `write.ts` là module duy nhất nạp exceljs.
-Thiết kế và quyết định: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
-
-| Module | Việc |
-|---|---|
-| `model.ts` | Mô hình trung gian: `SheetModel` { tên, `Block[]` } với block banner / table / meta / heading / note / paragraph / code; `XCell` (chữ + link tuỳ chọn). |
-| `inline.ts` | Token inline của `marked` → chữ hiển thị của ô (chiều ngược của `escapeMarkdownInline`); cả ô là một link http/https/mailto thì giữ link. |
-| `cellValue.ts` | Quy tắc giá trị ô: `10` số, `1.0`/`1.10` số + format `0.0`/`0.00`, `1,234` → `#,##0`, `1,234.50` → `#,##0.00` (số chữ số thập phân theo chữ), `12.50%` → số/100 + `0.00%`; `0001`, số > 11 chữ số, ngày, `#N/A`... giữ text. |
-| `parse.ts` | `parseMarkdownFile(md, fileName)` → `{ title, sheets }`: tách sheet (ranh giới file và `---` ngoài cùng, `##` đầu phần là tên sheet), nhận banner 基本設計, bảng, meta `**label**:`/`**label**：` (chỉ trong list không đánh số; list đánh số luôn giữ `N. `), section, ghi chú, đoạn văn, list, code; `<br>` trong khối HTML thành xuống dòng. Không crash với Markdown bất kỳ. |
-| `names.ts` | `assignSheetNames`: tên sheet hợp lệ (ký tự cấm `[]:*?/\` và `'` ở đầu/cuối thành `_`; ký tự điều khiển cấm của XML bị bỏ; ≤ 31 ký tự; không trùng → ` (2)`; `History` → `History_`). |
-| `layout.ts` | Độ rộng hiển thị cho độ rộng cột (CJK = 2); ước lượng số dòng của ô merge theo kiểu chữ (`body` 游ゴシック 10, `bold` nhãn meta, `heading` 游ゴシック 12 đậm, `code` MS Gothic 10 đơn cách — bề rộng glyph đo bằng Excel thật; mô phỏng Excel xuống dòng sau khoảng trắng và sau dấu `-` (một dấu `-` cuối dòng được treo)); `splitByLines` tách đoạn quá cao thành nhiều hàng. |
-| `glyphTable.ts` | Dữ liệu đo (sinh bằng `scripts/measure-glyphs`, không sửa tay): ký tự BMP ngoài ASCII mà Excel hiển thị rộng hơn 1em (⟶ ⸻ U+FDFD, chữ Ấn/Đông Nam Á…); `layout.ts` cộng thêm emoji `\p{Emoji_Presentation}` (✅ ❌ ⭐ ⌛…) tính 20px. |
-| `write.ts` | `buildWorkbook(sheets)` ghi bố cục (font 游ゴシック 10, màu, viền, merge, wrap, A4 ngang vừa 1 trang rộng; chiều cao dòng = **16.5pt × số dòng**, đo bằng Excel thật; heading và từng dòng code cũng merge A..cột cuối + tự xuống dòng (heading 19.5pt/dòng, code MS Gothic 12pt/dòng + 1.5, tối thiểu 15) để không bị cắt khi in; hàng ≤ 409.5pt nên đoạn / heading / dòng code dài tách thành nhiều hàng merge liền nhau). `saveWorkbook` chèn `ignoredErrors` (không tam giác xanh) vào XML từng sheet bằng JSZip, ghi `.partial` rồi đổi tên. |
-| `mdHandler.ts` | `handleMdRequest`: `mdInspect` / `mdToXlsx`. Một file lỗi (không đọc được, hoặc không phải UTF-8) → dừng, chưa ghi gì. |
-
-Luồng `mdToXlsx`: đọc + parse từng file theo thứ tự danh sách → `assignSheetNames` trên toàn bộ
-sheet (trùng tên giữa các file cũng thành `Tên (2)`) → `buildWorkbook` → `saveWorkbook`.
-
-Ràng buộc: exceljs 4.4.0 **chỉ để ghi** file do app tạo, không bao giờ đọc file ngoài (test
-chỉ đọc lại buffer do chính code tạo, bằng SheetJS). `out/main/index.js` không được chứa
-`require("exceljs")`. Output Excel → Markdown (`test/golden/*.md`, `*.sheets.json`) không đổi.
-
-Kiểm bằng Excel thật: `scripts/xlsx-snapshot.ps1` (xem README) mở file bằng COM, báo
-`REPAIRED` nếu Excel đòi sửa file, và chụp ảnh từng sheet để review bố cục.
-
 ## Quy ước
 
 - Mỗi thay đổi: typecheck + test xanh mới commit. Regression: golden test
   (`src/main/domain/excel/golden.test.ts`, file mẫu `test/fixtures`, output `test/golden`);
   đổi output có chủ ý thì `npm run test:update` và review diff `test/golden`.
-  Chiều Markdown → Excel: `src/main/domain/md2xlsx/golden.test.ts` (golden JSON `test/golden-md2xlsx`
-  + round-trip với Markdown do app tạo); **không** sửa `test/golden` để chiều này ổn định hơn.
 - Đổi UI / IPC / main: chạy `npm run e2e` (build + điều khiển app Electron thật qua
   DevTools Protocol, `scripts/e2e.mjs`). Cần màn hình, không chạy trong CI.
 - Lịch sử quá trình làm: `docs/history/` (BACKLOG, PROGRESS, AUDIT, PERF).

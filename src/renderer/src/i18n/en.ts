@@ -6,6 +6,8 @@ export const en: Dict = {
   'lang.en': 'English',
   'lang.ja': '日本語',
 
+  'common.undo': 'Undo',
+  'toast.excel.cleared': 'Removed {n} files from the list',
   'common.close': 'Close',
   'common.cancel': 'Cancel',
   'common.copy': 'Copy',
@@ -23,30 +25,23 @@ export const en: Dict = {
   'header.brandTitle': 'Convert Excel files to Markdown, keeping the document layout',
   'header.modes': 'Mode',
   'header.mode.excel2md': 'Excel → Markdown',
-  'header.mode.md2excel': 'Markdown → Excel',
   'header.mode.mdview': 'Markdown Reader',
   'header.mode.compare': 'Compare',
   'header.pick.excel2md': 'Add Excel files',
-  'header.pick.md2excel': 'Add Markdown files',
   'header.pick.compare': 'Choose files to compare',
   'header.theme.toLight': 'Switch to light theme',
   'header.theme.toDark': 'Switch to dark theme',
 
   'onboarding.mdview':
     'Drop a folder or Markdown files here to read — **Ctrl+O** open folder, **↑/↓** switch file, **Ctrl+K** quick open, **Alt+←/→** back/forward.',
-  'onboarding.md2excel': 'Drop Markdown files here to start — **Ctrl+O** add files, **Ctrl+Enter** create the Excel file.',
   'onboarding.excel2md': 'Drop Excel files here to start — **Ctrl+O** add files, **Ctrl+Enter** convert.',
   'onboarding.compare': 'Choose the **old** and **new** version (Excel or Markdown) to see what changed — **F7** jumps to the next change.',
 
   'app.hint.excelFile': 'Excel file: switch to Excel → Markdown mode to convert it',
-  'app.hint.mdFile': 'Markdown file: switch to Markdown → Excel mode to create an Excel file',
+  'app.hint.mdFile': 'Markdown file: switch to Markdown Reader mode to view it',
   'app.resize.ai': 'Drag to resize the AI Assistant column',
   'app.resize.options': 'Drag to resize the Options column',
   'app.resize.files': 'Drag to resize the Excel files column',
-  'app.md.pickToPreview': 'Select a Markdown file to preview',
-  'app.md.openDir': 'Open the folder containing the Excel file',
-  'app.md.noOutDir': 'No folder selected for the Excel file',
-  'app.md.convert': 'Create Excel file ({n} sheets)',
   'app.excel.convertN': 'Convert {n} sheets to Markdown',
   'app.excel.convert': 'Convert to Markdown',
 
@@ -89,7 +84,6 @@ export const en: Dict = {
   'results.summary': 'Result: {ok}/{total} files succeeded',
   'results.retry': 'Retry failed files',
   'results.unit.md': '.md files',
-  'results.unit.sheet': 'sheets',
   'results.openDir': 'Open the folder containing the .md files',
   'results.copyDir': 'Copy folder path',
 
@@ -121,6 +115,7 @@ export const en: Dict = {
   'files.rows': '{n} rows',
   'files.rowsHidden': '{n} rows (hidden in Excel)',
   'files.hiddenTag': 'hidden',
+  'files.willSkip': 'will be skipped',
   'files.rowsShort': '{n} rows',
 
   'mdfiles.title': 'Markdown files ({n})',
@@ -251,6 +246,7 @@ export const en: Dict = {
   'viewer.closePaste': 'Close pasted document',
   'viewer.recent': 'Recently modified',
   'viewer.all': 'All',
+  'viewer.sort': 'Sort',
   'viewer.sortName': 'Name',
   'viewer.sortDate': 'Modified',
   'viewer.searching': 'Searching...',
@@ -271,16 +267,16 @@ export const en: Dict = {
   'palette.heading': 'Section',
 
   'ai.title': 'AI Assistant (RAG)',
-  'ai.quick.summary': '📋 Business summary',
+  'ai.quick.summary': 'Business summary',
   'ai.quick.summaryPrompt':
     'Summarize the business purpose, main processing flow and key tables of the document I am viewing, in English.',
-  'ai.quick.review': '🔍 Find gaps',
+  'ai.quick.review': 'Find gaps',
   'ai.quick.reviewPrompt':
     'Review this design document for anything ambiguous, missing edge conditions (validation/error handling) or contradictions between sections.',
-  'ai.quick.tests': '🧪 Generate test cases',
+  'ai.quick.tests': 'Generate test cases',
   'ai.quick.testsPrompt':
     'From the document I am viewing, generate a test case table (No | Item | Precondition / Input | Steps | Expected result | Source) covering every 項目, 入力チェック, event and error case. Cite the source on every row.',
-  'ai.quick.cross': '🔗 Cross-check',
+  'ai.quick.cross': 'Cross-check',
   'ai.quick.crossPrompt':
     'Cross-check the documents in the folder: do DB table/column names, screen IDs, lengths and data types, and error codes match across files? List each mismatch with citations from both sides.',
   'ai.quick.folderTitle': 'Runs on the whole folder',
@@ -312,6 +308,9 @@ export const en: Dict = {
   'ai.keyHint.openai': 'Paste your OpenAI API key (sk-...)',
   'ai.clearKeyTitle': 'Remove the saved API key',
   'ai.clearKey': 'Remove key',
+  'ai.embeddings': 'Semantic search (embeddings) for large folders — sends every section of the folder to the provider for indexing',
+  'ai.embeddingsNoClaude': 'Semantic search (embeddings): Claude has no embedding API; choose Gemini or OpenAI to use it',
+  'ai.embeddingsTitle': 'Off (default): only the parts matching the question are sent. On: the whole folder is sent once to get vectors, at extra embedding cost; finds the right files when the question is worded differently from the documents.',
   'ai.context': 'Context:',
   'ai.contextTitle': 'Documents smaller than this are sent in full; larger ones send only the best-matching parts',
   'ai.ctx': '{n}k tokens',

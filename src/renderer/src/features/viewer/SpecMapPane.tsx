@@ -223,11 +223,11 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
 
   return (
     <main className="x2m-main x2m-specmap flex min-w-0 flex-1 flex-col overflow-hidden bg-editor" aria-label={t('sm.button')}>
-      <div className="x2m-specmap-bar flex items-center gap-2 border-b border-line-subtle px-3 py-1.5">
+      <div className="x2m-specmap-bar flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line-subtle px-3 py-1.5">
         <div
           ref={tabsRef}
           className={cn(
-            'x2m-tabs flex min-w-0 shrink items-center gap-0.5 overflow-x-auto rounded-md border border-line-subtle bg-canvas p-0.5 [scrollbar-width:none] [&>button]:shrink-0 [&>button]:whitespace-nowrap',
+            'x2m-tabs flex min-w-0 max-w-full shrink items-center gap-0.5 overflow-x-auto rounded-md border border-line-subtle bg-canvas p-0.5 [scrollbar-width:none] [&>button]:shrink-0 [&>button]:whitespace-nowrap',
             tabsCut.right && !tabsCut.left && '[mask-image:linear-gradient(90deg,#000_calc(100%-28px),transparent)]',
             tabsCut.left && !tabsCut.right && '[mask-image:linear-gradient(90deg,transparent,#000_28px)]',
             tabsCut.left && tabsCut.right && '[mask-image:linear-gradient(90deg,transparent,#000_28px,#000_calc(100%-28px),transparent)]'
@@ -255,7 +255,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
         </div>
         {index && !empty && (
           // Một hàng cao cố định: chip không vừa rơi xuống hàng 2 (bị ẩn trọn, không cắt giữa chữ); số vấn đề đứng đầu nên luôn thấy
-          <span className="x2m-specmap-chips flex h-[22px] min-w-0 flex-wrap items-center gap-x-1.5 gap-y-2 overflow-hidden text-[11.5px] font-medium tabular-nums [&>span]:shrink-0">
+          <span className="x2m-specmap-chips order-last flex h-[22px] basis-full min-w-0 flex-wrap items-center gap-x-1.5 gap-y-2 overflow-hidden text-xs font-medium tabular-nums [&>span]:shrink-0">
             <span className={cn('rounded-md px-1.5 py-0.5', errors > 0 ? 'bg-danger-soft text-danger' : index.issues.length > 0 ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success')}>
               {t('sm.chip.issues', { n: index.issues.length })}
             </span>
@@ -281,13 +281,13 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
       </div>
 
       {index?.project && (
-        <p className="m-0 border-b border-line-subtle px-3 py-1 text-[11.5px] text-dim" title={index.project.path}>
+        <p className="m-0 border-b border-line-subtle px-3 py-1 text-xs text-dim" title={index.project.path}>
           {t('project.applied')}: <span className="text-faint">{index.project.path}</span>
           {index.project.warnings.length > 0 && <span className="block text-warning">{index.project.warnings.join(' · ')}</span>}
         </p>
       )}
       {index && (index.truncated.docs || index.truncated.refs) && (
-        <p className="m-0 border-b border-line-subtle bg-warning-soft px-3 py-1 text-[11.5px] text-warning">
+        <p className="m-0 border-b border-line-subtle bg-warning-soft px-3 py-1 text-xs text-warning">
           {[index.truncated.docs && t('sm.truncated.docs', { n: index.docCount }), index.truncated.refs && t('sm.truncated.refs')].filter(Boolean).join(' ')}
         </p>
       )}
@@ -319,7 +319,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
             if (!has) return <p className={cx(emptyP, 'p-6')}>{t(tab === 'flow' ? 'sm.flow.none' : 'sm.er.none')}</p>
             return (
               <div className={cn('x2m-specmap-sheet', fit && 'is-fit')}>
-                <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-2 text-[11.5px] text-faint">
+                <div className="flex flex-wrap items-center gap-2 border-b border-line-subtle px-4 py-2 text-xs text-faint">
                   {tab === 'flow' && <span>{t('sm.flow.hint')}</span>}
                   {(tab === 'flow' ? flow?.truncated : er?.truncated) && <span className="text-warning">{t('sm.truncated.diagram')}</span>}
                   <span className="ml-auto flex items-center gap-1">
@@ -337,7 +337,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           })()
         ) : tab === 'crud' && crud ? (
           <div className="x2m-specmap-crud x2m-specmap-sheet flex flex-col gap-3 p-4">
-            <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
               <span className="max-w-[80ch]">{t('sm.crud.hint')}</span>
               <span className="ml-auto flex items-center gap-1">
                 <button className={cx(btnGhost, btnSm)} onClick={() => void copyOut(crudText(crud, 'tsv'), t('sm.crud.copied'))}>
@@ -406,7 +406,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
                 <h3 className="m-0 px-2 pb-1 text-[12px] font-semibold text-ink">{t('sm.crud.cell', { screen: crudSel.id, table: crudSel.table, ops: selCell.ops })}</h3>
                 {selCell.evidence.map((e) => (
                   <button key={`${e.rel}:${e.line}`} className={locBtn} onClick={() => onOpen(e.rel, e.heading, e.term)} title={t('sm.openAt', { rel: e.rel, line: e.line })}>
-                    <span className="shrink-0 rounded bg-soft px-1 font-mono text-[10.5px]">{e.ops}</span>
+                    <span className="shrink-0 rounded bg-soft px-1 font-mono text-xs">{e.ops}</span>
                     <span className="shrink-0 tabular-nums text-faint">
                       {e.rel}:{e.line}
                     </span>
@@ -420,7 +420,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
           </div>
         ) : tab === 'glossary' ? (
           <div className="x2m-specmap-glossary x2m-specmap-sheet flex flex-col gap-3 p-4">
-            <div className="flex flex-wrap items-center gap-2 text-[11.5px] text-faint">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-faint">
               <span className="max-w-[80ch]">{index.glossary ? t('sm.gl.file', { rel: index.glossary.rel, n: index.glossary.entries.length }) : t('sm.gl.none')}</span>
               <span className="ml-auto flex items-center gap-1">
                 {index.glossary && (
@@ -515,7 +515,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
                   />
                 </div>
                 {impact.r.screens.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-1.5 text-[11.5px]">
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
                     {impact.r.screens.map((s) => {
                       const def = index.screens.find((x) => x.id === s.id)
                       return (
@@ -540,7 +540,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
                     {g.hits.map((h) => (
                       <button key={h.line} className={locBtn} onClick={() => onOpen(g.rel, h.heading, h.term)} title={t('sm.openAt', { rel: g.rel, line: h.line })}>
                         <span className="w-9 shrink-0 text-right tabular-nums text-faint">{h.line}</span>
-                        <span className={cn('shrink-0 rounded px-1 text-[10.5px]', h.reason === 'definition' ? 'bg-accent-soft text-accent-ink' : h.reason === 'reference' ? 'bg-soft' : 'bg-warning-soft text-warning')}>
+                        <span className={cn('shrink-0 rounded px-1 text-xs', h.reason === 'definition' ? 'bg-accent-soft text-accent-ink' : h.reason === 'reference' ? 'bg-soft' : 'bg-warning-soft text-warning')}>
                           {t(`sm.reason.${h.reason}`)}
                         </span>
                         <span className="min-w-0 truncate">{h.snippet}</span>
@@ -563,7 +563,7 @@ export function SpecMapPane({ root, onOpen, onClose }: Props): React.ReactElemen
             )}
             {sortIssues(index.issues).map((i, k) => (
               <button key={k} className={locBtn} onClick={() => onOpen(i.rel, i.heading, i.subject)} title={t('sm.openAt', { rel: i.rel, line: i.line })}>
-                <span className={cn('shrink-0 rounded px-1 text-[10.5px] font-semibold', i.severity === 'error' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning')}>
+                <span className={cn('shrink-0 rounded px-1 text-xs font-semibold', i.severity === 'error' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning')}>
                   {t(i.severity === 'error' ? 'sm.lint.error' : 'sm.lint.warning')}
                 </span>
                 <span className="min-w-0 flex-1 text-ink [overflow-wrap:anywhere]">{issueText(i)}</span>

@@ -1,6 +1,6 @@
 /* 質問票 (danh sách câu hỏi gửi khách) sinh từ Bản đồ thiết kế: mỗi chỗ thiết kế chưa rõ thành một câu hỏi lịch sự,
  * kèm màn hình, vị trí file:dòng và cột trống cho khách trả lời. Nguồn: 整合性チェック, ô CRUD `?`, màn hình không có
- * 項目定義. Không AI: câu hỏi điền từ mẫu, nên nội dung luôn khớp đúng chỗ phát hiện. Dùng chung renderer + CLI. */
+ * 項目定義. Không AI: câu hỏi điền từ mẫu, nên nội dung luôn khớp đúng chỗ phát hiện. */
 import { crudMatrix, ownerScreen, type SpecIndex, type SpecIssueCode, type SpecScreen } from './specIndex'
 import { detectTextLang, type TranslateLang } from './translate'
 

@@ -12,19 +12,16 @@ cũng convert được.
 | Việc cần làm | Dùng |
 |---|---|
 | Đưa tài liệu Excel vào Git, wiki, hoặc cho AI đọc | [Excel → Markdown](#1-excel--markdown) |
-| Sửa Markdown xong xuất lại Excel để gửi khách | [Markdown → Excel](#2-markdown--excel) |
-| Đọc cả thư mục tài liệu `.md` như một trang web | [Đọc Markdown](#3-đọc-markdown) |
-| Hỏi "màn hình nào dùng cột X?", tóm tắt, sinh test case | [Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu) |
-| Cho Claude Code / Codex làm việc trên tài liệu, không cần API key | [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp) |
-| Xem bản thiết kế mới đổi gì so với bản cũ (新旧比較), xuất báo cáo thay đổi | [So sánh](#6-so-sánh-bản-cũ--bản-mới-新旧比較) |
-| Xem thay đổi file Excel ngay trong `git diff` | [textconv](#convert-bằng-dòng-lệnh) |
-| Sửa bảng / cột / màn hình thì ảnh hưởng tới đâu? Sơ đồ 画面遷移, ER cả thư mục | [Bản đồ thiết kế](#3-đọc-markdown) |
+| Đọc cả thư mục tài liệu `.md` như một trang web | [Đọc Markdown](#2-đọc-markdown) |
+| Hỏi "màn hình nào dùng cột X?", tóm tắt, sinh test case | [Trợ lý AI](#3-trợ-lý-ai-trên-tài-liệu) |
+| Xem bản thiết kế mới đổi gì so với bản cũ (新旧比較), xuất báo cáo thay đổi | [So sánh](#4-so-sánh-bản-cũ--bản-mới-新旧比較) |
+| Sửa bảng / cột / màn hình thì ảnh hưởng tới đâu? Sơ đồ 画面遷移, ER cả thư mục | [Bản đồ thiết kế](#2-đọc-markdown) |
 
-Bốn chế độ (Excel → Markdown, Markdown → Excel, Đọc Markdown, So sánh) đổi ở thanh dọc bên trái (nút sáng / tối
+Ba chế độ (Excel → Markdown, Đọc Markdown, So sánh) đổi ở thanh dọc bên trái (nút sáng / tối
 ở đáy thanh); app nhớ chế độ dùng lần cuối. Giao diện có **tiếng Việt / English / 日本語** (nút VI · EN · 日本語 ở
 thanh trên; lần đầu theo ngôn ngữ hệ điều hành).
 
-**Dịch** (dùng nhà cung cấp AI đã cấu hình ở mục [Trợ lý AI](#4-trợ-lý-ai-trên-tài-liệu); chỉ gửi khi bạn bấm; giữ
+**Dịch** (dùng nhà cung cấp AI đã cấu hình ở mục [Trợ lý AI](#3-trợ-lý-ai-trên-tài-liệu); chỉ gửi khi bạn bấm; giữ
 nguyên mã, ID, tên bảng / cột; theo đúng thuật ngữ trong `用語集.md` nếu có):
 
 - **Đoạn bôi đen**: bôi đen chữ trong khung xem (mọi chế độ) → nút **訳 Dịch** cạnh vùng chọn (hoặc `Ctrl+Shift+T`)
@@ -46,8 +43,6 @@ nguyên mã, ID, tên bảng / cột; theo đúng thuật ngữ trong `用語集
   thể cảnh báo vì app chưa ký số: chọn **More info → Run anyway**.
   - Cài xong, chuột phải file `.xlsx` / `.xlsm` / `.xls` / `.md` → **Open with → ExcelToMarkdown**. App
     **không** giành quyền mở mặc định: nhấp đúp file Excel vẫn mở Excel như cũ.
-  - Kèm lệnh `x2m` (CLI) và `x2m-mcp` (MCP server) trong `resources\bin` của thư mục cài, chạy bằng chính
-    app, không cần Node. Xem [Convert bằng dòng lệnh](#convert-bằng-dòng-lệnh) và [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp).
   - App không tự kiểm tra hay tải bản mới (không gọi mạng ngầm): xem bản mới ở trang Releases.
 - **Chạy từ mã nguồn** (Windows / macOS / Linux, cần Node 20+):
 
@@ -109,89 +104,10 @@ Nút **Mặc định** ở đầu cột đưa mọi tùy chọn về ban đầu.
 File không phải 基本設計 vẫn convert bình thường: lớp chung (bảng, đoạn văn) luôn chạy, lớp riêng
 (banner, meta tiếng Nhật) chỉ bật khi gặp đúng mẫu.
 
-### Convert bằng dòng lệnh
-
-Cùng engine với app, tiện cho script hoặc CI. Máy đã cài app: dùng `x2m.cmd` (không cần Node).
-Thêm thư mục `resources\bin` vào PATH của tài khoản một lần (PowerShell), mở terminal mới là gõ được `x2m`:
-
-```powershell
-[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path','User') + ";$env:LOCALAPPDATA\Programs\ExcelToMarkdown\resources\bin", 'User')
-x2m a.xlsx b.xlsx -o out --front-matter --chunk 50
-```
-
-Từ mã nguồn (cần `npm run build` trước), thay `x2m` bằng `node out/main/cli.js` trong mọi lệnh dưới đây:
-
-```bash
-node out/main/cli.js a.xlsx b.xlsx -o out --front-matter --chunk 50
-```
-
-Cờ: `--per-workbook`, `--range A1:F40`, `--formulas`, `--front-matter`, `--chunk N`, `--keep-del`,
-`--keep-empty`, `--no-escape`, `--no-title`, `--no-config` (bỏ qua [x2m.json](#cấu-hình-dự-án-x2mjson)).
-
-Đầu vào là thư mục thì convert mọi file Excel bên trong (đệ quy, bỏ `~$*`, giữ cấu trúc thư mục con).
-Chiều ngược lại: `node out/main/cli.js md2xlsx docs/ -o out/Book.xlsx [--overwrite]`.
-`--no-clobber`: bỏ qua workbook đã có file `.md` đầu ra (mặc định ghi đè). `--help`, `--version`.
-
-**Xem thay đổi file Excel bằng `git diff`** (textconv: git so sánh Markdown thay vì file nhị phân):
-
-```bash
-git config diff.x2m.textconv "x2m.cmd textconv"   # từ mã nguồn: "node /đường/dẫn/out/main/cli.js textconv"
-git config diff.x2m.cachetextconv true
-echo '*.xlsx diff=x2m' >> .gitattributes
-```
-
-Sau đó `git diff`, `git log -p`, SourceTree... hiện thay đổi theo từng sheet dạng Markdown; ảnh hiện
-kèm mã sha1 nên đổi ảnh cũng thấy.
 
 ---
 
-## 2. Markdown → Excel
-
-Dùng khi muốn sửa Markdown (bằng tay hoặc nhờ AI, dễ diff bằng Git) rồi xuất lại Excel. App tạo
-workbook **mới** theo bố cục chuẩn của app, không dựng lại bố cục Excel gốc.
-
-1. Bật công tắc **Markdown → Excel**.
-2. Kéo thả file `.md` (hoặc `Ctrl+O`). Dưới mỗi file là tên các sheet sẽ tạo. ↑ / ↓ đổi thứ tự
-   (thứ tự danh sách = thứ tự sheet). Sửa file `.md` sau khi thêm thì bấm **Tải lại** (⟳) để xem nội dung mới.
-3. Đặt tên file Excel ở cột phải (mặc định lấy phần tên chung trước `__` của các file).
-4. Chọn thư mục xuất, bấm **Tạo file Excel** (`Ctrl+Enter`). **Mọi file trong danh sách gộp thành
-   một file `.xlsx`.** File đích đã có thì app hỏi Ghi đè / Hủy; Hủy hoặc lỗi giữa chừng không để lại file dở.
-
-**Quy tắc chuyển**
-
-- **Tách sheet**: mỗi file và mỗi dòng `---` ở ngoài cùng bắt đầu một sheet mới. `##` đầu phần là
-  tên sheet. Tên sheet tự làm sạch (bỏ ký tự cấm, tối đa 31 ký tự, không trùng).
-- **Bố cục**: font 游ゴシック 10, ẩn gridline, in A4 ngang vừa chiều rộng; bảng có header nền xanh
-  nhạt + viền mảnh; `- **label**: value` thành ô label + ô value; chiều cao dòng tự tính để chữ
-  không bị che khi in.
-- **Ô**: lấy chữ hiển thị (bỏ `\*`, `**`, `` ` ``; `<br>` thành xuống dòng). Ô chỉ chứa một link
-  `http`/`https`/`mailto` thành hyperlink.
-- **Số**: `10`, `1.0`, `1,234,567.89`, `12.50%` thành số đúng định dạng; `0001`, số quá 11 chữ số,
-  ngày, `#N/A` giữ dạng text.
-
-**Giữ được khi tạo Excel**
-
-- Đậm / nghiêng / gạch ngang / `code` trong ô bảng và value meta (rich text); `**10**` vẫn là số 10.
-- Căn lề cột bảng `:---:` / `---:`.
-- Link: ô / đoạn có một link `http`/`https`/`mailto` thành hyperlink (nhiều link thì giữ URL trong ngoặc);
-  link `#mục` / `file.md` tới sheet trong cùng lần tạo thành link nội bộ tới sheet đó.
-- `- 〔入力規則 C2:C50〕A / B` thành danh sách thả xuống trên đúng cột của bảng phía trên (khi chỉ một cột khớp);
-  `- 〔コメント B5: ô〕…` thành ghi chú (note) của đúng ô đó (khi chỉ một ô khớp). Không chắc chắn thì giữ dòng chữ.
-- Ảnh PNG / JPEG ≤ 10 MB nằm trong thư mục của file `.md` (không ra ngoài bằng `..` / symlink) được nhúng vào sheet.
-
-**Giới hạn**
-
-- Đoạn văn, heading, ghi chú ghi chữ thuần (không giữ đậm giữa câu); không giữ màu, 方眼紙, merge gốc.
-- Round-trip `md → xlsx → md` chỉ ổn định với Markdown do app tạo.
-- `---` dùng làm đường kẻ trang trí cũng bị tách sheet: xem tên sheet dưới từng file trước khi tạo.
-- Ô dài quá 32 767 ký tự bị cắt. File `.md` phải là UTF-8 (Shift_JIS bị từ chối, có báo tên file); file rỗng bị
-  từ chối kèm tên file; file chỉ có heading vẫn thành một sheet.
-
-Chi tiết: `docs/superpowers/specs/2026-10-19-md-to-excel-design.md`.
-
----
-
-## 3. Đọc Markdown
+## 2. Đọc Markdown
 
 Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mermaid), chỉ đọc, không sửa file.
 
@@ -223,28 +139,23 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
     `顧客登録画面` → `c`); `?` = không xác định được (không đoán bừa). Bấm ô để xem bằng chứng file:dòng; copy TSV / Markdown.
   - **質問票**: mọi chỗ chưa rõ (遷移 treo, chữ mơ hồ, 桁数 màn hình > DB, ô CRUD `?`, màn hình không có 項目定義…) thành câu
     hỏi gửi khách theo văn phong 質問票, kèm màn hình và `file:dòng`; tiếng Nhật / Việt / Anh; Copy TSV dán vào mẫu của dự án.
-    Dòng lệnh: `x2m qa <thư mục> [--lang ja] [--spec-only] -o qa.tsv`.
   - **Hoàn thiện (完成度)**: % hoàn thiện cả thư mục và từng màn hình / bảng (có 項目定義, 遷移, CRUD rõ, không còn chữ mơ hồ /
     vấn đề 整合性; bảng có PK, đủ 型, có màn hình dùng), yếu nhất trước; copy TSV / Markdown để báo cáo tiến độ.
   - **用語集**: đặt `用語集.md` (bảng `| 日本語 | Tiếng Việt | English | 備考 |`) ở gốc thư mục — Dịch nhanh và Trợ lý AI
     dùng đúng thuật ngữ dự án; nút **Copy gợi ý 用語集** tạo sẵn bảng từ tên bảng / cột / màn hình để bạn chỉnh.
-  - Dòng lệnh: `node out/main/cli.js impact <thư mục> <truy vấn>`, `node out/main/cli.js lint <thư mục>` (có lỗi → mã 1,
-    dùng trong CI), `node out/main/cli.js crud <thư mục> [--format md|tsv]`; MCP: tool `impact`, `crud`.
 - **テスト観点表** (nút **観点表** khi tài liệu có bảng 【項目定義】 trong mục có 画面ID): sinh khung テスト仕様書 tại chỗ,
   không AI: 必須, biên 桁数 (n / n+1 ký tự), 形式 (数値 / 日付 / 半角英数), 初期値, lựa chọn, nút và 画面遷移, kèm
-  参照元 file:dòng. Copy TSV dán Excel, hoặc Lưu `.md` rồi mở ở chế độ Markdown → Excel để ra `.xlsx`. Nội dung
+  参照元 file:dòng. Copy TSV dán Excel, hoặc Lưu `.md`. Nội dung
   tiếng Nhật / Việt / Anh.
 - **Định nghĩa bảng → DDL / ER / JSON**: bảng có cột `物理名` + `型` (テーブル定義書) có thêm nút **DDL** trên thanh
   mục lục: chọn Generic / PostgreSQL / MySQL / Oracle / SQL Server, copy `CREATE TABLE` (kèm PK, NOT NULL, DEFAULT,
   comment theo tên logic), JSON hoặc sơ đồ ER Mermaid. Nút **ER** trên thanh xem vẽ sơ đồ quan hệ của cả file
-  (khóa ngoại suy ra từ tên cột). Dòng lệnh: `node out/main/cli.js ddl <file.md|thư mục|file.xlsx> [--dialect postgres]
-  [--format sql|json|mermaid] [-o schema.sql]`; MCP: tool `table_ddl`.
+  (khóa ngoại suy ra từ tên cột).
 - **Mock màn hình** (nút **Mock** trên thanh xem khi tài liệu có 【項目定義】; nút **Mock** ở Bản đồ thiết kế cho cả thư mục): mỗi
   画面ID thành một form bấm được: ô nhập theo 型 / 桁数 / 必須 / 初期値, danh sách thả xuống từ 〔入力規則〕, nút và link
   画面遷移 sang màn hình khác. **Lưu HTML** ra một file đứng riêng (không JavaScript, mở bằng trình duyệt) để demo với khách.
   Tài liệu tiếng Việt dùng nhãn `Mã màn hình` / `Tên màn hình` / `Chuyển màn hình` và bảng `Hạng mục | Loại | Kiểu | Độ dài |
   Bắt buộc | Ghi chú` (lựa chọn ghi ở Ghi chú: `A / B / C`); chữ trên mock theo ngôn ngữ tài liệu.
-  Dòng lệnh: `x2m mock <thư mục|file.md|file.xlsx> -o mock.html [--title …]`.
 - **Mở file lẻ** hoặc **Dán Markdown** từ clipboard để xem nhanh.
 - Mỗi lần chọn file đều đọc lại từ đĩa. File > 20 MB không mở.
 - Ảnh đường dẫn tương đối hiện được; ảnh từ mạng không tải. Link tới `.md` khác mở ngay trong app,
@@ -254,7 +165,7 @@ Xem file `.md` như trang web (heading, bảng, code, ảnh, link, sơ đồ Mer
 
 ---
 
-## 4. Trợ lý AI trên tài liệu
+## 3. Trợ lý AI trên tài liệu
 
 Ở chế độ Đọc Markdown, cột phải là trợ lý hỏi đáp. App tìm đoạn tài liệu liên quan rồi gửi kèm câu
 hỏi cho AI (cách làm này gọi là **RAG**), nên AI trả lời dựa trên tài liệu thật của bạn, bằng tiếng
@@ -277,7 +188,7 @@ Mỗi nhà cung cấp lưu một key riêng, đổi qua lại không mất key. 
 hệ điều hành và chỉ gửi thẳng tới API của nhà cung cấp đó.
 
 > **API key khác gói đăng ký.** Gói ChatGPT Plus/Pro hay Claude Pro/Max **không** đi kèm API key;
-> API tính tiền riêng theo token. Muốn dùng gói đăng ký sẵn có, xem [MCP](#5-dùng-với-claude-code--codex--claude-desktop-mcp).
+> API tính tiền riêng theo token.
 
 ### Đặt câu hỏi
 
@@ -304,78 +215,7 @@ nhiều. Cuối mỗi câu trả lời có dòng `⚡ … tokens · cache …` �
 
 ---
 
-## 5. Dùng với Claude Code / Codex / Claude Desktop (MCP)
-
-**MCP** là chuẩn để các trợ lý AI gọi công cụ bên ngoài. App có sẵn một MCP server, nên Claude
-Code, Codex CLI, Claude Desktop hay Cursor dùng được converter và bộ tìm kiếm Việt ↔ Nhật của app,
-chạy bằng **gói đăng ký của bạn, không cần API key**. Agent còn tự tìm, đọc và đối chiếu nhiều
-file, nên làm được nhiều việc hơn khung chat trong app.
-
-### Đăng ký (một lần)
-
-**Máy đã cài app** (không cần Node): MCP server là `x2m-mcp.cmd` trong thư mục cài. Cài mặc định thì
-đường dẫn là `%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd` (đổi thư mục lúc cài thì
-thay cho đúng). File `.cmd` phải chạy qua `cmd /c`. Gõ trong Command Prompt (PowerShell: thay
-`%LOCALAPPDATA%` bằng `$env:LOCALAPPDATA`):
-
-```bat
-claude mcp add excel-markdown -- cmd /c "%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd"
-codex mcp add excel-markdown -- cmd /c "%LOCALAPPDATA%\Programs\ExcelToMarkdown\resources\bin\x2m-mcp.cmd"
-```
-
-Claude Desktop / Cursor: thêm vào file cấu hình MCP (thay `<tên>` bằng tên tài khoản Windows):
-
-```json
-{
-  "mcpServers": {
-    "excel-markdown": {
-      "command": "cmd",
-      "args": ["/c", "C:\\Users\\<tên>\\AppData\\Local\\Programs\\ExcelToMarkdown\\resources\\bin\\x2m-mcp.cmd"]
-    }
-  }
-}
-```
-
-**Từ mã nguồn** (macOS / Linux / Windows có Node): `npm install && npm run build` để có `out/main/mcp.js`, rồi
-
-```bash
-claude mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
-codex mcp add excel-markdown -- node /đường/dẫn/excel-markdown/out/main/mcp.js
-```
-
-(cấu hình JSON: `"command": "node", "args": ["/đường/dẫn/excel-markdown/out/main/mcp.js"]`).
-
-### Công cụ agent dùng được
-
-| Tool | Làm gì |
-|---|---|
-| `convert_excel` | Convert file Excel sang Markdown (tùy chọn front-matter, gộp workbook, tách bảng, vùng ô) |
-| `list_docs` | Liệt kê file `.md` trong một thư mục |
-| `search_docs` | Tìm các file / mục liên quan nhất tới câu hỏi, có tiêu đề để trích dẫn |
-| `read_doc` | Đọc một file `.md` theo trang (`offset` / `limit` theo dòng, mặc định 2 000 dòng) |
-| `outline` | Danh sách heading của một file `.md` kèm số dòng |
-| `list_sheets` | Danh sách sheet của file Excel (số dòng, sheet ẩn) |
-| `preview_sheet` | Markdown của một sheet, không ghi file |
-| `impact` | 影響調査 (bảng / cột / màn hình) + 整合性チェック cho cả thư mục tài liệu |
-| `crud` | Ma trận CRUD 画面 × テーブル của thư mục, kèm bằng chứng file:dòng |
-| `table_ddl` | DDL / JSON / ER Mermaid từ テーブル定義書 trong file `.md`, file Excel hoặc cả thư mục |
-| `build_excel` | Gộp file `.md` (hoặc cả thư mục) thành một `.xlsx`; file đích đã có thì cần `overwrite: true` |
-
-`convert_excel` nhận `files` và/hoặc `dir` (cả thư mục); file `.md` đích đã có thì từ chối, trừ khi
-`overwrite: true`.
-
-### Ví dụ câu hỏi
-
-- "Convert các file Excel trong `~/specs` sang Markdown có front-matter, ghi vào `~/specs-md`"
-- "Trong `~/specs-md`, màn hình nào dùng cột `CUSTOMER_CD`? Liệt kê kèm nguồn"
-- "Đối chiếu độ dài cột giữa định nghĩa màn hình và định nghĩa bảng DB, báo chỗ lệch"
-
-Lưu ý: MCP chạy bản build trong `out/`, sửa code xong phải `npm run build` lại. Đường dẫn truyền
-cho tool phải là đường dẫn tuyệt đối (agent thường tự lo).
-
----
-
-## 6. So sánh bản cũ / bản mới (新旧比較)
+## 4. So sánh bản cũ / bản mới (新旧比較)
 
 Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đổi gì.
 
@@ -392,8 +232,7 @@ Dùng khi bổ sung / sửa thiết kế và muốn biết chính xác đã đ�
 **ALTER TABLE**: khi hai bản có テーブル定義 (bảng có cột 物理名 + 型), nút **ALTER TABLE** ở thanh so sánh sinh câu lệnh đưa
 CSDL từ bản cũ sang bản mới (Generic / PostgreSQL / MySQL / Oracle / SQL Server): bảng mới → `CREATE TABLE`, thêm / bỏ cột,
 đổi kiểu / 桁数, NULL ↔ NOT NULL, 既定値. Khớp theo 物理名; chỗ cần người quyết (xóa dữ liệu, có thể là đổi tên cột, đổi khóa
-chính) ghi `-- 要確認` thay vì đoán. Dòng lệnh: `x2m migrate <bản cũ> <bản mới> [--dialect postgres] [-o alter.sql]` (mỗi bản là
-file .md, file Excel hoặc thư mục).
+chính) ghi `-- 要確認` thay vì đoán.
 
 So theo cấu trúc: sheet → mục → dòng bảng khớp theo cột khóa (`ID`, `項目ID`, `物理名`, `項目名`…), nên
 chèn một dòng giữa bảng (kể cả khi cột No đánh số lại) chỉ báo đúng một dòng thêm. Mọi thứ chạy trên máy,
@@ -414,7 +253,8 @@ kết quả và dùng chung luật nhận diện của dự án. Không có file
     "screenIdLabels": ["画面コード"],
     "transitionLabels": ["遷移先"],
     "crudVerbs": { "C": ["起票"], "U": ["差戻し"], "D": ["破棄"] },
-    "diffKeyColumns": ["項目コード"]
+    "diffKeyColumns": ["項目コード"],
+    "itemColumns": { "item": ["部品名称"], "length": ["入力桁"] }
   }
 }
 ```
@@ -422,7 +262,7 @@ kết quả và dùng chung luật nhận diện của dự án. Không có file
 - **`convert`**: tùy chọn Excel → Markdown, đúng tên như trong app (`includeSheetTitle`, `skipDelSheets`,
   `skipEmptySheets`, `multiline`, `detectTwoColTables`, `escapeMarkdown`, `showFormulas`, `frontMatter`, `chunkRows`,
   `verticalMerge`, `alignTables`). Không có `range` (vùng ô là theo từng file). Trong app, tùy chọn có trong file bị
-  khóa ở cột phải; CLI và MCP dùng làm mặc định, cờ dòng lệnh áp lên trên; `--no-config` bỏ qua file.
+  khóa ở cột phải.
 - **`rules`**: **cộng thêm** vào luật có sẵn, không thay thế. Mỗi mục là chuỗi thường (không phải regex), tối đa 40 ký
   tự, 200 mục mỗi danh sách; không phân biệt hoa thường / toàn角. Nhãn và cột khóa khớp nguyên văn; chữ mơ hồ và động
   từ CRUD khớp một phần dòng.
@@ -434,12 +274,10 @@ kết quả và dùng chung luật nhận diện của dự án. Không có file
 | Chức năng | Bắt đầu tìm từ |
 |---|---|
 | Excel → Markdown (app) | thư mục xuất |
-| Đọc Markdown: Bản đồ thiết kế, 影響調査, CRUD図, 整合性チェック | thư mục đang mở |
+| Đọc Markdown: Bản đồ thiết kế, 影響調査, CRUD図, 整合性チェック, Mock, テスト観点表 | thư mục đang mở |
 | So sánh 新旧 | thư mục chứa file **mới** (chỉ dùng `diffKeyColumns`) |
-| CLI / MCP convert | thư mục `-o` / `out_dir` |
-| CLI / MCP `impact`, `lint`, `crud` | thư mục tài liệu truyền vào |
 
-`textconv` (git diff file Excel) và So sánh file Excel không dùng `convert`: hai chỗ này luôn convert cố định để diff
+So sánh file Excel không dùng `convert`: chỗ này luôn convert cố định để diff
 không phụ thuộc máy hay cấu hình.
 
 ---
@@ -448,8 +286,8 @@ không phụ thuộc máy hay cấu hình.
 
 | Phím | Tác dụng |
 |---|---|
-| `Ctrl+O` | Thêm file Excel (Markdown → Excel: thêm file `.md`; Đọc Markdown: mở thư mục) |
-| `Ctrl+Enter` | Convert (Markdown → Excel: tạo file Excel) |
+| `Ctrl+O` | Thêm file Excel (Đọc Markdown: mở thư mục) |
+| `Ctrl+Enter` | Convert |
 | `Ctrl+=` / `Ctrl+-` / `Ctrl+0` | Phóng to / thu nhỏ / đặt lại cỡ chữ xem trước |
 | `↑` / `↓` | Sheet trước / sau (Đọc Markdown: file trước / sau) |
 | `Ctrl+K` | Đọc Markdown: nhảy nhanh tới file / heading |
@@ -486,13 +324,6 @@ trong ô" ở nhóm Bố cục Bảng & Sheet.
 **File có mật khẩu?**
 App báo "File có mật khẩu..."; gỡ mật khẩu bằng Excel rồi thử lại. Macro trong `.xlsm` được bỏ
 qua, chỉ lấy giá trị.
-
-**Markdown → Excel ra nhiều sheet hơn mong đợi?**
-Mỗi file và mỗi dòng `---` ở ngoài cùng bắt đầu một sheet mới. Bỏ `---` trang trí, hoặc xem tên
-sheet dưới từng file trước khi tạo.
-
-**Markdown → Excel có làm mất số 0 đầu hay đổi `1.0` thành `1` không?**
-Không. `0001` giữ dạng text, `1.0` giữ định dạng `0.0`, `12.50%` giữ `0.00%`.
 
 **Dữ liệu tài liệu có bị gửi đi đâu không?**
 Convert và đọc Markdown chạy hoàn toàn trên máy. Chỉ khi bạn hỏi trợ lý AI, phần tài liệu liên quan
@@ -532,7 +363,7 @@ npm run typecheck    # kiểm tra TypeScript
 npm run test         # vitest, gồm golden test với file mẫu
 npm run test:update  # cập nhật golden khi đổi engine có chủ ý (nhớ review diff)
 npm run e2e          # build + chạy app Electron thật, kiểm các luồng UI chính (cần màn hình)
-npm run build        # build vào out/ (gồm cả cli.js và mcp.js)
+npm run build        # build vào out/
 npm run dist         # build + đóng gói installer Windows vào release/
 ```
 
@@ -544,20 +375,19 @@ src/
   preload/index.ts           # bridge an toàn cho renderer (window.api)
   main/
     index.ts, window.ts      # vòng đời app, cửa sổ
-    cli.ts, mcp.ts, worker.ts  # điểm vào: CLI, MCP server, utilityProcess đọc/ghi Excel
+    worker.ts                # utilityProcess đọc/ghi Excel
     domain/                  # logic thuần: excel/, md2xlsx/, rag/, guards.ts, errors.ts
     application/ports/       # giao thức main <-> worker
     adapters/
       inbound/ipc/           # IPC theo tính năng: system, convert, viewer, ai
-      inbound/cli, mcp, worker
+      inbound/worker
       outbound/              # store, llm/ (Gemini, Claude, OpenAI), worker client, đọc/ghi file
   renderer/src/
     App.tsx                  # layout + chuyển chế độ
-    features/                # excel2md/, md2excel/, viewer/, ai/
+    features/                # excel2md/, viewer/, compare/, ai/
     components/, hooks/, lib/
 test/fixtures, test/golden   # file Excel mẫu (dữ liệu hư cấu) + output đã duyệt
-test/golden-md2xlsx          # output Markdown -> Excel đã duyệt
-scripts/                     # sinh file mẫu, e2e.mjs, xlsx-snapshot.ps1
+scripts/                     # sinh file mẫu, e2e.mjs
 docs/                        # architecture.md, specs/plans, history/
 ```
 
@@ -579,14 +409,12 @@ npm run dist
 `package.json > build`; các file đi kèm nằm trong `resources/`:
 
 - `icon.ico`: icon nhiều cỡ (16-256 px).
-- `bin/x2m.cmd`, `bin/x2m-mcp.cmd`: chép vào `resources\bin` của bản cài, chạy `cli.js` / `mcp.js` trong
-  `app.asar` bằng chính `ExcelToMarkdown.exe` với `ELECTRON_RUN_AS_NODE=1` (đừng tắt fuse `RunAsNode`).
 - `installer.nsh`: thêm app vào **Open with** cho `.xlsx/.xlsm/.xls/.md/.markdown` (chỉ `OpenWithProgids`,
   không đổi app mặc định; gỡ app thì xóa sạch). Cố ý không dùng `build.fileAssociations`: electron-builder
   ghi ProgID của app làm mặc định cho đuôi file, tức giành quyền mở của Excel.
 
 Kiểm nhanh bản đóng gói không cần installer: `npx electron-builder --dir --win --x64` rồi
-`npx asar list release/win-unpacked/resources/app.asar` (phải có `out/main/index.js`, `worker.js`, `cli.js`, `mcp.js`).
+`npx asar list release/win-unpacked/resources/app.asar` (phải có `out/main/index.js`, `worker.js`).
 
 **Phát hành**: tăng `version` trong `package.json`, đổi tiêu đề mục "Chưa phát hành" của `CHANGELOG.md` thành
 `## x.y.z — YYYY-MM-DD`, commit, rồi `git tag vx.y.z && git push origin vx.y.z`. Workflow
@@ -594,18 +422,3 @@ Kiểm nhanh bản đóng gói không cần installer: `npx electron-builder --d
 kèm `SHA256SUMS.txt` và lấy ghi chú từ mục tương ứng trong CHANGELOG. Tag phải khớp `version`, nếu không
 workflow dừng. Ký số (Azure Trusted Signing) đã có chỗ để sẵn (comment) trong workflow.
 
-### Kiểm file Excel bằng Excel thật
-
-Unit test không phát hiện được việc Excel đòi "sửa file" hay chữ bị che. Sau khi đổi
-`src/main/domain/md2xlsx/write.ts` hoặc `layout.ts`, tạo file Excel bằng app rồi chạy (cần Microsoft
-Excel, Windows PowerShell 5.1):
-
-```bash
-powershell -ExecutionPolicy Bypass -File scripts/xlsx-snapshot.ps1 -In <đường dẫn tuyệt đối .xlsx> -OutDir <thư mục>
-```
-
-Script mở file chỉ đọc trong một tiến trình Excel riêng, in `OK <số sheet>` và ghi `sheet1.png`,
-`sheet2.png`... vào `-OutDir`. Nếu Excel phải sửa file, script in `REPAIRED` (không mở được thì
-`FAILED`) và thoát mã 1. Script dùng clipboard nên đừng copy/paste ở chương trình khác trong lúc
-chạy. Lưu `xlsx-snapshot.ps1` dạng UTF-8 **có BOM** (PowerShell 5.1 đọc file không BOM theo ANSI
-và làm hỏng chữ Nhật).

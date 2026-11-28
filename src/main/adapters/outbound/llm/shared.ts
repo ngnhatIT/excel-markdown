@@ -1,6 +1,7 @@
 /* Phần dùng chung cho mọi nhà cung cấp AI (Gemini / Claude / OpenAI):
  * prompt hệ thống, lịch sử hội thoại, che API Key, trích dẫn nguồn, gọi HTTP có thử lại và đọc SSE.
  */
+import { mt } from '../../../i18nMain'
 import type { AiChatTurn, RagCitation } from '../../../../shared/types'
 
 const MAX_HISTORY_MESSAGES = 12 // 6 lượt hỏi - đáp gần nhất
@@ -156,12 +157,12 @@ export async function postJsonWithRetry(opts: {
     } catch (err) {
       if (opts.signal?.aborted) throw new Error(USER_ABORT_MSG)
       // Không thử lại khi quá giờ: câu trả lời chậm sẽ lại quá giờ, chỉ tốn thêm thời gian và token.
-      if (timedOut) throw new Error(`Quá thời gian chờ phản hồi từ ${opts.label} API (${timeoutMs / 1000}s). Vui lòng thử lại.`)
+      if (timedOut) throw new Error(mt('ai.timeout', { api: opts.label, secs: ` (${timeoutMs / 1000}s)` }))
       if (attempt < maxAttempts - 1) {
         await delayWithSignal(1500 * (attempt + 1), opts.signal)
         continue
       }
-      throw new Error(`Không kết nối được tới ${opts.label} API: ` + redactApiKey(String(err), opts.apiKey))
+      throw new Error(mt('ai.connect', { api: opts.label, msg: redactApiKey(String(err), opts.apiKey) }))
     } finally {
       clearTimeout(timer)
     }
@@ -202,7 +203,7 @@ export async function readSse(
         void reader.cancel().catch(() => {})
       }, idleMs)
       const { done, value } = await reader.read().finally(() => clearTimeout(timer))
-      if (stalled) throw new Error(`Luồng trả lời bị ngắt (không nhận thêm dữ liệu sau ${idleMs / 1000}s). Vui lòng thử lại.`)
+      if (stalled) throw new Error(mt('ai.stalled', { secs: idleMs / 1000 }))
       if (done) break
       // Chuẩn hóa trên cả buffer: "\r\n" có thể bị cắt đôi giữa hai chunk mạng
       buf = (buf + decoder.decode(value, { stream: true })).replace(/\r\n/g, '\n')

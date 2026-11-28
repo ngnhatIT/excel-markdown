@@ -2,7 +2,7 @@ import type { AppMode } from '../../../shared/types'
 import { cn } from '../lib/utils'
 import { LANGS, useLang, useT, type Lang } from '../i18n'
 import { cx } from '../lib/ui'
-import { IconBook, IconCompare, IconFolder, IconMarkdown, IconMdToSheet, IconMoon, IconPlus, IconSheetToMd, IconSun } from './icons'
+import { IconBook, IconCompare, IconFolder, IconMarkdown, IconMoon, IconPlus, IconSheetToMd, IconSun } from './icons'
 
 interface Props {
   theme: 'dark' | 'light'
@@ -13,10 +13,9 @@ interface Props {
   onLangChange: (l: Lang) => void
 }
 
-const MODES: AppMode[] = ['excel2md', 'md2excel', 'mdview', 'compare']
+const MODES: AppMode[] = ['excel2md', 'mdview', 'compare']
 const MODE_ICON: Record<AppMode, (p: { size?: number }) => React.ReactElement> = {
   excel2md: IconSheetToMd,
-  md2excel: IconMdToSheet,
   mdview: IconBook,
   compare: IconCompare,
 }
@@ -73,7 +72,7 @@ export function Header({ onPickFiles, mode, onLangChange }: Pick<Props, 'onPickF
             <button
               key={l}
               className={cn(
-                'x2m-lang-btn rounded px-2 py-0.5 text-[11.5px] font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
+                'x2m-lang-btn rounded px-2 py-0.5 text-xs font-medium transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-accent',
                 lang === l ? 'active seg-on' : 'text-dim hover:text-ink'
               )}
               onClick={() => onLangChange(l)}

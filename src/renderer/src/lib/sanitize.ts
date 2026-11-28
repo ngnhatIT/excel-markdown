@@ -16,7 +16,7 @@ const VOID_TAGS = new Set(['br', 'hr', 'img'])
 
 export interface SanitizeOptions {
   /** URL được phép hiển thị cho `src` của ảnh (đã giải mã entity), null = bỏ ảnh.
-   * Không truyền thì mọi `<img>` bị bỏ (preview Excel/Markdown → Excel không hiện ảnh). */
+   * Không truyền thì mọi `<img>` bị bỏ (preview Excel không hiện ảnh). */
   resolveImage?: (src: string) => string | null
 }
 

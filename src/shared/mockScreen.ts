@@ -1,11 +1,11 @@
 /* Mock màn hình sinh từ 画面設計書 (không AI, không mạng): mỗi 画面ID thành một form HTML theo bảng 【項目定義】
  * (区分 / 型 / 桁数 / 必須 / 初期値 / 備考), danh sách thả xuống từ dòng 〔入力規則〕, nút và link 画面遷移 sang màn hình
  * khác. Trang xuất ra là một file HTML tĩnh, không JavaScript: chuyển màn hình bằng #anchor + CSS :target.
- * Mọi chữ lấy từ tài liệu đều được escape. Dùng chung renderer (xem trước) và CLI. */
+ * Mọi chữ lấy từ tài liệu đều được escape. */
 import MOCK_CSS from './mockScreen.css?raw'
-import { atxHeading, fenceAfter, isDelimRow, normLabel } from './mdLines'
+import { atxHeading, fenceAfter, isDelimRow } from './mdLines'
 import { splitTableRow } from './specDiff'
-import { buildSpecIndex, ITEM_FIELD_OF, type ItemField, type SpecDoc, type SpecScreen } from './specIndex'
+import { buildSpecIndex, isItemHeader, itemColumns, type ItemField, type SpecDoc, type SpecProject, type SpecScreen } from './specIndex'
 import { cellText, isBlank, isButton, isOutput, isYes, LIST_RE } from './testDesign'
 import { detectTextLang } from './translate'
 
@@ -139,8 +139,8 @@ function inlineOptions(note: string): string[] {
 }
 
 /** Màn hình mock của các tài liệu (thứ tự như chỉ mục; 画面ID trùng thì lấy định nghĩa đầu). */
-export function buildMockScreens(docs: SpecDoc[]): MockScreen[] {
-  const index = buildSpecIndex(docs)
+export function buildMockScreens(docs: SpecDoc[], project?: SpecProject): MockScreen[] {
+  const index = buildSpecIndex(docs, project, { headingScreens: true })
   const seen = new Set<string>()
   const defs: SpecScreen[] = []
   for (const s of index.screens) {
@@ -186,13 +186,9 @@ export function buildMockScreens(docs: SpecDoc[]): MockScreen[] {
           continue
         }
         if (!line.trimStart().startsWith('|') || !isDelimRow(lines[i + 1] ?? '')) continue
-        let cols = new Map<ItemField, number>()
-        splitTableRow(line).forEach((c, k) => {
-          const f = ITEM_FIELD_OF.get(normLabel(cellText(c)))
-          if (f && !cols.has(f)) cols.set(f, k)
-        })
+        let cols = itemColumns(splitTableRow(line), project?.rules.itemColumns)
         const width = splitTableRow(line).length
-        const isHeader = cols.has('item') && (cols.has('kind') || cols.has('type') || cols.has('length') || cols.has('required'))
+        const isHeader = isItemHeader(cols)
         // carry chỉ cho bảng ngay sau heading nhóm, cùng số cột với header; bảng khác (イベント...) xóa carry
         if (isHeader) {
           carry = cols

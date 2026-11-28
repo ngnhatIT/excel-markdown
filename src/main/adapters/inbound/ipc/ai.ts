@@ -2,7 +2,9 @@
 import { ipcMain, safeStorage } from 'electron'
 import type { AiAskRequest, AiAskResponse, AiProvider, AiSetConfigPayload } from '../../../../shared/types'
 import { collectRagDocuments, RAG_MAX_FILES, RAG_MAX_LOOSE } from '../../../domain/rag/collect'
-import { buildRagContext } from '../../../domain/rag/retriever'
+import { buildRagContext, type SemanticScore } from '../../../domain/rag/retriever'
+import type { RagSection } from '../../../domain/rag/chunker'
+import { canEmbed, cosine, embedTexts, EMBED_MAX_TEXTS } from '../../outbound/llm/embeddings'
 import {
   aiConfigInfo,
   decryptApiKey,
@@ -14,7 +16,7 @@ import {
   normalizeProvider,
 } from '../../outbound/llm/aiConfig'
 import { askLlm, listModels } from '../../outbound/llm/askLlm'
-import { redactApiKey } from '../../outbound/llm/shared'
+import { redactApiKey, USER_ABORT_MSG } from '../../outbound/llm/shared'
 import { loadRagDocumentCached } from '../../outbound/ragDocCache'
 import { errText } from '../../../domain/errors'
 import { isTranslateLang, MAX_TRANSLATE_CHARS, MAX_PROMPT_TERMS, translatePrompt } from '../../../../shared/translate'
@@ -26,6 +28,17 @@ import { mt } from '../../../i18nMain'
 const MAX_QUESTION_CHARS = 20_000
 const MAX_HISTORY_TURNS = 50
 const MAX_TURN_CHARS = 50_000
+
+/** Mở rộng truy vấn: BM25 chỉ khớp chữ, nên câu hỏi diễn đạt khác tài liệu (đồng nghĩa, khác ngôn ngữ) dễ trượt file.
+ * Nhờ chính model đang dùng đổi câu hỏi thành từ khóa Nhật / Việt / Anh trước khi chấm điểm; chỉ gửi câu hỏi, không gửi tài liệu. */
+const SEARCH_TERMS_SYSTEM =
+  'You turn a question about software design documents (基本設計 / 詳細設計, written mostly in Japanese, sometimes Vietnamese or English) into search keywords. ' +
+  'Output ONE line only: up to 15 keywords or short phrases separated by spaces — the Japanese design-document terms, plus Vietnamese and English synonyms, ' +
+  'and every ID / table / column name from the question verbatim. No explanation, no punctuation, no Markdown.'
+const SEARCH_TERMS_TIMEOUT_MS = 15_000
+
+/** Câu trả lời của model -> một dòng từ khóa: bỏ xuống dòng / ký tự Markdown, tối đa 400 ký tự. */
+export const searchTermsLine = (answer: string): string => answer.replace(/[\r\n*`#>|,、;:]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400)
 
 /** Kiểm câu hỏi + lịch sử từ renderer (không tin cậy); trả mã lỗi hoặc null nếu hợp lệ. */
 export function aiAskError(req: unknown): string | null {
@@ -72,6 +85,7 @@ export function registerAiIpc(): void {
         if (typeof payload?.apiKey === 'string') store[keyField(provider)] = encryptApiKey(payload.apiKey, safeStorage)
         if (payload?.model) store[modelField(provider)] = normalizeAiModel(provider, payload.model)
         if (payload?.contextTokens !== undefined) store['aiContextTokens'] = normalizeContextTokens(payload.contextTokens)
+        if (payload?.embeddings !== undefined) store['aiEmbeddings'] = payload.embeddings === true
       })
       return { ok: true, data: aiConfigInfo(await readStore(), safeStorage) }
     } catch (err) {
@@ -146,11 +160,46 @@ export function registerAiIpc(): void {
         return { ok: false, error: 'E_AI_NO_DOCS' }
       }
 
-      const ragCtx = buildRagContext(docs, question, {
-        scope: req.scope,
-        activeFilePath: req.activeFilePath ?? undefined,
-        maxContextTokens: normalizeContextTokens(store['aiContextTokens']),
-      })
+      const build = (query: string, semantic?: SemanticScore): ReturnType<typeof buildRagContext> =>
+        buildRagContext(docs, query, {
+          scope: req.scope,
+          activeFilePath: req.activeFilePath ?? undefined,
+          maxContextTokens: normalizeContextTokens(store['aiContextTokens']),
+          semantic,
+        })
+      let ragCtx = build(question)
+      // Thư mục lớn hơn mức ngữ cảnh: phải chọn file theo từ khóa -> mở rộng truy vấn trước. Lỗi / quá giờ thì dùng câu hỏi gốc.
+      if (ragCtx.mode === 'parent-rag' && rawKey) {
+        const terms = await askLlm(provider, {
+          apiKey: rawKey,
+          model,
+          question,
+          contextText: '',
+          history: [],
+          availableCitations: [],
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(SEARCH_TERMS_TIMEOUT_MS)]),
+          system: SEARCH_TERMS_SYSTEM,
+        }).then(
+          (r) => searchTermsLine(r.answer),
+          () => ''
+        )
+        if (controller.signal.aborted) throw new Error(USER_ABORT_MSG)
+        const query = terms ? `${question}\n${terms}` : question
+        // Tìm theo nghĩa (người dùng đã bật, nhà cung cấp có embedding): lỗi / thư mục quá lớn thì chỉ dùng từ khóa
+        let semantic: SemanticScore | undefined
+        const sections = docs.flatMap((d) => d.sections)
+        if (store['aiEmbeddings'] === true && canEmbed(provider) && sections.length > 0 && sections.length <= EMBED_MAX_TEXTS) {
+          try {
+            const [q, ...vecs] = await embedTexts(provider, rawKey, [query, ...sections.map((x) => `${x.metaHeader}\n${x.sectionTitle}\n${x.content}`)], controller.signal)
+            const score = new Map<RagSection, number>(sections.map((x, i) => [x, cosine(q, vecs[i])]))
+            semantic = (x) => score.get(x)
+          } catch (err) {
+            if (controller.signal.aborted) throw err
+            void logError('ai:embed', new Error(redactApiKey(errText(err), rawKey)))
+          }
+        }
+        if (terms || semantic) ragCtx = build(query, semantic)
+      }
 
       const apiRes = await askLlm(provider, {
         apiKey: rawKey,

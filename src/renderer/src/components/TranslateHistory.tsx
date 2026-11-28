@@ -14,7 +14,7 @@ export function TranslateHistory(): React.ReactElement {
   const [open, setOpen] = useState<TranslateEntry | null>(null)
   return (
     <div className="x2m-tr-history flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-2 border-b border-line-subtle px-3 py-2 text-[11px] text-faint">
+      <div className="flex items-center gap-2 border-b border-line-subtle px-3 py-2 text-xs text-faint">
         <span>{t('tr.historyNote')}</span>
         {entries.length > 0 && (
           <button className={cx(btnGhost, btnSm, 'ml-auto')} onClick={clearTranslations}>
@@ -41,7 +41,7 @@ export function TranslateHistory(): React.ReactElement {
                 </div>
               </div>
               <div className="flex items-center gap-1 border-t border-line-subtle px-1.5 py-1">
-                <span className="px-1 text-[10.5px] tabular-nums text-faint">{new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                <span className="px-1 text-xs tabular-nums text-faint">{new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 {e.kind === 'section' && (
                   <button className={cx(btnGhost, btnSm, 'ml-auto')} onClick={() => setOpen(e)}>
                     {t('tr.open')}

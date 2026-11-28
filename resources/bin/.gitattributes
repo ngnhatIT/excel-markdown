@@ -1,2 +1,0 @@
-# cmd.exe đọc nhãn / goto sai với file chỉ có LF
-*.cmd text eol=crlf

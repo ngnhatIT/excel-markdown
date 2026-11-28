@@ -1,5 +1,4 @@
-// Bộ case dùng chung cho hai chiều: escape (Excel -> Markdown, escape.test.ts)
-// và giải escape (Markdown -> Excel, md2xlsx/inline.test.ts).
+// Bộ case escape Excel -> Markdown (escape.test.ts).
 
 export const INLINE_CASES = [
   '<null>',

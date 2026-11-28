@@ -68,3 +68,11 @@ describe('parseProjectConfig', () => {
     expect(r.warnings[20]).toBe('…và 30 cảnh báo khác')
   })
 })
+
+describe('rules.itemColumns', () => {
+  it('nhận vai trò hợp lệ, vai trò lạ bị bỏ kèm cảnh báo', () => {
+    const r = parseProjectConfig('{"rules":{"itemColumns":{"item":["部品名称"],"x":["a"]}}}')
+    expect(r.config.rules.itemColumns).toEqual({ ...EMPTY_RULES.itemColumns, item: ['部品名称'] })
+    expect(r.warnings.join('\n')).toContain('rules.itemColumns.x')
+  })
+})

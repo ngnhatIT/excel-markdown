@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 vi.mock('electron', () => ({ ipcMain: { handle: () => undefined }, safeStorage: {}, app: { getPath: () => '' } }))
-const { aiAskError } = await import('./ai')
+const { aiAskError, searchTermsLine } = await import('./ai')
 
 describe('aiAskError', () => {
   const ok = { question: 'hỏi', scope: 'folder' }
@@ -23,5 +23,13 @@ describe('aiAskError', () => {
     expect(aiAskError({ ...ok, history: Array(51).fill({ role: 'user', text: 'a' }) })).toBe('E_BAD_REQUEST')
     expect(aiAskError({ ...ok, history: [{ role: 'system', text: 'a' }] })).toBe('E_BAD_REQUEST')
     expect(aiAskError({ ...ok, history: [{ role: 'user', text: 'x'.repeat(50_001) }] })).toBe('E_BAD_REQUEST')
+  })
+})
+
+describe('searchTermsLine', () => {
+  it('gộp thành một dòng, bỏ ký tự Markdown / dấu phân cách, cắt 400 ký tự', () => {
+    expect(searchTermsLine('**顧客検索**, 画面遷移\n- `M_CUSTOMER`\n')).toBe('顧客検索 画面遷移 - M_CUSTOMER')
+    expect(searchTermsLine('a '.repeat(500)).length).toBeLessThanOrEqual(400)
+    expect(searchTermsLine('\n \n')).toBe('')
   })
 })

@@ -18,7 +18,7 @@ import { sanitizeHtml } from '../../lib/sanitize'
 import { cn, copyText, toast, uid } from '../../lib/utils'
 import { btnGhost, btnPrimary, btnSm, cx } from '../../lib/ui'
 import { SidePanel } from '../../components/SidePanel'
-import { IconCopy } from '../../components/icons'
+import { IconBolt, IconCheck, IconCompare, IconCopy, IconKey, IconList, IconPin, IconRefresh, IconSearch } from '../../components/icons'
 import { TranslateHistory } from '../../components/TranslateHistory'
 import { LOCALES, t as tr, useLang, useT } from '../../i18n'
 
@@ -61,11 +61,11 @@ interface Props {
 /** Câu hỏi nhanh: nhãn `ai.quick.<id>`, câu lệnh gửi AI `ai.quick.<id>Prompt` (theo ngôn ngữ giao diện
  * để AI trả lời bằng ngôn ngữ của người dùng). */
 // Không còn nút "Dịch sang tiếng Việt": dịch dùng nút 訳 trên mục / bảng (giữ bảng, có lịch sử ở tab Dịch)
-const QUICK_PROMPTS: Array<{ id: 'summary' | 'review' | 'tests' | 'cross'; scope: 'folder' | 'active' }> = [
-  { id: 'summary', scope: 'active' },
-  { id: 'review', scope: 'active' },
-  { id: 'tests', scope: 'active' },
-  { id: 'cross', scope: 'folder' },
+const QUICK_PROMPTS: Array<{ id: 'summary' | 'review' | 'tests' | 'cross'; scope: 'folder' | 'active'; Icon: (p: { size?: number }) => React.ReactElement }> = [
+  { id: 'summary', scope: 'active', Icon: IconList },
+  { id: 'review', scope: 'active', Icon: IconSearch },
+  { id: 'tests', scope: 'active', Icon: IconCheck },
+  { id: 'cross', scope: 'folder', Icon: IconCompare },
 ]
 
 export function AiChatPanel({
@@ -88,6 +88,7 @@ export function AiChatPanel({
     maskedKey: '',
     model: AI_PROVIDERS[DEFAULT_AI_PROVIDER].defaultModel,
     contextTokens: AI_CONTEXT_LEVELS[0],
+    embeddings: false,
     keys: { gemini: '', claude: '', openai: '' },
   })
   const providerInfo = AI_PROVIDERS[config.provider]
@@ -182,6 +183,14 @@ export function AiChatPanel({
   const changeContext = useCallback(async (contextTokens: number) => {
     try {
       setConfig(await window.api.aiSetConfig({ contextTokens }))
+    } catch (e) {
+      toast(errMsg(e), 'err')
+    }
+  }, [])
+
+  const changeEmbeddings = useCallback(async (embeddings: boolean) => {
+    try {
+      setConfig(await window.api.aiSetConfig({ embeddings }))
     } catch (e) {
       toast(errMsg(e), 'err')
     }
@@ -334,7 +343,7 @@ export function AiChatPanel({
               key={v}
               role="tab"
               aria-selected={view === v}
-              className={cn('rounded px-2 py-0.5 text-[11.5px] font-medium text-dim hover:text-ink', view === v && 'seg-on')}
+              className={cn('rounded px-2 py-0.5 text-xs font-medium text-dim hover:text-ink', view === v && 'seg-on')}
               onClick={() => setView(v)}
             >
               {t(v === 'ai' ? 'tr.tabAi' : 'tr.tabHistory')}
@@ -346,11 +355,12 @@ export function AiChatPanel({
         view === 'tr' ? null : (
         <div className="x2m-ai-head-btns">
           <button
-            className={cn('btn btn-sm btn-ghost', showKeyBox && 'active-pill')}
+            className={cn('btn btn-sm btn-ghost', btnGhost, btnSm, showKeyBox && 'active-pill')}
             onClick={() => setShowKeyBox((s) => !s)}
             title={t('ai.configTitle')}
           >
-            🔑 {providerInfo.label}
+            <IconKey size={14} />
+            {providerInfo.label}
             {config.hasKey ? ` · ${config.maskedKey}` : ''}
           </button>
           {entries.length > 0 && (
@@ -391,8 +401,10 @@ export function AiChatPanel({
                   onClick={() => void changeProvider(p)}
                   title={config.keys[p] ? t('ai.hasKey', { key: config.keys[p] }) : t('ai.noKey', { site: AI_PROVIDERS[p].site })}
                 >
-                  {AI_PROVIDERS[p].label}
-                  {config.keys[p] ? ' ✓' : ''}
+                  <span className="inline-flex items-center justify-center gap-1">
+                    {AI_PROVIDERS[p].label}
+                    {config.keys[p] && <IconCheck size={12} />}
+                  </span>
                 </button>
               ))}
             </div>
@@ -411,7 +423,7 @@ export function AiChatPanel({
               </select>
               {config.hasKey && (
                 <button className={cx('btn btn-sm btn-ghost', btnGhost, btnSm)} onClick={() => void refreshModels()} title={t('ai.refreshModels')}>
-                  ↻
+                  <IconRefresh size={13} />
                 </button>
               )}
             </div>
@@ -450,7 +462,17 @@ export function AiChatPanel({
                 ))}
               </select>
             </div>
-            <details className="x2m-ai-hint text-[11px] leading-relaxed text-faint">
+            <label className="x2m-ai-keybox-row flex items-start gap-2 text-xs text-dim" title={t('ai.embeddingsTitle')}>
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={config.embeddings}
+                disabled={config.provider === 'claude'}
+                onChange={(e) => void changeEmbeddings(e.target.checked)}
+              />
+              <span>{t(config.provider === 'claude' ? 'ai.embeddingsNoClaude' : 'ai.embeddings')}</span>
+            </label>
+            <details className="x2m-ai-hint text-xs leading-relaxed text-faint">
               <summary className="cursor-pointer select-none text-dim hover:text-ink">{t('ai.keyNoteSummary')}</summary>
               {t('ai.keyNote', { site: providerInfo.site })}
               {!config.hasKey && ` ${t('ai.keyNoteModels')}`}
@@ -486,11 +508,12 @@ export function AiChatPanel({
               {QUICK_PROMPTS.map((q) => (
                 <button
                   key={q.id}
-                  className="x2m-ai-chip rounded-full border border-line bg-canvas px-2.5 py-1 text-xs text-dim hover:border-accent-line hover:text-ink hover:bg-hover transition-colors"
+                  className="x2m-ai-chip inline-flex items-center gap-1.5 rounded-full border border-line bg-canvas px-2.5 py-1 text-xs text-dim hover:border-accent-line hover:text-ink hover:bg-hover transition-colors"
                   disabled={busy}
                   onClick={() => void sendQuestion(t(`ai.quick.${q.id}Prompt`), q.scope)}
                   title={t(q.scope === 'folder' ? 'ai.quick.folderTitle' : 'ai.quick.activeTitle')}
                 >
+                  <q.Icon size={13} />
                   {t(`ai.quick.${q.id}`)}
                 </button>
               ))}
@@ -502,7 +525,7 @@ export function AiChatPanel({
           {entries.length === 0 ? (
             <div className="x2m-ai-empty flex flex-col items-center justify-center gap-2 p-6 text-center text-dim text-xs [text-wrap:balance]">
               <strong className="text-ink font-semibold">{t('ai.empty.title')}</strong>
-              <p className="text-faint text-[11.5px] leading-relaxed">
+              <p className="text-faint text-xs leading-relaxed">
                 {t('ai.empty.body')}
               </p>
             </div>
@@ -521,41 +544,41 @@ export function AiChatPanel({
                         {entry.citations.map((c, idx) => (
                           <button
                             key={idx}
-                            className="x2m-ai-citation-chip block max-w-full truncate rounded-md border border-accent-line/40 bg-accent-soft px-2 py-0.5 text-left text-[11px] text-accent-ink hover:brightness-110 transition-colors"
+                            className="x2m-ai-citation-chip block max-w-full truncate rounded-md border border-accent-line/40 bg-accent-soft px-2 py-0.5 text-left text-xs text-accent-ink hover:brightness-110 transition-colors"
                             onClick={() => onJumpToCitation(c)}
                             title={t('ai.citationTitle', { path: c.relPath, section: c.sectionTitle })}
                           >
-                            📍 {c.relPath} › {c.sectionTitle}
+                            <span className="inline-flex items-center gap-1.5"><IconPin size={12} />{c.relPath} › {c.sectionTitle}</span>
                           </button>
                         ))}
                       </div>
                     )}
-                    <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-[11px] text-faint border-t border-line/40 pt-1.5">
+                    <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-xs text-faint border-t border-line/40 pt-1.5">
                       {entry.isError && entry.failedPrompt ? (
                         <button
-                          className="inline-flex items-center gap-1 rounded border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-ink hover:text-accent hover:border-accent-line transition-colors"
+                          className="inline-flex items-center gap-1 rounded border border-line bg-surface px-2 py-0.5 text-xs font-medium text-ink hover:text-accent hover:border-accent-line transition-colors"
                           onClick={() => sendQuestion(entry.failedPrompt!, entry.failedScope)}
                           disabled={busy}
                         >
-                          🔄 {t('common.retry')}
+                          <span className="inline-flex items-center gap-1.5"><IconRefresh size={12} />{t('common.retry')}</span>
                         </button>
                       ) : (
                         <>
                           {entry.mode && (
-                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]" title={t('ai.modeTitle', { mode: entry.mode })}>
+                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-xs" title={t('ai.modeTitle', { mode: entry.mode })}>
                               {t('ai.badge', { mode: entry.mode === 'parent-rag' ? 'RAG' : t('ai.mode.full'), n: entry.docCount ?? 1 })}
                             </span>
                           )}
                           {entry.usage && (
-                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-[10px]">
-                              ⚡ {t('ai.tokens', { n: entry.usage.totalTokens.toLocaleString(locale) })}
+                            <span className="x2m-ai-badge rounded bg-line/60 px-1.5 py-0.5 text-xs">
+                              <span className="inline-flex items-center gap-1"><IconBolt size={12} />{t('ai.tokens', { n: entry.usage.totalTokens.toLocaleString(locale) })}</span>
                               {entry.usage.cachedTokens ? ` · ${t('ai.cache', { n: entry.usage.cachedTokens.toLocaleString(locale) })}` : ''}
                             </span>
                           )}
                         </>
                       )}
                       <button
-                        className={cx('btn btn-sm btn-ghost x2m-ai-copy ml-auto text-[11px]', btnGhost, btnSm)}
+                        className={cx('btn btn-sm btn-ghost x2m-ai-copy ml-auto text-xs', btnGhost, btnSm)}
                         onClick={async () => {
                           const ok = await copyText(entry.text)
                           toast(tr(ok ? 'ai.toast.answerCopied' : 'common.copyFailed'), ok ? 'ok' : 'err')
@@ -574,10 +597,10 @@ export function AiChatPanel({
             <div className="x2m-ai-msg is-model flex flex-col items-start">
               <div className="x2m-ai-bubble-model self-stretch rounded-lg rounded-tl-xs border border-line bg-[var(--sheet)] p-3 text-xs text-ink" aria-live="polite">
                 <AnswerHtml text={streamText} />
-                <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-[11px] text-faint border-t border-line/40 pt-1.5">
+                <div className="x2m-ai-msg-foot mt-2.5 flex items-center gap-2 text-xs text-faint border-t border-line/40 pt-1.5">
                   <span>{t('ai.writing')}</span>
                   <button
-                    className={cx('btn btn-sm btn-ghost ml-auto text-[11px] text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
+                    className={cx('btn btn-sm btn-ghost ml-auto text-xs text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
                     onClick={() => void stopAsk()}
                     title={t('ai.stopTitle')}
                   >
@@ -594,9 +617,9 @@ export function AiChatPanel({
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot [animation-delay:-0.2s]" />
                 <span className="size-1.5 rounded-full bg-accent animate-typing-dot" />
               </div>
-              <span className="text-faint text-[11.5px]">{t('ai.thinking')}</span>
+              <span className="text-faint text-xs">{t('ai.thinking')}</span>
               <button
-                className={cx('btn btn-sm btn-ghost ml-auto text-[11px] text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
+                className={cx('btn btn-sm btn-ghost ml-auto text-xs text-faint hover:text-danger hover:bg-danger-soft', btnGhost, btnSm)}
                 onClick={() => void stopAsk()}
                 title={t('ai.stopTitle')}
               >

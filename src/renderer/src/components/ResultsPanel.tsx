@@ -12,10 +12,6 @@ interface Props {
   onClose: () => void
   onOpenDir: () => void
   onCopyDir: () => void
-  /** Đơn vị đếm `filesWritten` của từng dòng (mặc định `file.md`) */
-  unitLabel?: string
-  /** title/aria-label nút mở thư mục kết quả */
-  openDirLabel?: string
 }
 
 /** Kết quả lần convert gần nhất, từng file Excel. */
@@ -27,12 +23,10 @@ export function ResultsPanel({
   onClose,
   onOpenDir,
   onCopyDir,
-  unitLabel,
-  openDirLabel,
 }: Props): React.ReactElement {
   const t = useT()
-  const unit = unitLabel ?? t('results.unit.md')
-  const openDir = openDirLabel ?? t('results.openDir')
+  const unit = t('results.unit.md')
+  const openDir = t('results.openDir')
   return (
     <div className="x2m-results border-t border-line bg-raised/80 p-3 flex flex-col gap-2 max-h-56 overflow-y-auto" role="status" aria-live="polite">
       <div className="x2m-results-head flex items-center justify-between text-xs font-semibold text-ink">

@@ -84,6 +84,7 @@ export function aiConfigInfo(store: Record<string, unknown>, cipher: SecretCiphe
     maskedKey: keys[provider],
     model: normalizeAiModel(provider, store[modelField(provider)]),
     contextTokens: normalizeContextTokens(store['aiContextTokens']),
+    embeddings: store['aiEmbeddings'] === true,
     keys,
   }
 }

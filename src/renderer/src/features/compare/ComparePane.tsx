@@ -4,7 +4,7 @@ import { PATH_SEP, specDiffReport, type DiffHunk, type InlineSegment, type SpecD
 import { revisionRows, revisionTable, type RevLang } from '../../../../shared/revision'
 import { useT } from '../../i18n'
 import { baseName, cn, copyText, toast } from '../../lib/utils'
-import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, filesAside, iconBtn, paneTitle } from '../../lib/ui'
+import { btn, btnGhost, btnSm, cx, emptyBox, emptyHint, emptyP, filesAside, iconBtnDanger, paneTitle } from '../../lib/ui'
 import { IconCopy, IconFile, IconRefresh, IconSplit, IconX } from '../../components/icons'
 import { SelectionTranslate } from '../../components/SelectionTranslate'
 import { AlterDialog } from '../../components/TableDefTools'
@@ -42,7 +42,7 @@ function Cell({ h, side }: { h: DiffHunk; side: Side }): React.ReactElement {
   const present = text !== undefined && (side === 'old' ? h.kind !== 'add' : h.kind !== 'del')
   return (
     <div className={cn('flex min-w-0 gap-2 px-2 py-[3px]', ROW_BG[h.kind][side === 'old' ? 0 : 1])}>
-      <span className="w-10 shrink-0 select-none text-right text-[11px] tabular-nums text-faint">{present ? line : ''}</span>
+      <span className="w-10 shrink-0 select-none text-right text-xs tabular-nums text-faint">{present ? line : ''}</span>
       <span className="min-w-0 flex-1 whitespace-pre-wrap break-words font-mono text-[12px] leading-[1.55] text-ink">
         {present ? h.kind === 'change' && h.segments ? <Segments segs={h.segments} side={side} /> : text : ''}
       </span>
@@ -89,19 +89,19 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
         </button>
       </div>
       <div className="mb-2 flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+        <label className="flex flex-col gap-0.5 text-xs text-dim">
           {t('compare.rev.version')}
           <input className={cn(field, 'w-16')} value={version} onChange={(e) => setVersion(e.target.value)} placeholder="1.1" />
         </label>
-        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+        <label className="flex flex-col gap-0.5 text-xs text-dim">
           {t('compare.rev.date')}
           <input className={cn(field, 'w-28 tabular-nums')} value={date} onChange={(e) => setDate(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+        <label className="flex flex-col gap-0.5 text-xs text-dim">
           {t('compare.rev.author')}
           <input className={cn(field, 'w-28')} value={author} onChange={(e) => setAuthor(e.target.value)} />
         </label>
-        <label className="flex flex-col gap-0.5 text-[11px] text-dim">
+        <label className="flex flex-col gap-0.5 text-xs text-dim">
           {t('compare.rev.lang')}
           <select className={field} value={lang} onChange={(e) => setLang(e.target.value as RevLang)}>
             <option value="ja">日本語</option>
@@ -117,7 +117,7 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
         </button>
       </div>
       <div className="max-h-48 overflow-auto rounded-md border border-line-subtle bg-canvas">
-        <table className="x2m-rev-table w-full border-collapse text-[11.5px]">
+        <table className="x2m-rev-table w-full border-collapse text-xs">
           <tbody>
             {rows.map((r, i) => (
               <tr key={i} className="border-b border-line-subtle last:border-0 align-top">
@@ -131,7 +131,7 @@ function RevisionPanel({ diff, onClose }: { diff: SpecDiff; onClose: () => void 
           </tbody>
         </table>
       </div>
-      <p className="mt-1.5 mb-0 text-[11px] text-faint">{t('compare.rev.hint')}</p>
+      <p className="mt-1.5 mb-0 text-xs text-faint">{t('compare.rev.hint')}</p>
     </section>
   )
 }
@@ -222,11 +222,11 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
         onDrop={onDrop}
       >
         <div className="mb-1.5 flex items-center justify-between gap-2">
-          <span className={cn('text-[11.5px] font-semibold', side === 'old' ? 'text-danger' : 'text-success')}>
+          <span className={cn('text-xs font-semibold', side === 'old' ? 'text-danger' : 'text-success')}>
             {t(side === 'old' ? 'compare.old' : 'compare.new')}
           </span>
           {s.path && (
-            <button className={iconBtn} onClick={() => state.clear(side)} title={t('compare.clear')} aria-label={t('compare.clear')}>
+            <button className={iconBtnDanger} onClick={() => state.clear(side)} title={t('compare.clear')} aria-label={t('compare.clear')}>
               <IconX size={12} />
             </button>
           )}
@@ -273,14 +273,14 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
           {slot('new')}
         </div>
         {projectCfg && (
-          <p className="m-0 border-b border-line-subtle px-3 py-1 text-[11.5px] text-dim" title={projectCfg.path}>
+          <p className="m-0 border-b border-line-subtle px-3 py-1 text-xs text-dim" title={projectCfg.path}>
           {t('project.applied')}: <span className="text-faint">{projectCfg.path}</span>
           {projectCfg.warnings.length > 0 && <span className="block text-warning">{projectCfg.warnings.join(' · ')}</span>}
         </p>
         )}
         {diff && diff.sections.length > 0 && (
           <nav className="x2m-compare-sections flex min-h-0 flex-1 flex-col border-t border-line-subtle" aria-label={t('compare.sections')}>
-            <div className="px-3 pt-2.5 pb-1 text-[11.5px] font-semibold text-dim">{t('compare.sections')}</div>
+            <div className="px-3 pt-2.5 pb-1 text-xs font-semibold text-dim">{t('compare.sections')}</div>
             <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
               {diff.sections.map((sec, i) => {
                 const first = hunks.findIndex((h) => h.sectionPath === sec.path && h.kind !== 'same')
@@ -297,7 +297,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                   >
                     <span
                       className={cn(
-                        'shrink-0 rounded px-1 text-[10.5px] font-semibold',
+                        'shrink-0 rounded px-1 text-xs font-semibold',
                         sec.kind === 'add' ? 'bg-success-soft text-success' : sec.kind === 'del' ? 'bg-danger-soft text-danger' : 'bg-warning-soft text-warning'
                       )}
                     >
@@ -322,7 +322,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
         ) : (
           <>
             <div className="x2m-compare-bar flex flex-wrap items-center gap-2 border-b border-line-subtle px-3 py-2">
-              <span className="flex flex-wrap items-center gap-1.5 text-[11.5px] font-medium tabular-nums">
+              <span className="flex flex-wrap items-center gap-1.5 text-xs font-medium tabular-nums" title={t('compare.sum.unitHint')}>
                 <span className="rounded-md bg-soft px-1.5 py-0.5 text-dim">{t('compare.sum.sections', { n: sectionsChanged })}</span>
                 <span className="rounded-md bg-success-soft px-1.5 py-0.5 text-success">{t('compare.sum.added', { n: added })}</span>
                 <span className="rounded-md bg-danger-soft px-1.5 py-0.5 text-danger">{t('compare.sum.removed', { n: removed })}</span>
@@ -336,7 +336,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                 <button className={cx(btnGhost)} onClick={() => go(-1)} disabled={starts.length === 0} title={t('compare.prev')} aria-label={t('compare.prev')}>
                   ↑
                 </button>
-                <span className="min-w-[3.5em] text-center text-[11.5px] tabular-nums text-faint">
+                <span className="min-w-[3.5em] text-center text-xs tabular-nums text-faint">
                   {starts.length === 0 ? '0' : `${cursor < 0 ? '–' : cursor + 1} / ${starts.length}`}
                 </span>
                 <button className={cx(btnGhost)} onClick={() => go(1)} disabled={starts.length === 0} title={t('compare.next')} aria-label={t('compare.next')}>
@@ -380,7 +380,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
               </div>
             ) : (
               <div ref={listRef} className="x2m-compare-list min-h-0 flex-1 overflow-auto" role="table" aria-label={t('compare.mode')}>
-                <div className="sticky top-0 z-[1] grid grid-cols-2 border-b border-line-subtle bg-raised text-[11px] font-semibold text-dim backdrop-blur" role="row">
+                <div className="sticky top-0 z-[1] grid grid-cols-2 border-b border-line-subtle bg-raised text-xs font-semibold text-dim backdrop-blur" role="row">
                   <div className="truncate px-3 py-1.5" role="columnheader" title={slots.old.path ?? ''}>
                     {t('compare.colOld')} · {names.oldName}
                   </div>
@@ -392,7 +392,7 @@ export function ComparePane({ state, dragOver }: { state: CompareState; dragOver
                   r.kind === 'gap' ? (
                     <button
                       key={'g' + r.from}
-                      className="block w-full border-y border-line-subtle bg-soft/60 py-1 text-center text-[11px] text-faint hover:bg-hover hover:text-ink"
+                      className="block w-full border-y border-line-subtle bg-soft/60 py-1 text-center text-xs text-faint hover:bg-hover hover:text-ink"
                       onClick={() => setExpanded((prev) => new Set(prev).add(r.from))}
                     >
                       ⋯ {t('compare.gap', { n: r.count })}

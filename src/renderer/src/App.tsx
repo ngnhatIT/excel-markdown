@@ -1,3 +1,4 @@
+import type { SpecProject } from '../../shared/specIndex'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DEFAULT_OPTIONS,
@@ -17,8 +18,6 @@ import { AiChatPanel } from './features/ai/AiChatPanel'
 import { FileList } from './features/excel2md/FileList'
 import { Footer } from './components/Footer'
 import { Header, ModeRail } from './components/Header'
-import { MdFileList } from './features/md2excel/MdFileList'
-import { MdOptionsPanel } from './features/md2excel/MdOptionsPanel'
 import { MdTreeList } from './features/viewer/MdTreeList'
 import { OptionsPanel } from './features/excel2md/OptionsPanel'
 import { extractOutline, PreviewPane, type ScrollTarget } from './components/PreviewPane'
@@ -28,8 +27,6 @@ import { Toasts } from './components/Toasts'
 import { IconX } from './components/icons'
 import { useExcelConvert } from './features/excel2md/useExcelConvert'
 import { EXCEL_EXT, useFiles } from './features/excel2md/useFiles'
-import { useMdConvert } from './features/md2excel/useMdConvert'
-import { MD_EXT, useMdFiles } from './features/md2excel/useMdFiles'
 import { joinRoot, PASTE_PATH, useMdViewer } from './features/viewer/useMdViewer'
 import { ComparePane } from './features/compare/ComparePane'
 import { SpecMapPane } from './features/viewer/SpecMapPane'
@@ -44,6 +41,7 @@ const NARROW_WINDOW = 1200
 /** Gợi ý khi thả nhầm loại file so với chế độ đang chọn (không tự chuyển chế độ). */
 const hintExcelFile = (): string => tr('app.hint.excelFile')
 const hintMdFile = (): string => tr('app.hint.mdFile')
+const MD_EXT = /\.(md|markdown)$/i
 
 /** `**chữ**` trong câu dịch -> <b>chữ</b> (onboarding). */
 const withBold = (s: string): React.ReactNode[] => s.split('**').map((part, i) => (i % 2 ? <b key={i}>{part}</b> : part))
@@ -85,6 +83,8 @@ export default function App(): React.ReactElement {
       live = false
     }
   }, [outDir])
+  /** x2m.json của thư mục đang đọc (Đọc Markdown): luật dự án cho Mock / テスト観点表 của file đang xem */
+  const [viewerProject, setViewerProject] = useState<SpecProject | undefined>(undefined)
   const effectiveOptions = useMemo(() => (projectCfg ? { ...options, ...projectCfg.config.convert } : options), [options, projectCfg])
   const [recentDirs, setRecentDirs] = useState<string[]>([])
   const [theme, setTheme] = useState<'dark' | 'light'>(systemTheme)
@@ -94,7 +94,6 @@ export default function App(): React.ReactElement {
   /** Dùng chung cho cả 2 chế độ convert: main từ chối lần convert thứ hai khi đang chạy */
   const [converting, setConverting] = useState(false)
   const [results, setResults] = useState<ConvertResultItem[] | null>(null)
-  const [mdResult, setMdResult] = useState<ConvertResultItem | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [sheetFilter, setSheetFilter] = useState('')
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -105,6 +104,9 @@ export default function App(): React.ReactElement {
   const [leftCollapsed, setLeftCollapsed] = useState(false)
   const [leftWidth, setLeftWidth] = useState(300)
   const [rightWidth, setRightWidth] = useState(304)
+  // onUp cần giá trị mới nhất sau khi kéo (closure của startResize giữ giá trị lúc bắt đầu)
+  const widthRef = useRef({ left: 300, right: 304 })
+  widthRef.current = { left: leftWidth, right: rightWidth }
   const [scrollTarget, setScrollTarget] = useState<ScrollTarget | null>(null)
   /** Bản đồ thiết kế + 影響調査 thay vùng xem của chế độ Đọc Markdown */
   const [specMapOpen, setSpecMapOpen] = useState(false)
@@ -118,22 +120,12 @@ export default function App(): React.ReactElement {
     setSavedChecks,
     addPaths,
     removeFile: dropFile,
+    restoreFiles,
     toggleFileSheets,
     toggleSheet,
     reloadSheets,
     relistAll,
   } = useFiles(effectiveOptions.skipDelSheets, persist)
-
-  const {
-    files: mdFiles,
-    selectedId: mdSelId,
-    selected: mdSel,
-    addPaths: addMdPaths,
-    reload: reloadMdFile,
-    remove: removeMdFile,
-    move: moveMdFile,
-    select: selectMdFile,
-  } = useMdFiles()
 
   const viewer = useMdViewer(persist)
   const compare = useCompare()
@@ -169,7 +161,7 @@ export default function App(): React.ReactElement {
         if (o) setOptions({ ...DEFAULT_OPTIONS, ...o })
         if (m === 'per-sheet' || m === 'per-workbook') setOutputMode(m)
         if (sc && typeof sc === 'object') setSavedChecks(sc)
-        if (am === 'excel2md' || am === 'md2excel' || am === 'mdview' || am === 'compare') setAppMode(am)
+        if (am === 'excel2md' || am === 'mdview' || am === 'compare') setAppMode(am)
       } catch {
         /* bỏ qua: dùng mặc định */
       }
@@ -187,6 +179,12 @@ export default function App(): React.ReactElement {
       .storeGet<boolean>('sideCollapsed')
       .then((c) => setSideCollapsed(c === true))
       .catch(() => undefined)
+    // Độ rộng cột trái/phải và trạng thái thu gọn cột trái (ngoài khoảng cho phép thì bỏ qua)
+    const num = (v: unknown, min: number, max: number): number | null =>
+      typeof v === 'number' && v >= min && v <= max ? v : null
+    window.api.storeGet<number>('leftWidth').then((v) => { const w = num(v, 220, 520); if (w) setLeftWidth(w) }).catch(() => undefined)
+    window.api.storeGet<number>('rightWidth').then((v) => { const w = num(v, 240, 500); if (w) setRightWidth(w) }).catch(() => undefined)
+    window.api.storeGet<boolean>('leftCollapsed').then((c) => setLeftCollapsed(c === true)).catch(() => undefined)
     ;(async () => {
       try {
         const [root, file] = await Promise.all([
@@ -231,8 +229,11 @@ export default function App(): React.ReactElement {
   }, [persist, sideHidden, sideCollapsed])
 
   const toggleLeft = useCallback(() => {
-    setLeftCollapsed((c) => !c)
-  }, [])
+    setLeftCollapsed((c) => {
+      persist('leftCollapsed', !c)
+      return !c
+    })
+  }, [persist])
 
   const startResize = useCallback(
     (side: 'left' | 'right', e: React.MouseEvent<HTMLDivElement>) => {
@@ -248,6 +249,7 @@ export default function App(): React.ReactElement {
         }
       }
       const onUp = (): void => {
+        persist(side === 'left' ? 'leftWidth' : 'rightWidth', side === 'left' ? widthRef.current.left : widthRef.current.right)
         window.removeEventListener('mousemove', onMove)
         window.removeEventListener('mouseup', onUp)
         document.body.style.cursor = ''
@@ -256,7 +258,21 @@ export default function App(): React.ReactElement {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [leftWidth, rightWidth]
+    [leftWidth, rightWidth, persist]
+  )
+
+  // Nhấp đúp thanh kéo: về độ rộng mặc định
+  const resetWidth = useCallback(
+    (side: 'left' | 'right') => {
+      if (side === 'left') {
+        setLeftWidth(300)
+        persist('leftWidth', 300)
+      } else {
+        setRightWidth(304)
+        persist('rightWidth', 304)
+      }
+    },
+    [persist]
   )
 
   const addPathsRef = useRef(addPaths)
@@ -323,14 +339,6 @@ export default function App(): React.ReactElement {
     }
   }, [addPaths])
 
-  const pickMdFiles = useCallback(async () => {
-    try {
-      await addMdPaths(await window.api.openMarkdownFiles())
-    } catch (err) {
-      toast(errMsg(err), 'err')
-    }
-  }, [addMdPaths])
-
   const pickViewerFolder = useCallback(async () => {
     try {
       const dir = await window.api.openMarkdownFolder()
@@ -363,13 +371,11 @@ export default function App(): React.ReactElement {
         if (dir) void viewerOpenFolder(dir)
         return
       }
-      const [foreign, hint, add] =
-        appMode === 'md2excel' ? [EXCEL_EXT, hintExcelFile(), addMdPaths] : [MD_EXT, hintMdFile(), addPaths]
-      if (paths.some((p) => foreign.test(p))) toast(hint, 'err')
-      const rest = paths.filter((p) => !foreign.test(p))
-      if (rest.length > 0) void add(rest)
+      if (paths.some((p) => MD_EXT.test(p))) toast(hintMdFile(), 'err')
+      const rest = paths.filter((p) => !MD_EXT.test(p))
+      if (rest.length > 0) void addPaths(rest)
     },
-    [appMode, addMdPaths, addPaths, viewerOpenFiles, viewerOpenFolder, compare]
+    [appMode, addPaths, viewerOpenFiles, viewerOpenFolder, compare]
   )
 
   const removeFile = useCallback(
@@ -384,11 +390,13 @@ export default function App(): React.ReactElement {
   )
 
   const clearAllFiles = useCallback(() => {
-    for (const f of files) dropFile(f.id)
+    const removed = files
+    for (const f of removed) dropFile(f.id)
     setSelFileId(null)
     setSelSheet(null)
     setResults(null)
-  }, [files, dropFile])
+    toast(t('toast.excel.cleared', { n: removed.length }), 'ok', { label: t('common.undo'), onClick: () => restoreFiles(removed) })
+  }, [files, dropFile, restoreFiles])
 
   const toggleExpanded = useCallback((id: string) => {
     setExpanded((p) => ({ ...p, [id]: !(p[id] ?? false) }))
@@ -534,8 +542,8 @@ export default function App(): React.ReactElement {
 
   /* ------------------------------- convert --------------------------------- */
   const checkedCount = useMemo(
-    () => files.reduce((n, f) => n + f.sheets.filter((s) => s.checked).length, 0),
-    [files]
+    () => files.reduce((n, f) => n + f.sheets.filter((s) => s.checked && !(effectiveOptions.skipEmptySheets && s.rows === 0)).length, 0),
+    [files, effectiveOptions.skipEmptySheets]
   )
 
   /** Thư mục xuất hiện tại; chưa có thì hỏi người dùng. null = bỏ qua (hoặc lỗi đã báo). */
@@ -553,7 +561,7 @@ export default function App(): React.ReactElement {
   }, [outDir, applyOutDir])
 
 
-  const { progress, setProgress, doConvert, cancelConvert } = useExcelConvert({
+  const { progress, doConvert, cancelConvert } = useExcelConvert({
     files,
     // Tùy chọn của người dùng: useExcelConvert tự đọc lại x2m.json của thư mục xuất ngay lúc convert
     options,
@@ -564,34 +572,6 @@ export default function App(): React.ReactElement {
     setResults,
   })
 
-  /* ------------------------- Markdown → Excel ------------------------------ */
-  const { mdName, setMdName, mdDefaultName, mdSheetCount, mdCanConvert, doMdConvert } = useMdConvert({
-    mdFiles,
-    ensureOutDir,
-    converting,
-    setConverting,
-    setProgress,
-    setMdResult,
-  })
-
-  const selectMd = useCallback(
-    (id: string) => {
-      selectMdFile(id)
-      setMdResult(null)
-    },
-    [selectMdFile]
-  )
-
-  /** ↑/↓: chọn file trước/sau trong danh sách Markdown. */
-  const moveMdSelection = useCallback(
-    (dir: 1 | -1) => {
-      const next = mdFiles[mdFiles.findIndex((f) => f.id === mdSelId) + dir]
-      if (next) selectMd(next.id)
-    },
-    [mdFiles, mdSelId, selectMd]
-  )
-
-  const isMd = appMode === 'md2excel'
   const isView = appMode === 'mdview'
   const isCompare = appMode === 'compare'
   const pickCompareFile = useCallback(async () => {
@@ -720,6 +700,17 @@ export default function App(): React.ReactElement {
 
   /** Thanh trên preview: đường dẫn tương đối trong thư mục đang mở, file lẻ thì tên file. */
   const viewerRoot = viewer.root
+  useEffect(() => {
+    let live = true
+    const set = (c: FoundProjectConfig | null): void => {
+      if (live) setViewerProject(c ? { path: c.path, warnings: c.warnings, rules: c.config.rules } : undefined)
+    }
+    if (!viewerRoot) set(null)
+    else window.api.configFind(viewerRoot).then(set, () => set(null))
+    return () => {
+      live = false
+    }
+  }, [viewerRoot])
   const viewerTitle = useMemo(() => {
     if (!viewerPath) return null
     if (viewerPath === PASTE_PATH) return t('viewer.paste')
@@ -767,14 +758,13 @@ export default function App(): React.ReactElement {
   useShortcuts({
     onEscape: () => {
       setResults(null)
-      setMdResult(null)
       setSheetFilter('')
       viewer.setFilter('')
     },
-    onMoveSheet: isCompare ? () => undefined : isView ? viewer.move : isMd ? moveMdSelection : moveSheet,
+    onMoveSheet: isCompare ? () => undefined : isView ? viewer.move : moveSheet,
     // Đọc Markdown không có convert
-    onConvert: () => void (isView || isCompare ? undefined : isMd ? doMdConvert() : doConvert()),
-    onPickFiles: () => void (isCompare ? pickCompareFile() : isView ? pickViewerFolder() : isMd ? pickMdFiles() : pickFiles()),
+    onConvert: () => void (isView || isCompare ? undefined : doConvert()),
+    onPickFiles: () => void (isCompare ? pickCompareFile() : isView ? pickViewerFolder() : pickFiles()),
     onZoom: (a) =>
       setZoom((z) =>
         a === 'reset'
@@ -788,17 +778,11 @@ export default function App(): React.ReactElement {
   })
 
   // Trạng thái + nút convert ở thanh dưới theo chế độ (chế độ Excel giữ nguyên chữ cũ)
-  const footerMode = isMd
-    ? {
-        convertLabel: t('app.md.convert', { n: mdSheetCount }),
-        canConvert: mdCanConvert,
-        onConvert: doMdConvert,
-      }
-    : {
-        convertLabel: checkedCount > 0 ? t('app.excel.convertN', { n: checkedCount }) : t('app.excel.convert'),
-        canConvert: files.length > 0 && checkedCount > 0,
-        onConvert: doConvert,
-      }
+  const footerMode = {
+    convertLabel: checkedCount > 0 ? t('app.excel.convertN', { n: checkedCount }) : t('app.excel.convert'),
+    canConvert: files.length > 0 && checkedCount > 0,
+    onConvert: doConvert,
+  }
 
   /* -------------------------------- render --------------------------------- */
   return (
@@ -822,7 +806,7 @@ export default function App(): React.ReactElement {
       <ModeRail mode={appMode} onModeChange={changeAppMode} theme={theme} onToggleTheme={toggleTheme} />
       <div className="x2m-core flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-[var(--glass)]">
       <Header
-        onPickFiles={isCompare ? pickCompareFile : isView ? pickViewerFolder : isMd ? pickMdFiles : pickFiles}
+        onPickFiles={isCompare ? pickCompareFile : isView ? pickViewerFolder : pickFiles}
         mode={appMode}
         onLangChange={changeLang}
       />
@@ -888,6 +872,7 @@ export default function App(): React.ReactElement {
             <main className="x2m-main flex min-w-0 flex-1 flex-col overflow-hidden bg-editor">
               <PreviewPane
                 title={viewerTitle}
+                project={viewerProject}
                 md={viewer.doc?.markdown ?? ''}
                 loading={viewer.doc?.loading ?? false}
                 error={viewer.doc?.error ?? ''}
@@ -930,6 +915,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
+                onDoubleClick={() => resetWidth('right')}
                 title={t('app.resize.ai')}
               />
             )}
@@ -947,66 +933,11 @@ export default function App(): React.ReactElement {
               onJumpToCitation={(c) => void handleJumpToCitation(c)}
             />
           </>
-        ) : isMd ? (
-          <>
-            <MdFileList
-              files={mdFiles}
-              selectedId={mdSelId}
-              dragOver={dragOver}
-              onSelect={selectMd}
-              onReload={(id) => void reloadMdFile(id)}
-              onMove={moveMdFile}
-              onRemove={removeMdFile}
-            />
-
-            <main className="x2m-main flex min-w-0 flex-1 flex-col overflow-hidden bg-editor">
-              <PreviewPane
-                title={mdSel ? mdSel.name : null}
-                md={mdSel?.markdown ?? ''}
-                loading={mdSel?.loading ?? false}
-                error={mdSel?.error ?? ''}
-                zoom={zoom}
-                onResetZoom={() => setZoom(1)}
-                noSelectionText={t('common.noFile')}
-                loadingText={t('common.reading')}
-                emptyText={t('app.md.pickToPreview')}
-              />
-              {mdResult && (
-                <ResultsPanel
-                  results={[mdResult]}
-                  outDir={outDir}
-                  converting={converting}
-                  onRetry={() => void doMdConvert()}
-                  onClose={() => setMdResult(null)}
-                  onOpenDir={openOutDir}
-                  onCopyDir={copyOutDir}
-                  unitLabel={t('results.unit.sheet')}
-                  openDirLabel={t('app.md.openDir')}
-                />
-              )}
-            </main>
-
-            {!sideHidden && (
-              <div
-                className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
-                onMouseDown={(e) => startResize('right', e)}
-                title={t('app.resize.options')}
-              />
-            )}
-
-            <MdOptionsPanel
-              fileName={mdName ?? mdDefaultName}
-              defaultName={mdDefaultName}
-              onFileNameChange={setMdName}
-              collapsed={sideHidden}
-              onToggleCollapsed={toggleSide}
-              width={rightWidth}
-            />
-          </>
         ) : (
           <>
             <FileList
               files={files}
+              skipEmpty={effectiveOptions.skipEmptySheets}
               expanded={expanded}
               onToggleExpanded={toggleExpanded}
               selFileId={selFileId}
@@ -1029,6 +960,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('left', e)}
+                onDoubleClick={() => resetWidth('left')}
                 title={t('app.resize.files')}
               />
             )}
@@ -1060,6 +992,7 @@ export default function App(): React.ReactElement {
               <div
                 className="x2m-resizer relative z-[5] -mx-[3px] w-[5px] shrink-0 cursor-col-resize bg-transparent transition-colors duration-300 ease-spring hover:bg-accent/70 active:bg-accent"
                 onMouseDown={(e) => startResize('right', e)}
+                onDoubleClick={() => resetWidth('right')}
                 title={t('app.resize.options')}
               />
             )}
@@ -1092,7 +1025,6 @@ export default function App(): React.ReactElement {
           converting={converting}
           progress={progress}
           onCancel={cancelConvert}
-          outDirPlaceholder={isMd ? t('app.md.noOutDir') : undefined}
           {...footerMode}
         />
       )}

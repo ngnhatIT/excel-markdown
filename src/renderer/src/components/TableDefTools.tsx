@@ -107,7 +107,7 @@ export function DdlPopover({ def, x, y, onClose, onCopy }: { def: TableDef; x: n
           </button>
         </span>
       </div>
-      <pre className="x2m-ddl-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-[11.5px] leading-relaxed select-text">{ddl}</pre>
+      <pre className="x2m-ddl-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-xs leading-relaxed select-text">{ddl}</pre>
     </div>
     , document.body
   )
@@ -196,9 +196,9 @@ export function AlterDialog({ oldDefs, newDefs, onClose, onCopy }: { oldDefs: Ta
             ✕
           </button>
         </div>
-        <p className="m-0 border-b border-line-subtle px-3 py-1.5 text-[11.5px] text-dim">{t('alter.note')}</p>
+        <p className="m-0 border-b border-line-subtle px-3 py-1.5 text-xs text-dim">{t('alter.note')}</p>
         {sql ? (
-          <pre className="x2m-alter-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-[11.5px] leading-relaxed select-text" tabIndex={0}>
+          <pre className="x2m-alter-preview m-0 flex-1 overflow-auto whitespace-pre bg-code p-3 font-mono text-xs leading-relaxed select-text" tabIndex={0}>
             {sql}
           </pre>
         ) : (

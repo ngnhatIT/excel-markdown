@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseMarkdownForRag } from './chunker'
-import { buildRagContext, tokenizeMultiLang } from './retriever'
+import { buildRagContext, fuseScores, tokenizeMultiLang } from './retriever'
 
 describe('tokenizeMultiLang & glossary expansion', () => {
   it('tách từ tiếng Việt, mã kỹ thuật và 2-gram tiếng Nhật', () => {
@@ -123,5 +123,27 @@ describe('sửa sau audit 2026-11', () => {
     const res = buildRagContext(docs, '顧客コード', { scope: 'folder', maxContextTokens: 8000 })
     expect(res.mode).toBe('parent-rag')
     expect(res.contextText.length).toBeLessThan(8000 * 6)
+  })
+})
+
+describe('fuseScores (BM25 + điểm theo nghĩa)', () => {
+  it('không có điểm theo nghĩa: giữ nguyên BM25', () => {
+    expect(fuseScores([2, 0, 1], undefined)).toEqual([2, 0, 1])
+    expect(fuseScores([2, 0, 1], [undefined, undefined, undefined])).toEqual([2, 0, 1])
+  })
+
+  it('mục không khớp từ khóa nhưng gần nghĩa nhất vẫn được xếp hạng; cả hai cùng cao thì đứng đầu', () => {
+    const f = fuseScores([0, 3, 1], [0.9, 0.8, 0.1])
+    expect(f[0]).toBeGreaterThan(0)
+    expect(f[1]).toBeGreaterThan(f[0])
+    expect(f[1]).toBeGreaterThan(f[2])
+  })
+
+  it('mục không khớp từ khóa và ngoài nhóm gần nghĩa nhất: 0 (không nạp)', () => {
+    const bm = Array.from({ length: 20 }, () => 0)
+    const sem = bm.map((_, i) => 1 - i / 20)
+    const f = fuseScores(bm, sem)
+    expect(f[0]).toBeGreaterThan(0)
+    expect(f[19]).toBe(0)
   })
 })

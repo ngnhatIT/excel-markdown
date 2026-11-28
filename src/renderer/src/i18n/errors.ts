@@ -6,7 +6,7 @@ export const errorsVi = {
   'err.E_SPECMAP_TOO_BIG': 'Thư mục quá lớn để lập Bản đồ thiết kế. Hãy mở thư mục con nhỏ hơn.',
   'err.E_TR_INVALID': 'Đoạn chọn hoặc ngôn ngữ đích không hợp lệ.',
   'err.E_TR_TOO_LONG': 'Đoạn chọn quá dài (tối đa 4 000 ký tự). Hãy chọn ngắn hơn hoặc dùng khung Trợ lý AI.',
-  // Lỗi đọc/ghi file (domain/errors.ts có cùng chữ cho CLI / kết quả convert)
+  // Lỗi đọc/ghi file (domain/errors.ts có cùng chữ cho kết quả convert)
   'err.E_WRITE_LOCKED': 'Không ghi được file Excel. File có thể đang mở trong Excel — đóng file rồi thử lại.',
   'err.E_PASSWORD': 'File có mật khẩu nên không đọc được. Hãy mở bằng Excel, gỡ mật khẩu rồi thử lại.',
   'err.E_FILE_NOT_FOUND': 'Không tìm thấy file. Có thể file đã bị di chuyển, đổi tên hoặc xóa.',

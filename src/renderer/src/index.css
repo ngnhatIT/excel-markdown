@@ -41,6 +41,7 @@
  * gốc vẽ trên đó); tài liệu đang đọc là một tờ giấy đặt trên lưới. Tên biến cũ (--glass, --bg-soft...) giữ
  * nguyên để mọi component đổi theo mà không phải sửa. Mặc định: tối ("bản in xanh đêm"). */
 :root {
+  color-scheme: dark;
   --backdrop-base: #0f151e;
   --grid-minor: rgba(140, 170, 230, 0.045);
   --grid-major: rgba(140, 170, 230, 0.085);
@@ -80,6 +81,7 @@
 }
 
 [data-theme='light'] {
+  color-scheme: light;
   --backdrop-base: #eef1f0;
   --grid-minor: rgba(35, 70, 143, 0.05);
   --grid-major: rgba(35, 70, 143, 0.095);
@@ -228,6 +230,9 @@
   ::-webkit-scrollbar {
     width: 9px;
     height: 9px;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
   ::-webkit-scrollbar-track {
     background: transparent;

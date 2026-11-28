@@ -17,13 +17,15 @@ export const btn = cx(
 export const btnPrimary = cx(btn, '!border-transparent !bg-accent font-semibold !text-white enabled:hover:!bg-accent enabled:hover:brightness-110')
 export const btnGhost = cx(btn, '!border-transparent !bg-transparent !shadow-none !px-2 !py-1 !text-dim enabled:hover:!bg-hover enabled:hover:!text-ink')
 export const btnSm = '!px-2.5 !py-1 !text-xs'
-export const btnMini = '!px-[7px] !py-0.5 !text-[11.5px] !rounded-md'
+export const btnMini = '!px-[7px] !py-0.5 !text-xs !rounded-md'
 
 export const iconBtn = cx(
   'inline-flex items-center justify-center rounded-[7px] p-1.5 text-faint transition-colors duration-150',
-  'hover:bg-danger-soft hover:text-danger',
+  'hover:bg-hover hover:text-ink',
   focusRing
 )
+/** Nút xóa / gỡ: hover đỏ. */
+export const iconBtnDanger = cx(iconBtn, 'hover:!bg-danger-soft hover:!text-danger')
 
 export const input = cx(
   'w-full rounded-md border border-line bg-canvas px-2.5 py-1.5 text-xs text-ink outline-none',
@@ -32,7 +34,7 @@ export const input = cx(
 )
 
 export const paneTitle =
-  'flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-[11.5px] font-semibold text-dim'
+  'flex h-10 shrink-0 items-center justify-between gap-1.5 border-b border-line-subtle px-3 text-xs font-semibold text-dim'
 
 /** Class dùng chung cho danh sách file cột trái (FileList, MdFileList). */
 export const filesAside =

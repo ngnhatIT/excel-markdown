@@ -1,5 +1,5 @@
-/* Markdown của cả workbook để so sánh (git textconv, so sánh 新旧 trong app). Nạp SheetJS:
- * chỉ dùng ở CLI và worker, không import từ main process. */
+/* Markdown của cả workbook để so sánh (so sánh 新旧 trong app). Nạp SheetJS:
+ * chỉ dùng ở worker, không import từ main process. */
 import { createHash } from 'node:crypto'
 import { DEFAULT_OPTIONS, type ConvertOptions } from '../../../shared/types'
 import { convertSheetsInWorkbook, listSheetsInWorkbook, type WorkBook } from '../../domain/excel/converter'

@@ -106,7 +106,7 @@ try {
   // Ngôn ngữ giao diện: lấy 'vi' từ store; đổi EN -> 日本語 -> VI
   check('ngôn ngữ từ store: <html lang="vi">', (await waitFor(`document.documentElement.lang === 'vi'`, 3000)) >= 0, await ev(`document.documentElement.lang`))
   const langBtn = (t) => `[...document.querySelectorAll('.x2m-lang button')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
-  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[2]?.textContent.trim()`
+  const viewModeText = `document.querySelectorAll('.x2m-mode-btn')[1]?.textContent.trim()`
   const langState = `[${viewModeText}, document.documentElement.lang]`
   await ev(`(${langBtn('EN')}).click(), 1`)
   check('đổi sang English: chữ nút chế độ tiếng Anh, <html lang="en">',
@@ -185,7 +185,7 @@ try {
   await ev(`document.activeElement && document.activeElement.blur(), 1`)
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
-  const convMs = await waitFor(`document.body.innerText.includes('Xong:')`, 20000)
+  const convMs = await waitFor(`!!document.querySelector('.x2m-results')`, 20000)
   check('Ctrl+Enter convert xong', convMs >= 0)
   check('panel kết quả: 1/1 file thành công', await ev(`(document.querySelector('.x2m-results')?.innerText ?? '').includes('1/1 file thành công')`))
   const written = (() => {
@@ -214,7 +214,7 @@ try {
     await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files: bigFiles, dragOperationsMask: 1 } })
   }
   const convertBtn = `[...document.querySelectorAll('button')].find(b => b.textContent.includes('sang Markdown') || b.textContent.includes('Đang convert'))`
-  check('3 file lớn được liệt kê sheet', (await waitFor(`(${convertBtn})?.textContent.includes('Convert 6 sheet')`, 60000)) >= 0)
+  check('3 file lớn được liệt kê sheet', (await waitFor(`(${convertBtn})?.textContent.includes('Convert 5 sheet')`, 60000)) >= 0)
   const bigMd = () => readdirSync(outDir).filter((f) => f.startsWith('big-'))
   const pressCtrlEnter = async () => {
     await ev(`document.activeElement && document.activeElement.blur(), 1`)
@@ -256,7 +256,7 @@ try {
   await ev(`document.querySelector('.x2m-file button[aria-label="Xóa khỏi danh sách"]').click(), 1`)
   check('xóa file: còn 3 file', (await waitFor(`document.querySelector('.x2m-pane-title').textContent.includes('(3)')`, 2000)) >= 0)
 
-  // ------------------------- Chế độ Markdown → Excel -------------------------
+  // ------------------------------ Tiện ích ------------------------------
   const dropFiles = async (files) => {
     for (const type of ['dragEnter', 'dragOver', 'drop']) {
       await send('Input.dispatchDragEvent', { type, x: 640, y: 400, data: { items: [], files, dragOperationsMask: 1 } })
@@ -271,137 +271,7 @@ try {
   }
   const hasToast = (t) => `[...document.querySelectorAll('.x2m-toast')].some(x => x.textContent.includes(${JSON.stringify(t)}))`
   const modeBtn = (t) => `[...document.querySelectorAll('.x2m-mode-btn')].find(b => b.textContent.trim() === ${JSON.stringify(t)})`
-  const mdItems = `[...document.querySelectorAll('.x2m-md-file')]`
-  const mdNames = `${mdItems}.map(e => e.querySelector('.x2m-file-name-text')?.textContent ?? '')`
-  const nameInput = `document.querySelector('input[aria-label="Tên file Excel"]')`
 
-  // Hai phần của golden thành hai file .md "do app tạo" (mỗi file 1 sheet)
-  const mdDir = join(tmp, 'md')
-  mkdirSync(mdDir, { recursive: true })
-  const mdTable = join(mdDir, 'kihon-sekkei__テーブル定義.md')
-  const mdScreen = join(mdDir, 'kihon-sekkei__画面項目定義.md')
-  writeFileSync(mdTable, parts[1] + '\n')
-  writeFileSync(mdScreen, parts[0] + '\n')
-
-  await ev(`(${modeBtn('Markdown → Excel')})?.click(), 1`)
-  check('chế độ Markdown → Excel: nút được chọn (active)', (await waitFor(`!!(${modeBtn('Markdown → Excel')})?.classList.contains('active')`, 2000)) >= 0)
-  check('md: vùng trống "Kéo thả file Markdown vào đây"', await ev(`document.body.innerText.includes('Kéo thả file Markdown vào đây')`))
-
-  await dropFiles([mdTable, mdScreen])
-  check(
-    'md: thả 2 file -> 2 file, mỗi file 1 sheet',
-    (await waitFor(`${mdItems}.length === 2 && ${mdItems}.every(e => e.querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet')`)) >= 0,
-    await ev(`${mdItems}.map(e => e.innerText)`).catch(() => null)
-  )
-  check('md: preview hiện file đang chọn (TBL_CUSTOMER)', (await waitFor(`(document.querySelector('.md-body')?.innerText ?? '').includes('TBL_CUSTOMER')`, 5000)) >= 0)
-  check('md: tên file Excel mặc định kihon-sekkei', (await waitFor(`${nameInput}?.value === 'kihon-sekkei'`, 2000)) >= 0, await ev(`${nameInput}?.value ?? null`).catch(() => null))
-
-  await ev(`${mdItems}[1]?.querySelector('button[aria-label="Đưa lên"]')?.click(), 1`)
-  check(
-    'md: Đưa lên -> 画面項目定義 trước テーブル定義',
-    (await waitFor(`(() => { const n = ${mdNames}; return n.length === 2 && n[0].includes('画面項目定義') && n[1].includes('テーブル定義') })()`, 2000)) >= 0,
-    await ev(mdNames).catch(() => null)
-  )
-
-  await dropFiles([fixture])
-  check('md: thả file Excel -> toast gợi ý chế độ Excel → Markdown', (await waitFor(hasToast('chế độ Excel → Markdown'), 3000)) >= 0)
-  check('md: thả file Excel không thêm vào danh sách (vẫn 2 file)', await ev(`${mdItems}.length === 2`))
-
-  // Sửa file .md trên đĩa (thêm một đoạn và một sheet mới): preview + số sheet chưa đổi (đọc lúc thêm file);
-  // bấm "Tải lại" của file đó -> preview, số sheet và tên sheet theo nội dung mới
-  const tableItem = `${mdItems}.find(e => (e.querySelector('.x2m-file-name-text')?.textContent ?? '').includes('テーブル定義'))`
-  const tableCount = `(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim()`
-  const tableSheets = `((${tableItem})?.querySelector('.x2m-md-sheets')?.textContent ?? '')`
-  writeFileSync(mdTable, parts[1] + '\n\n再読込テスト\n\n---\n\n## 新シート\n\nx\n')
-  await sleep(300)
-  check(
-    'md: sửa file trên đĩa, chưa tải lại -> preview chưa có chữ mới, vẫn 1 sheet',
-    !(await previewText()).includes('再読込テスト') && (await ev(tableCount)) === '1 sheet'
-  )
-  const reloadBtn = `(${tableItem})?.querySelector('button[aria-label="Tải lại"]')`
-  check('md: mỗi file có nút Tải lại (title gợi ý)', (await ev(`${reloadBtn}?.title ?? ''`)) === 'Tải lại file (khi đã sửa file .md)')
-  await ev(`${reloadBtn}?.click(), 1`)
-  check(
-    'md: Tải lại -> preview có 再読込テスト, 2 sheet (có 新シート), vẫn chọn file đó',
-    (await waitFor(
-      `(document.querySelector('.md-body')?.innerText ?? '').includes('再読込テスト') && ${tableCount} === '2 sheet' && ${tableSheets}.includes('新シート') && !!(${tableItem})?.classList.contains('active')`,
-      5000
-    )) >= 0,
-    await ev(`[(${tableItem})?.innerText, (document.querySelector('.md-body')?.innerText ?? '').slice(-80)]`).catch(() => null)
-  )
-  check('md: Tải lại không đổi danh sách (vẫn 2 file, cùng thứ tự)', await ev(`(() => { const n = ${mdNames}; return n.length === 2 && n[0].includes('画面項目定義') && n[1].includes('テーブル定義') })()`))
-  // File biến mất -> Tải lại báo lỗi (vẫn chọn file đó); có lại file -> Tải lại hết lỗi
-  renameSync(mdTable, mdTable + '.bak')
-  await ev(`${reloadBtn}?.click(), 1`)
-  check(
-    'md: Tải lại file không còn -> trạng thái lỗi, vẫn chọn file đó',
-    (await waitFor(`(${tableItem})?.querySelector('.x2m-md-count')?.textContent.trim() === 'lỗi' && !!(${tableItem})?.querySelector('.x2m-file-error') && !!(${tableItem})?.classList.contains('active')`, 5000)) >= 0,
-    await ev(`(${tableItem})?.innerText`).catch(() => null)
-  )
-  renameSync(mdTable + '.bak', mdTable)
-  await ev(`${reloadBtn}?.click(), 1`)
-  check('md: có lại file -> Tải lại hết lỗi, 2 sheet', (await waitFor(`${tableCount} === '2 sheet' && !(${tableItem})?.querySelector('.x2m-file-error')`, 5000)) >= 0)
-
-  await pressCtrlEnter()
-  check('md: Ctrl+Enter -> toast Đã tạo kihon-sekkei.xlsx', (await waitFor(hasToast('Đã tạo kihon-sekkei.xlsx'), 30000)) >= 0)
-  let wbOut = null
-  try {
-    wbOut = XLSX.readFile(join(outDir, 'kihon-sekkei.xlsx'), { cellNF: true })
-  } catch {
-    /* chưa tạo file */
-  }
-  check(
-    'md: thứ tự sheet theo danh sách (sheet 新シート mới thêm khi Tải lại)',
-    JSON.stringify(wbOut?.SheetNames) === JSON.stringify(['画面項目定義', 'テーブル定義', '新シート']),
-    wbOut?.SheetNames
-  )
-  const ws1 = wbOut ? wbOut.Sheets[wbOut.SheetNames[0]] : null
-  const cells1 = ws1 ? Object.keys(ws1).filter((k) => !k.startsWith('!')).map((k) => ws1[k]) : []
-  check('md: sheet 1 có ô <null> nguyên văn', cells1.some((c) => c.v === '<null>'))
-  check('md: sheet 1 có ô số 1 định dạng 0.0', cells1.some((c) => c.v === 1 && c.z === '0.0'))
-  const ws2 = wbOut ? wbOut.Sheets[wbOut.SheetNames[1]] : null
-  check('md: sheet 2 có đoạn 再読込テスト (nội dung file đã sửa)', !!ws2 && Object.keys(ws2).some((k) => !k.startsWith('!') && ws2[k].v === '再読込テスト'))
-  const ws3 = wbOut ? wbOut.Sheets['新シート'] : null
-  check('md: sheet 新シート có ô x', !!ws3 && ws3['A1']?.v === 'x', ws3 ? Object.keys(ws3) : null)
-  check('md: không để lại file .partial', listOut().every((f) => !f.endsWith('.partial')), listOut())
-  const resText = `(document.querySelector('.x2m-results')?.innerText ?? '')`
-  check(
-    'md: panel kết quả có kihon-sekkei.xlsx, 3 sheet',
-    (await waitFor(`${resText}.includes('kihon-sekkei.xlsx') && ${resText}.includes('3 sheet')`, 2000)) >= 0,
-    await ev(resText).catch(() => null)
-  )
-
-  // Hủy: một file .md lớn (60 000 dòng × 10 cột), danh sách chỉ gồm file này
-  const bigMdPath = join(mdDir, 'big.md')
-  const mdRows = ['| ' + ['No', ...Array.from({ length: 9 }, (_, i) => '列' + i)].join(' | ') + ' |', '|' + '---|'.repeat(10)]
-  for (let r = 1; r <= 60000; r++) mdRows.push('| ' + [String(r), ...Array.from({ length: 9 }, (_, c) => `値${r}_${c}`)].join(' | ') + ' |')
-  writeFileSync(bigMdPath, mdRows.join('\n') + '\n')
-  for (let i = 0; i < 2; i++) {
-    await ev(`document.querySelector('.x2m-md-file button[aria-label="Xóa khỏi danh sách"]')?.click(), 1`)
-    await waitFor(`${mdItems}.length === ${1 - i}`, 2000)
-  }
-  await dropFiles([bigMdPath])
-  const bigReadyMs = await waitFor(`${mdItems}.length === 1 && ${mdItems}[0].querySelector('.x2m-md-count')?.textContent.trim() === '1 sheet'`, 30000)
-  // Đổi tên khác tên mặc định (big) rồi Ctrl+Enter ngay trong ô tên (KHÔNG blur): phím tắt phải chạy cả khi đang gõ
-  await ev(`(() => { const i = ${nameInput}; if (!i) return 0; i.focus(); i.select(); return 1 })()`)
-  await send('Input.insertText', { text: 'big-huy' })
-  const renamedMs = await waitFor(`${nameInput}?.value === 'big-huy' && document.activeElement === ${nameInput}`, 2000)
-  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
-  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 })
-  const mdCancelBtnMs = await waitFor(`[...document.querySelectorAll('button')].some(b => b.textContent.trim() === 'Hủy')`, 5000)
-  const tMdCancel = Date.now()
-  await ev(`[...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Hủy')?.click(), 1`)
-  const mdCancelMs = await waitFor(hasToast('Đã hủy tạo file Excel'), 5000)
-  check(
-    `md Hủy: Ctrl+Enter trong ô tên bắt đầu tạo, toast Đã hủy nhanh (${mdCancelMs >= 0 ? Date.now() - tMdCancel : '-'} ms)`,
-    renamedMs >= 0 && mdCancelBtnMs >= 0 && mdCancelMs >= 0 && mdCancelMs < 2000,
-    { bigReadyMs, renamedMs, mdCancelBtnMs, mdCancelMs }
-  )
-  const leftover = listOut().filter((f) => /^big(-huy)?\.xlsx(\.partial)?$/.test(f))
-  check('md Hủy: không có big-huy.xlsx lẫn big-huy.xlsx.partial', leftover.length === 0, leftover)
-
-  await ev(`(${modeBtn('Excel → Markdown')})?.click(), 1`)
-  check('về Excel → Markdown: danh sách Excel còn nguyên', (await waitFor(`(document.querySelector('.x2m-pane-title')?.textContent ?? '').includes('File Excel (3)')`, 2000)) >= 0)
 
   // ------------------------- Cột Tùy chọn ẩn/hiện -------------------------
   const sideBtn = (label) => `document.querySelector('.x2m-side button[aria-label="${label}"]')`
@@ -678,7 +548,7 @@ try {
   check('AI: có chọn ngữ cảnh tối đa 3 mức', await ev(`document.querySelectorAll('#x2m-ai-ctx option').length === 3`))
   await ev(`(${providerBtn('Claude')})?.click(), 1`)
   check('AI: chọn Claude -> ô key gợi ý sk-ant, nút đầu panel ghi Claude',
-    (await waitFor(`(${providerBtn('Claude')})?.getAttribute('aria-checked') === 'true' && document.querySelector('.x2m-ai-keybox input[type=password]')?.placeholder.includes('sk-ant') && document.body.innerText.includes('🔑 Claude')`, 3000)) >= 0)
+    (await waitFor(`(${providerBtn('Claude')})?.getAttribute('aria-checked') === 'true' && document.querySelector('.x2m-ai-keybox input[type=password]')?.placeholder.includes('sk-ant') && document.body.innerText.includes('Claude')`, 3000)) >= 0)
   if (process.env.E2E_SHOT) writeFileSync(process.env.E2E_SHOT, Buffer.from((await send('Page.captureScreenshot')).result.data, 'base64'))
   const cfg = await ev(`window.api.aiSetConfig({ apiKey: 'sk-ant-e2e-test-key-123456' })`)
   check('AI: lưu key Claude không đụng key Gemini/OpenAI', cfg?.provider === 'claude' && cfg.keys.claude === 'sk-a••••3456' && cfg.keys.gemini === '' && cfg.keys.openai === '', cfg)
